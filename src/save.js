@@ -39,7 +39,7 @@ export class Save {
 }
 
 export function loadSettings() {
-  const def = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1 };
+  const def = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1, quality: 1 };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SKEY) || '{}') }; } catch { return def; }
 }
 export function saveSettings(s) { try { localStorage.setItem(SKEY, JSON.stringify(s)); } catch { /* ignore */ } }

@@ -17,6 +17,7 @@ import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], controlsOn: false, attackTokens: 0, shrines: SHRINES, state: 'boot', ready: false, ngMul: 1 };
 window.__pl = G;
+G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
 // Game-time timers: they pause with the game and stretch with slow motion.
 const timers = [];
@@ -94,6 +95,11 @@ function applySettings() {
   G.input.sens = s.sens; G.input.invertY = s.invertY;
   G.audio.setVolume('master', s.master); G.audio.setVolume('music', s.music); G.audio.setVolume('sfx', s.sfx);
   G.shakeScale = s.shake;
+  const hi = !!s.quality;
+  renderer.setPixelRatio(hi ? Math.min(devicePixelRatio, 1.75) : Math.min(devicePixelRatio, 1));
+  moon.castShadow = hi;
+  if (G.world) G.world.lightPool.forEach((l, i) => { l.visible = hi || i < 3; });
+  if (G.fx) resize();
 }
 applySettings();
 const shake = G.cam.shake.bind(G.cam);

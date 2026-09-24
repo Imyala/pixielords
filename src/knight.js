@@ -294,7 +294,7 @@ export function buildKnight() {
   mesh(new THREE.SphereGeometry(.03, 8, 6), mats.trim, sword, 0, 0, -.11);
   mesh(new THREE.BoxGeometry(.03, .24, .04), mats.trim, sword, 0, 0, .1);
   const bladeShape = new THREE.Shape();
-  bladeShape.moveTo(-.028, 0); bladeShape.lineTo(-.024, .88); bladeShape.lineTo(0, .98); bladeShape.lineTo(.024, .88); bladeShape.lineTo(.028, 0); bladeShape.lineTo(-.028, 0);
+  bladeShape.moveTo(-.036, 0); bladeShape.lineTo(-.031, .86); bladeShape.lineTo(0, .98); bladeShape.lineTo(.031, .86); bladeShape.lineTo(.036, 0); bladeShape.lineTo(-.036, 0);
   const bladeGeo = new THREE.ExtrudeGeometry(bladeShape, { depth: .008, bevelEnabled: true, bevelThickness: .003, bevelSize: .004, bevelSegments: 1 });
   bladeGeo.translate(0, 0, -.004);
   // Shape is in XY: rotate so length runs along +Z and the edge faces ±Y.
@@ -422,7 +422,7 @@ export class KnightAnimator {
     if (!m.guard) {   // off hand swings with the stride
       L[IDX.lhZ] = BASE.lhZ + sw2 * .22 * amt; L[IDX.lhY] = BASE.lhY + Math.abs(sw2) * .05 * amt;
     }
-    L[IDX.wings] = m.sprint ? 1.2 : BASE.wings + amt * .3;
+    L[IDX.wings] = m.shifted ? 2 : m.sprint ? 1.2 : BASE.wings + amt * .3;
 
     // Action layer.
     const out = this.out;

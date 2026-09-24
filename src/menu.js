@@ -118,7 +118,7 @@ export class Menu {
           <button class="btn" data-act="settings">Settings</button>
           <a class="btn link" href="library.html">Asset Library ↗</a>
         </div>
-        <div class="foot">Keyboard + mouse or a gamepad · best with headphones</div>
+        <div class="foot">${G.touchOnly ? 'PixieLords needs a keyboard and mouse, or a gamepad.' : 'Keyboard + mouse or a gamepad · best with headphones'}</div>
       </div>`;
     } else if (screen === 'confirm') {
       h = `<div class="panel"><h2>Begin anew?</h2><p>Your current journey will be forgotten.</p>
@@ -148,6 +148,7 @@ export class Menu {
         ${slider('music', 'Music', 0, 1, .05)}
         ${slider('sfx', 'Effects', 0, 1, .05)}
         <label class="row"><span>Screen shake</span><input type="range" data-set="shake" min="0" max="1" step=".1" value="${s.shake}"></label>
+        <label class="row"><span>High quality (shadows, sharper)</span><input type="checkbox" data-set="quality" ${s.quality ? 'checked' : ''}></label>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'shrine') {
       const sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl);

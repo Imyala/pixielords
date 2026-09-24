@@ -56,7 +56,7 @@ export const TYPES = {
     ],
   },
   'goblin-clubber': {
-    name: 'Gatewarden Grubskull', scale: 1.28, radius: .95, hp: 950, ki: 280, poise: 55, walk: 1.5, run: 4, amrita: 1500, voice: 'growl', pitch: .7, elite: true, track: 3.5,
+    name: 'Gatewarden Grubskull', scale: 1.28, radius: .95, hp: 820, ki: 280, poise: 55, walk: 1.5, run: 4, amrita: 1500, voice: 'growl', pitch: .7, elite: true, track: 3.5,
     attacks: [
       A('Club Smash', 3.2, [S('overhead', .85, .16, .9, 88, { reach: 3.3, arc: 60, lunge: 1.2, aoe: 1.4, shake: .5 })]),
       A('Sweep', 3.3, [S('swing', .7, .18, .8, 70, { reach: 3.5, arc: 160, lunge: .8 })]),
@@ -116,7 +116,7 @@ export const TYPES = {
     ],
   },
   'ratman-warblade': {
-    name: 'Gnawfang, Warblade of the Warren', scale: 1.55, radius: .9, hp: 2700, ki: 380, poise: 75, walk: 2, run: 5.2, amrita: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
+    name: 'Gnawfang, Warblade of the Warren', scale: 1.55, radius: .9, hp: 2300, ki: 380, poise: 75, walk: 2, run: 5.2, amrita: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
     attacks: [
       A('Cleave', 3.9, [S('swing', .72, .16, .85, 95, { reach: 4.0, arc: 150, lunge: 1.8 })]),
       A('Rending Chain', 3.9, [
@@ -230,6 +230,7 @@ export class Projectiles {
       if (pr.kind === 'arrow') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
       else if (pr.kind !== 'orb') { o.rotation.x += dt * 8; o.rotation.z += dt * 5; }
       if (pr.kind === 'orb') fx.motes(o.position, 0xb060ff, 1, .1, .2, .12, .5);
+      if (pr.kind === 'arrow' || pr.kind === 'stone') fx.add.emit({ x: o.position.x, y: o.position.y, z: o.position.z, life: .22, size: pr.kind === 'arrow' ? .09 : .12, color: fx.col(0xffe6b0), alpha: .8 });
       if (pr.kind === 'bomb') fx.motes({ x: o.position.x, y: o.position.y + .18, z: o.position.z }, 0xffa040, 1, .02, .5, .08, .3);
 
       const hitWall = wall < step - 1e-4;
