@@ -1,6 +1,7 @@
 // In-game HUD, drawn with DOM elements over the canvas.
 import * as THREE from 'three';
 import { KEY_LABEL, PAD_LABEL } from './input.js';
+import { CHARMS } from './charms.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -16,6 +17,7 @@ export class HUD {
         <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
         <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
         <div class="weapon"><b>Fae Sword</b><small></small></div>
+        <div class="charmrow"></div>
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="pbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
@@ -187,6 +189,11 @@ export class HUD {
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
     const wk = `${p.weapon}|${p.arms.length}|${this.key('swap')}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
+    const ck = [...(p.charms || [])].join(',');
+    if (this.charmsShown !== ck) {
+      this.charmsShown = ck;
+      this.el.querySelector('.charmrow').innerHTML = [...(p.charms || [])].map(id => `<i style="color:${CHARMS[id]?.color}" title="${CHARMS[id]?.name}">◆</i>`).join('');
+    }
     const sk = this.key('stance'); if (this.stanceKey !== sk) { this.stanceKey = sk; this.el.querySelector('.stance small').textContent = sk; }
 
     // Glimmer counter rolls up.
@@ -199,7 +206,7 @@ export class HUD {
 
     // Lock-on reticle.
     const L = p.lock;
-    const lp = L && this.project(L.pos.x, L.height * .55, L.pos.z);
+    const lp = L && this.project(L.pos.x, L.pos.y + L.height * .55, L.pos.z);
     q.lock.style.display = lp ? '' : 'none';
     if (lp) q.lock.style.transform = `translate(${lp.x}px, ${lp.y}px)`;
 
@@ -209,7 +216,7 @@ export class HUD {
       let b = this.bars.get(e);
       if (!want) { if (b) b.style.display = 'none'; continue; }
       b = this.bar(e);
-      const sp = this.project(e.pos.x, e.height + .35, e.pos.z);
+      const sp = this.project(e.pos.x, e.pos.y + e.height + .35, e.pos.z);
       if (!sp) { b.style.display = 'none'; continue; }
       b.style.display = '';
       b.style.transform = `translate(${sp.x}px, ${sp.y}px)`;

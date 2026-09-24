@@ -15,6 +15,7 @@ import { CameraRig } from './camera.js';
 import { Save, levelCost, loadSettings, saveSettings } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
+import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -205,7 +206,7 @@ function firstShrine() { return G.level.titleShrine || Object.keys(G.level.shrin
 function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
-  p.stats = { ...G.save.stats }; p.applyStats();
+  p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []);
   p.arms = [...(G.save.data.arms || ['sword'])]; p.setWeapon(G.save.data.wield || 'sword');
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
   p.elixirs = G.save.elixirMax;
@@ -223,6 +224,7 @@ async function startRun() {
   }
   const m = G.save.m;
   if (!m.shrine) { m.shrine = firstShrine(); m.kindled.push(m.shrine); }
+  grantTrophies();
   applyWorldState();
   placeAtShrine(m.shrine);
   G.player.anima = 0;
@@ -282,7 +284,7 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
-  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1));
+  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1));
   G.save.glimmer += amt;
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
@@ -296,9 +298,39 @@ G.onEnemyKilled = (e, hit = {}) => {
   else if (e === G.gatekeeper) gatekeeperDefeated();
 };
 
+// ---------------------------------------------------------------- charms
+// A new charm goes straight into a free slot; otherwise it waits to be worn at a Moonwell.
+function grantCharm(id, quiet = false) {
+  const d = G.save.data, c = CHARMS[id];
+  if (!c || d.charms.includes(id)) return false;
+  d.charms.push(id);
+  const worn = d.equipped.length < CHARM_SLOTS;
+  if (worn) { d.equipped.push(id); G.player.setCharms(d.equipped); }
+  if (!quiet) G.after(.6, () => G.hud.toast(`Charm: ${c.name} — ${c.desc}${worn ? '' : ' Wear it at a Moonwell.'}`, 'item'));
+  return true;
+}
+// Gatekeepers and warlords already felled (older saves, or a mission cleared before charms) still owe theirs.
+function grantTrophies() {
+  for (const L of Object.values(LEVELS)) {
+    const dead = G.save.mission(L.id).dead;
+    if (L.gate?.charm && dead.includes(L.gate.guardian)) grantCharm(L.gate.charm, true);
+    if (L.bossCharm && dead.includes(L.boss)) grantCharm(L.bossCharm, true);
+  }
+}
+G.equipCharm = id => {
+  const d = G.save.data, i = d.equipped.indexOf(id);
+  if (i >= 0) d.equipped.splice(i, 1);
+  else if (d.charms.includes(id) && d.equipped.length < CHARM_SLOTS) d.equipped.push(id);
+  else return false;
+  G.player.setCharms(d.equipped);
+  G.save.write();
+  return true;
+};
+
 function gatekeeperDefeated() {
   const gt = G.level.gate;
   G.save.m.dead.push(gt.guardian);
+  if (gt.charm) G.after(3.4, () => { grantCharm(gt.charm); G.save.write(); });
   G.save.write();
   G.slowmo = .9;
   G.after(0.9, () => {
@@ -311,6 +343,7 @@ function gatekeeperDefeated() {
 
 function bossDefeated() {
   G.save.m.dead.push(G.level.boss);
+  if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
   G.save.write();
   G.slowmo = 1.6;
   G.audio.music('none');
@@ -464,11 +497,17 @@ function interact(it) {
       G.world.setItemTaken(item.id, true);
       if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
       if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
+      if (item.kind === 'charm') {
+        const first = !d.charms.length;
+        grantCharm(item.charm, true);
+        if (first) G.after(.8, () => G.hud.message('Charms bend the rules a little. Up to three can be worn at once; change them at any Moonwell.'));
+      }
       if (item.kind === 'weapon' && !d.arms.includes(item.weapon)) {
         d.arms.push(item.weapon); p.arms = [...d.arms]; p.setWeapon(p.weapon);
         G.after(.8, () => G.hud.message(item.tip || item.desc));
       }
-      G.hud.toast(`${item.label} — ${item.desc}`, 'item');
+      const c = item.kind === 'charm' && CHARMS[item.charm];
+      G.hud.toast(c ? `${c.name} — ${c.desc}` : `${item.label} — ${item.desc}`, 'item');
       G.audio.sfx('pickup');
       p.setState('pickup'); p.anim.play('pickup');
       G.save.write();

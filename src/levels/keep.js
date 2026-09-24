@@ -77,11 +77,15 @@ export default {
     { id: 'glimmer1', x: -16, z: 30.5, kind: 'glimmer', amount: 350, label: 'Glimmer Shard', desc: '+350 Glimmer' },
     { id: 'glimmer2', x: 10.6, z: 110.4, kind: 'glimmer', amount: 600, label: 'Glimmer Shard', desc: '+600 Glimmer' },
     { id: 'grace2', x: -17.8, z: 99.3, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+    { id: 'c-dewdrop', x: -9.3, z: -10.3, kind: 'charm', charm: 'dewdrop', label: 'Charm' },
+    { id: 'c-wardstone', x: 15.8, z: 49, kind: 'charm', charm: 'wardstone', label: 'Charm' },
+    { id: 'c-thornheart', x: 9.5, z: 103.8, kind: 'charm', charm: 'thornheart', label: 'Charm' },
     { id: 'glaive', x: -8.6, z: 76.4, kind: 'weapon', weapon: 'glaive', label: 'Moonglaive', desc: 'a polearm of moon-silver',
       tip: 'The Moonglaive reaches far and bites deep into posture. V (D-pad ← on a gamepad) switches weapons.\nSwitch as a strike ends for a Switch Strike. Hold a heavy strike to charge it.' },
   ],
 
-  gate: { x: 0, z: 66, width: 6, guardian: 'warden', style: 'portcullis', toast: 'The portcullis rises', banner: 'GATEWARDEN VANQUISHED' },
+  gate: { x: 0, z: 66, width: 6, guardian: 'warden', style: 'portcullis', toast: 'The portcullis rises', banner: 'GATEWARDEN VANQUISHED', charm: 'gateseal' },
+  bossCharm: 'gnawtooth',
   seal: { x: 0, z: 119.2, yaw: 0, width: 7.2, height: 6.8, inside: [0, 122.6] },
   exit: { x: 0, z: 145.6 },
 

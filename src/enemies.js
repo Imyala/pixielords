@@ -508,7 +508,7 @@ export class Enemy {
     this.mat.transparent = false; this.mat.opacity = 1; this.mat.emissive.setHex(0xffffff); this.mat.emissiveIntensity = this.G.level?.enemyGlow ?? .08;
     this.outer.rotation.y = this.yaw;
     this.lean.rotation.set(0, 0, 0); this.lean.position.y = .45 * this.height;
-    this.fadeT = 0; this.grappleK = 0; this.hop = null; this.plan = null;
+    this.fadeT = 0; this.grappleK = 0; this.hop = null; this.plan = null; this.air = null; this.deadVy = 0;
   }
 
   kill() { this.active = false; this.state = 'dead'; this.outer.visible = false; }
@@ -548,7 +548,7 @@ export class Enemy {
   takeHit(hit) {
     if (!this.alive || this.state === 'intro' || this.burrowed) return null;
     const G = this.G;
-    let dmg = hit.dmg;
+    let dmg = hit.dmg * (this.state === 'down' ? 1.2 : 1);   // a floored foe takes more
     this.hp -= dmg;
     this.dmgShown += dmg; this.dmgShowT = 2.5; this.barT = 6;
     this.flash = 1;
@@ -564,6 +564,13 @@ export class Enemy {
     }
     if (this.hp <= 0) { this.die(hit); return 'kill'; }
     if (this.state === 'grappled') return 'hit';
+    if (this.state === 'air') {
+      // Juggled: each blow holds them up, drawn toward the height of whoever struck.
+      const target = hit.airY !== undefined ? hit.airY + .15 : this.pos.y;
+      this.air.vy = clamp((target - this.pos.y) * 5 + 1.2, -3, 3.2); this.air.hang = .45;
+      return 'hit';
+    }
+    if (this.state === 'down') return 'hit';
     if (this.ki <= 0 && this.state !== 'broken') { this.breakKi(); return 'broken'; }
     const armored = this.step && this.phase === 'active' && this.step.hyper || (this.step && this.step.hyper && this.phase === 'windup' && this.pt > this.step.windup * .4);
     if (this.poiseDmg >= this.T.poise && !armored && this.state !== 'broken') {
@@ -572,6 +579,26 @@ export class Enemy {
       return 'stagger';
     }
     return 'hit';
+  }
+
+  // Launchers throw ordinary foes into the air; gatekeepers, warlords and armoured swings stand firm.
+  launch(v) {
+    if (this.boss || this.elite || !this.alive || this.state === 'grappled' || this.state === 'dead') return false;
+    if (this.state === 'attack' && this.step?.hyper && this.phase !== 'recover') return false;
+    // Heavy foes stand firm until their stamina is spent.
+    if (this.T.poise >= 30 && this.state !== 'broken' && this.ki > this.maxKi * .4) { this.G.hud.toast('Too heavy — wear it down first'); return false; }
+    this.endAttack();
+    this.air = { vy: this.state === 'air' ? Math.max(this.air.vy, v) : v, hang: 0, slam: false };
+    this.state = 'air'; this.st = 0;
+    this.impulse.set(0, 0, 0);
+    this.G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * 1.3, vol: .6 });
+    return true;
+  }
+  // A Starfall drives an airborne foe into the ground.
+  slam() {
+    if (this.state !== 'air') return false;
+    this.air.vy = -24; this.air.slam = true; this.air.hang = 0;
+    return true;
   }
 
   hurt(dur) {
@@ -893,6 +920,25 @@ export class Enemy {
       case 'grappled':
         if (G.player.state !== 'grapple' || G.player.grapple?.e !== this) { this.state = 'hurt'; this.st = 0; this.hurtDur = .5; }
         break;
+      case 'air': {
+        // Tumbling: gravity, eased while blows keep landing.
+        const A = this.air;
+        A.hang -= dt;
+        A.vy -= (A.hang > 0 ? 7 : A.slam ? 60 : 26) * dt;
+        if (A.hang > 0) A.vy = Math.max(A.vy, -2);
+        this.pos.y = Math.max(0, this.pos.y + A.vy * dt);
+        this.faceYaw = toP; this.turnRate = 1;
+        if (this.pos.y <= 0 && A.vy < 0) {
+          this.pos.y = 0; this.state = 'down'; this.st = 0; this.downDur = A.slam ? 1.5 : 1;
+          G.fx.dust(this.pos, A.slam ? 18 : 8);
+          G.audio.sfx('slam', { x: this.pos.x, z: this.pos.z, vol: A.slam ? .8 : .4 });
+          if (A.slam) { G.fx.ring(this.pos, 0xdff4ff, 2.2, .3); G.cam.shake(.3, this.pos); }
+        }
+        break;
+      }
+      case 'down':
+        if (this.st > this.downDur) { this.state = 'engage'; this.st = 0; this.think = rand(.1, .35); this.planT = 0; }
+        break;
       case 'return': {
         const dx = this.home.x - this.pos.x, dz = this.home.z - this.pos.z, dd = Math.hypot(dx, dz);
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * .2 * dt);
@@ -999,6 +1045,7 @@ export class Enemy {
 
   updateDead(dt) {
     this.fadeT += dt;
+    if (this.pos.y > 0) { this.deadVy -= 24 * dt; this.pos.y = Math.max(0, this.pos.y + this.deadVy * dt); }
     if (this.fadeT > 1.1) {
       this.mat.transparent = true;
       this.mat.opacity = Math.max(0, 1 - (this.fadeT - 1.1) / 1);
@@ -1042,6 +1089,11 @@ export class Enemy {
         if (Math.random() < dt * 8) this.G.fx.motes({ x: this.pos.x, y: this.height * .95, z: this.pos.z }, 0xffe070, 1, .3, .2, .1, .6);
         break;
       case 'grappled': tg.pitch = -.35 - this.grappleK * .4; tg.sq = .95; tg.aL = tg.aR = -.8; omega = 14; walk = 0; break;
+      case 'air': tg.pitch = -.7 + Math.sin(t * 7) * .15; tg.roll = Math.sin(t * 5) * .25; tg.aL = -1.3; tg.aR = -.4; tg.aLz = .7; tg.aRz = -.7; tg.sq = .95; omega = 10; walk = 0; break;
+      case 'down': {
+        const up = clamp((this.st - (this.downDur - .45)) / .45, 0, 1);
+        tg.pitch = -1.4 * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0; break;
+      }
       case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; break;
       case 'attack': {
         walk *= .3;

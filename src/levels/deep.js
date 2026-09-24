@@ -105,9 +105,13 @@ export default {
     { id: 'grace1', x: 12, z: 47, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: 9.5, z: 91.5, kind: 'glimmer', amount: 1600, label: 'Glimmer Shard', desc: '+1600 Glimmer' },
     { id: 'glimmer3', x: 16, z: 132, kind: 'glimmer', amount: 2000, label: 'Glimmer Shard', desc: '+2000 Glimmer' },
+    { id: 'c-echo', x: 6, z: 3.5, kind: 'charm', charm: 'echo', label: 'Charm' },
+    { id: 'c-moonpetal', x: -3, z: 70, kind: 'charm', charm: 'moonpetal', label: 'Charm' },
+    { id: 'c-rootbound', x: -16, z: 144, kind: 'charm', charm: 'rootbound', label: 'Charm' },
   ],
 
-  gate: { x: 0, z: 120.5, width: 6.8, guardian: 'grinder', style: 'portcullis', toast: 'The mine gate grinds open', banner: 'TUNNEL-BREAKER FELLED' },
+  gate: { x: 0, z: 120.5, width: 6.8, guardian: 'grinder', style: 'portcullis', toast: 'The mine gate grinds open', banner: 'TUNNEL-BREAKER FELLED', charm: 'knuckle' },
+  bossCharm: 'seereye',
   seal: { x: 0, z: 155.5, yaw: 0, width: 7.6, height: 6.8, inside: [0, 160.5] },
   exit: { x: 0, z: 183 },
 

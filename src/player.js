@@ -19,8 +19,8 @@ export const STANCES = {
 // Weapons: a chain opener, a heavy per stance, running and dashing strikes, and the Switch Strike that
 // comes out when the weapon is drawn as a strike ends. speed and cost scale the stance values.
 export const WEAPONS = {
-  sword: { id: 'sword', name: 'Fae Sword', speed: 1, cost: 1, chain: 'light1', heavy: { high: 'skyfall', mid: 'heavy', low: 'needle' }, run: 'run', dash: 'dashSlash', switch: 'swSword', color: 0x9ff3ff },
-  glaive: { id: 'glaive', name: 'Moonglaive', speed: .92, cost: 1.08, chain: 'g1', heavy: { high: 'g_moonfall', mid: 'g_crescent', low: 'g_pierce' }, run: 'gRun', dash: 'gDash', switch: 'swGlaive', color: 0xc9b4ff },
+  sword: { id: 'sword', name: 'Fae Sword', speed: 1, cost: 1, chain: 'light1', heavy: { high: 'skyfall', mid: 'heavy', low: 'needle' }, run: 'run', dash: 'dashSlash', switch: 'swSword', color: 0x9ff3ff, airReach: 1, airDmg: 1 },
+  glaive: { id: 'glaive', name: 'Moonglaive', speed: .92, cost: 1.08, chain: 'g1', heavy: { high: 'g_moonfall', mid: 'g_crescent', low: 'g_pierce' }, run: 'gRun', dash: 'gDash', switch: 'swGlaive', color: 0xc9b4ff, airReach: 1.3, airDmg: 1.1 },
 };
 const ORDER = ['low', 'mid', 'high'];
 
@@ -48,6 +48,16 @@ const ATK = {
   gDash: { anim: 'g_sweep', dur: .64, hit: [.18, .34], dmg: 50, ki: 30, poise: 16, cost: 13, reach: 3.2, arc: 200, move: 1.6, chain: .36, next: 'g3' },
   swGlaive: { anim: 'g_spin', dur: .8, hit: [.18, .48], dmg: 58, ki: 40, poise: 22, cost: 8, reach: 3.2, arc: 360, move: .8, chain: .56, next: 'g1' },
 };
+// Air combat, shared by both weapons (the glaive reaches further): the launcher (guard + strike) throws the
+// knight and ordinary foes skyward, up to four air strikes keep them hanging, and a heavy is the Starfall.
+Object.assign(ATK, {
+  launch: { anim: 'launch', dur: .62, hit: [.14, .28], dmg: 42, ki: 30, poise: 20, cost: 22, reach: 2.4, arc: 140, move: .6, chain: .3, next: 'air1', launch: 10.5 },
+  air1: { anim: 'air1', dur: .42, hit: [.08, .2], dmg: 34, ki: 20, poise: 8, cost: 9, reach: 2.4, arc: 170, move: .5, chain: .2, next: 'air2', air: true },
+  air2: { anim: 'air2', dur: .42, hit: [.08, .2], dmg: 34, ki: 20, poise: 8, cost: 9, reach: 2.4, arc: 170, move: .5, chain: .2, next: 'air3', air: true },
+  air3: { anim: 'air3', dur: .6, hit: [.12, .38], dmg: 46, ki: 28, poise: 12, cost: 12, reach: 2.5, arc: 360, move: .4, chain: .42, next: 'air1', air: true },
+  plunge: { anim: 'plunge', dur: 1.2, hit: [9, 9], dmg: 88, ki: 60, poise: 40, cost: 14, reach: 2.8, arc: 360, move: 0, chain: 9, next: 'air1', heavy: true, plunge: true, aoe: 2.8 },
+});
+const AIR = { rise: 10.5, g: 26, hang: 7, plungeG: 80, maxStrikes: 4, dash: { dur: .26, dist: 3.4, iframes: [0, .2] } };
 const CHARGE = { max: .7 };  // seconds a heavy can be held; a full charge hits 1.8× as hard
 const DASH = { dur: .36, dist: 4.4, iframes: [0, .24], cost: 13, perfect: .16, attackAt: .15, chainAt: .22 };
 const HOP = { dur: .32, dist: 2.4, iframes: [0, .2], cost: 9 };
@@ -132,13 +142,20 @@ export class Player {
     this.spawnAt(0, 0, 0);
   }
 
-  applyStats() { Object.assign(this, derive(this.stats)); }
+  applyStats() {
+    Object.assign(this, derive(this.stats));
+    if (this.has('gateseal')) this.maxHp = Math.round(this.maxHp * 1.1);
+    if (this.has('seereye')) this.animaGain *= 1.25;
+  }
+  // Worn charms (see charms.js).
+  has(charm) { return !!this.charms?.has(charm); }
+  setCharms(list) { this.charms = new Set(list); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
 
   spawnAt(x, z, yaw) {
     this.pos.set(x, 0, z); this.yaw = yaw; this.vel.set(0, 0, 0);
     this.hp = this.maxHp; this.ki = this.maxKi; this.anima = this.anima ?? 0;
     this.state = 'free'; this.st = 0; this.alive = true;
-    this.poison = 0; this.poisoned = 0; this.snared = 0;
+    this.poison = 0; this.poisoned = 0; this.snared = 0; this.vy = 0; this.airCount = 0; this.airDashed = false;
     this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.riposte = null; this.chain = 0; this.chargeMul = 1;
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
     this.exhaustPending = false; this.kiSpentT = -9; this.guardPressT = -9;
@@ -195,14 +212,14 @@ export class Player {
   openPulse() {
     if (!this.pulseAmount) return;
     const t = this.G.time;
-    this.pulse = { open: t, perfect: t + .22, close: t + .55, amount: this.pulseAmount };
+    this.pulse = { open: t, perfect: t + .22, close: t + (this.has('echo') ? .7 : .55), amount: this.pulseAmount };
     this.pulseAmount = 0;
   }
 
   // Resonance: tapped in time after a strike, the spent stamina flows back.
   doPulse(stanceShift = false) {
     const G = this.G, perfect = G.time <= this.pulse.perfect;
-    const gain = this.pulse.amount * (perfect ? 1.1 : .6);
+    const gain = this.pulse.amount * (perfect ? 1.1 : .6) * (this.has('echo') ? 1.2 : 1);
     this.ki = Math.min(this.maxKi, this.ki + gain);
     if (this.ki > 0) this.exhaustPending = false;
     this.gainAnima(perfect ? 6 : 3);
@@ -226,6 +243,7 @@ export class Player {
   burn(dmg) {
     const G = this.G;
     if (this.shifted) { this.anima -= dmg * .5; if (this.anima <= 0) this.endShift(); return; }
+    if (this.has('emberwing')) dmg *= .5;
     this.hp -= dmg; this.burnedT = G.time;
     G.hud.screenFlash('hurt'); G.audio.sfx('playerHurt', { vol: .35 });
     if (this.hp <= 0) this.die();
@@ -233,7 +251,7 @@ export class Player {
 
   addPoison(n) {
     if (this.poisoned > 0 || !this.alive) return;
-    this.poison += n;
+    this.poison += n * (this.has('rootbound') ? .5 : 1);
     if (this.poison >= 100) { this.poison = 0; this.poisoned = 12; this.G.hud.toast('Blighted', 'poison'); this.G.audio.sfx('poison'); }
   }
 
@@ -343,9 +361,19 @@ export class Player {
       // A strike straight after a Moonstep blinks behind the attacker: the Moonstep Riposte.
       const r = this.riposte;
       if (r && G.time <= r.until && r.e.alive && r.e.distToPlayer() < 7.5) return this.startFlashcut(r.e, 'riposte');
+      const airborne = this.pos.y > .3;
+      if (airborne) {
+        if (this.ki <= 0 && !this.shifted) return false;
+        if (a === 'heavy') return this.startAttack('plunge');
+        if (this.airCount >= AIR.maxStrikes) return false;
+        this.airCount++;
+        return this.startAttack(from === 'chain' && ATK[this.atk?.next]?.air ? this.atk.next : 'air1');
+      }
       const crit = this.findCrit();
       if (crit) return this.startExecution(crit.e, crit.kind);
       if (this.ki <= 0 && !this.shifted) return false;
+      // Guard held + strike: the launcher.
+      if (a === 'light' && from !== 'dash' && G.controlsOn && G.input.down('guard')) return this.startAttack('launch');
       const W = this.W;
       let key = a === 'heavy' ? W.heavy[this.stance] : W.chain;
       if (from === 'chain' && this.atk && a === 'light') key = ATK[this.atk.next] && !ATK[this.atk.next].heavy ? this.atk.next : W.chain;
@@ -356,7 +384,7 @@ export class Player {
     if (a === 'swap') return this.swapWeapon(from === 'strike');
     if (a === 'dodge') {
       if (this.ki <= 0 && !this.shifted) return false;
-      return this.startDash();
+      return this.pos.y > .3 ? this.startAirDash() : this.startDash();
     }
     if (a === 'burst') {
       if (this.ki <= 0 && !this.shifted) return false;
@@ -390,8 +418,11 @@ export class Player {
     this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1);
     this.setState('attack');
     this.anim.play(a.anim, this.aspeed, .04);
-    this.spendKi(a.cost * S.cost * this.W.cost);
+    this.spendKi(a.cost * S.cost * this.W.cost * (a.launch && this.has('skyward') ? .6 : 1));
     this.chargeT = 0; this.chargeDone = false; this.chargeMul = 1;
+    this.launchedUp = false;
+    if (a.air) this.vy = Math.max(this.vy, 2.6);   // each air strike holds the knight up a moment
+    if (a.plunge) { this.vy = Math.min(this.vy, -6); this.lock && (this.yaw = yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z)); G.audio.sfx('swingHeavy'); }
     this.faceTarget(true);
     // Close the gap to the foe in front, within reason; charges always travel their full length.
     const t = this.focusTarget();
@@ -409,12 +440,12 @@ export class Player {
     this.sprintArmed = true;
     this.moonstepped = false;
     if (this.inputYaw === null) {
-      this.spendKi(HOP.cost * S.dash.cost);
+      this.spendKi(HOP.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1));
       this.setState('hop'); this.anim.play('hop', 1, .03);
       this.dashYaw = this.yaw + Math.PI;
       this.dash = { dur: HOP.dur, dist: HOP.dist * S.dash.dist, iframes: HOP.iframes };
     } else {
-      this.spendKi(DASH.cost * S.dash.cost);
+      this.spendKi(DASH.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1));
       this.setState('dash');
       this.dashYaw = this.inputYaw;
       const dur = DASH.dur * S.dash.dur;
@@ -427,6 +458,45 @@ export class Player {
     if (this.snared > 0) { this.snared -= 1.1; if (this.snared <= 0) { this.snareFree = G.time + 3; G.hud.toast('Broke free', 'pulse'); } }
     G.audio.sfx('roll');
     return true;
+  }
+
+  // One short dash per jump, hanging in the air.
+  startAirDash() {
+    const G = this.G;
+    if (this.airDashed) return false;
+    this.airDashed = true;
+    this.spendKi(DASH.cost * .8 * (this.has('quickstep') ? .67 : 1));
+    this.setState('airdash'); this.anim.play('dash', 1.3, .03);
+    this.dashYaw = this.inputYaw ?? this.yaw;
+    this.dash = { ...AIR.dash }; this.dashed = 0; this.ghostT = 0; this.vy = 0;
+    if (!this.lock && this.inputYaw !== null) this.yaw = this.inputYaw;
+    G.audio.sfx('roll');
+    return true;
+  }
+
+  land() {
+    const G = this.G;
+    this.pos.y = 0; this.vy = 0; this.airDashed = false; this.airCount = 0;
+    if (this.state === 'attack' && this.atk.plunge) return this.plungeImpact();
+    if (this.state === 'air' || this.state === 'airdash' || (this.state === 'attack' && (this.atk.air || this.atk.launch))) {
+      this.setState('free'); this.anim.play('hop', 1.5, .04);
+      G.fx.dust(this.pos, 6); G.audio.sfx('step');
+    }
+  }
+
+  // Starfall: the plunge hits the ground and everything around it; foes still in the air are driven down.
+  plungeImpact() {
+    const G = this.G, a = this.atk, S = this.S;
+    G.fx.ring(this.pos, 0xdff4ff, a.aoe * 1.3, .4); G.fx.ring(this.pos, S.color, a.aoe * .8, .3, .1); G.fx.dust(this.pos, 26);
+    G.audio.sfx('slam'); G.cam.shake(.55); G.hitstop = Math.max(G.hitstop, .08);
+    for (const e of G.enemies) {
+      if (!e.alive || e.state === 'grappled' || e.pos.y > 3) continue;
+      if (Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z) > a.aoe + e.radius) continue;
+      e.slam();
+      if (!this.hitSet.has(e)) this.strike(e, a);
+    }
+    this.setState('land'); this.anim.play('plungeLand', 1.2, .02);
+    G.hud.toast('Starfall', 'pulse');
   }
 
   startExecution(e, kind) {
@@ -488,16 +558,20 @@ export class Player {
     const G = this.G;
     if (!this.alive) return 'miss';
     // Moonstep: a dash that starts just before the blow slows the world.
-    if ((this.state === 'dash' || this.state === 'hop') && this.st <= DASH.perfect && !this.moonstepped) {
+    if ((this.state === 'dash' || this.state === 'hop') && this.st <= DASH.perfect + (this.has('moonpetal') ? .07 : 0) && !this.moonstepped) {
       this.moonstep();
       if (h.from?.alive && !h.projectile) this.riposte = { e: h.from, until: G.time + RIPOSTE_WINDOW };
       return 'miss';
     }
     if (this.iframes) return 'miss';
+    // High in the air, swings and ground shocks pass beneath; thrown things still find you.
+    const reachUp = Math.max(1.4, (h.from?.height || 0) * .7);   // big foes can swat the knight out of the air
+    if (!h.projectile && (this.pos.y > reachUp || (h.aoe && this.pos.y > .6))) return 'miss';
     // Thorn Counter
     if (this.state === 'thorn' && this.st >= THORN.window[0] && this.st <= THORN.window[1] && !(h.aoe && !h.burst)) {
-      this.ki = Math.min(this.maxKi, this.ki + 20);
-      this.gainAnima(h.burst ? 14 : 8);
+      const th = this.has('thornheart');
+      this.ki = Math.min(this.maxKi, this.ki + (th ? 32 : 20));
+      this.gainAnima((h.burst ? 14 : 8) + (th ? 4 : 0));
       G.audio.sfx('burstCounter');
       G.fx.ring(this.pos, 0xff7ae0, 3, .4, 1.1);
       if (h.from && !h.projectile && h.from.alive) {
@@ -518,7 +592,7 @@ export class Player {
     const justPressed = G.time - this.guardPressT <= DEFLECT && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
     if ((this.guarding || justPressed) && facing && !h.burst) {
       if (justPressed && !h.aoe) return this.deflect(h);
-      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard;
+      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1);
       this.ki -= kiDmg; this.kiSpentT = G.time;
       const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .5, 1.25, this.pos.z + Math.cos(this.yaw) * .5);
       G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 16, 0xffe0a0, 6);
@@ -563,8 +637,8 @@ export class Player {
   deflect(h) {
     const G = this.G;
     this.setState('deflect'); this.anim.play('deflect', 1.3, .02);
-    this.ki = Math.min(this.maxKi, this.ki + 8);
-    this.gainAnima(6);
+    this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8));
+    this.gainAnima(this.has('thornheart') ? 10 : 6);
     const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .6, 1.3, this.pos.z + Math.cos(this.yaw) * .6);
     G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 34, 0xdff8ff, 9);
     G.fx.flash(sp, 0xffffff, 2.2, .22, true);
@@ -689,7 +763,7 @@ export class Player {
         // Held heavies charge: the pose holds at the top of the windup while the button stays down.
         if (a.charge && !this.chargeDone && this.st * this.aspeed >= a.charge) {
           if (G.controlsOn && inp.down('heavy') && this.chargeT < CHARGE.max) {
-            this.chargeT += dt; this.st -= dt; this.anim.speed = 0;
+            this.chargeT += dt * (this.has('skullbead') ? 2 : 1); this.st -= dt; this.anim.speed = 0;
             const k = this.chargeT / CHARGE.max;
             if (this.lock) this.yaw = turnTowards(this.yaw, yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z), 6 * dt);
             else if (moveInput()) this.yaw = turnTowards(this.yaw, this.inputYaw, 6 * dt);
@@ -701,6 +775,17 @@ export class Player {
           }
         }
         const t = this.st * this.aspeed;
+        const idle = () => { this.setState(this.pos.y > .05 ? 'air' : 'free'); if (this.state === 'air') this.anim.play('fall', 1, .1); };
+        if (a.launch && !this.launchedUp && t >= a.hit[0]) {
+          this.launchedUp = true; this.vy = AIR.rise * (this.S.dash.dist > 1 ? 1.05 : 1);
+          G.fx.dust(this.pos, 10); G.fx.ring(this.pos, this.S.color, 1.6, .25);
+        }
+        if (a.plunge) {
+          this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = .05; this.ghosts.spawn(0xdff4ff, .25, .35); }
+          // Anything airborne in the dive's path is carried down with it.
+          for (const e of G.enemies) if (e.state === 'air' && Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z) < 2.4 + e.radius && Math.abs(e.pos.y - this.pos.y) < 2) e.slam();
+          break;
+        }
         if (t < .1 && !this.lock && moveInput()) this.yaw = turnTowards(this.yaw, this.inputYaw, 10 * dt);
         // Lunge through the windup, stopping short of whoever is in the way.
         const until = a.fixedMove ? a.hit[1] : a.hit[0] + .04;
@@ -722,10 +807,35 @@ export class Player {
         if (t >= a.hit[1] + .02) {
           const c = takeAny(['dodge', 'burst', 'heal', 'swap']);
           if (c && this.tryStart(c, c === 'swap' ? 'strike' : null)) break;
-          if (G.controlsOn && inp.down('guard')) { this.setState('free'); break; }
+          if (G.controlsOn && inp.down('guard') && this.pos.y <= .05) { this.setState('free'); break; }
         }
-        if (t >= a.dur * .78 && moveInput()) { this.setState('free'); break; }
-        if (t >= a.dur) this.setState('free');
+        if (t >= a.dur * .78 && moveInput()) { idle(); break; }
+        if (t >= a.dur) idle();
+        break;
+      }
+      case 'air': {
+        const c = takeAny(['light', 'heavy', 'dodge']);
+        if (c && this.tryStart(c)) break;
+        const s = 3 * mag;
+        if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
+        if (this.lock) turn = yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z);
+        else if (moveInput()) turn = this.inputYaw;
+        break;
+      }
+      case 'airdash': {
+        const D = this.dash, t = this.st, k = clamp(t / (D.dur * .85), 0, 1);
+        const d = D.dist * (1 - Math.pow(1 - k, 2.4)), step = d - this.dashed; this.dashed = d;
+        this.pos.x += Math.sin(this.dashYaw) * step; this.pos.z += Math.cos(this.dashYaw) * step;
+        this.iframes = t >= D.iframes[0] && t <= D.iframes[1];
+        this.ghostT -= dt;
+        if (this.ghostT <= 0) { this.ghostT = .05; this.ghosts.spawn(this.S.color, .25, .35); }
+        if (t >= .12) { const c = takeAny(['light', 'heavy']); if (c && this.tryStart(c)) break; }
+        if (t >= D.dur) { this.setState('air'); this.anim.play('fall', 1, .1); }
+        break;
+      }
+      case 'land': {
+        if (this.st >= .18) { const c = takeAny(['dodge', 'light', 'heavy']); if (c && this.tryStart(c)) break; }
+        if (this.st >= .45) this.setState('free');
         break;
       }
       case 'dash':
@@ -766,7 +876,7 @@ export class Player {
         if (moveInput() && !this.lock) turn = this.inputYaw;
         if (!this.healed && this.st >= .48) {
           this.healed = true;
-          this.heal(this.maxHp * .42 + 40);
+          this.heal((this.maxHp * .42 + 40) * (this.has('dewdrop') ? 1.33 : 1));
           this.poisoned = 0; this.poison = 0;
           G.audio.sfx('heal');
           G.fx.motes({ x: this.pos.x, y: .4, z: this.pos.z }, 0xff9cd0, 24, .5, 2, .12, 1);
@@ -802,7 +912,7 @@ export class Player {
         const T = 1.1 / 1.25;
         e.grappleK = clamp(this.st / T, 0, 1);
         const big = e.boss || e.elite;
-        const total = ATK.heavy.dmg * this.dmgMul * (big ? 2.2 : 3.4) * (this.shifted ? 1.4 : 1);
+        const total = ATK.heavy.dmg * this.dmgMul * (big ? 2.2 : 3.4) * (this.shifted ? 1.4 : 1) * (this.has('gnawtooth') ? 1.33 : 1);
         if (g.hits === 0 && this.st >= .3 / 1.25) { g.hits = 1; this.critHit(e, total * .35, false); }
         if (g.hits === 1 && this.st >= .8 / 1.25) { g.hits = 2; this.critHit(e, total * .65, true); }
         if (this.st >= T) {
@@ -848,6 +958,17 @@ export class Player {
         break;
     }
 
+    // Height: launchers, air strikes and the Starfall; gravity eases while an air strike is swinging.
+    if (this.pos.y > 0 || this.vy > 0) {
+      const a = this.state === 'attack' ? this.atk : null, t = a ? this.st * this.aspeed : 0;
+      const hanging = a && (a.air || (a.launch && this.launchedUp)) && t < a.dur * .85;
+      const g = a?.plunge ? AIR.plungeG : this.state === 'airdash' ? 0 : hanging && this.vy < 2 ? AIR.hang : AIR.g;
+      this.vy -= g * dt;
+      if (hanging && a.air) this.vy = Math.max(this.vy, -2.5);
+      this.pos.y = Math.max(0, this.pos.y + this.vy * dt);
+      if (this.pos.y <= 0 && this.vy <= 0) this.land();
+    }
+
     // Knockback from blocks and hits decays smoothly.
     if (this.knock) {
       this.pos.x += Math.sin(this.knock.yaw) * this.knock.v * dt; this.pos.z += Math.cos(this.knock.yaw) * this.knock.v * dt;
@@ -858,7 +979,7 @@ export class Player {
     // Voluntary movement: quick to start, quick to stop.
     const accel = this.state === 'free' ? (Math.hypot(want.x, want.z) > .1 ? 16 : 20) : 30;
     this.vel.x = damp(this.vel.x, want.x, accel, dt); this.vel.z = damp(this.vel.z, want.z, accel, dt);
-    if (this.state === 'free' || this.state === 'drink' || this.state === 'swap') { this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; }
+    if (['free', 'drink', 'swap', 'air'].includes(this.state)) { this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; }
     else this.vel.multiplyScalar(Math.exp(-10 * dt));
     if (turn !== null) {
       const before = this.yaw;
@@ -872,7 +993,7 @@ export class Player {
     // Collisions: walls, then bodies.
     if (this.state !== 'fog') G.world.collide(this.pos, this.radius);
     for (const e of G.enemies) {
-      if (!e.alive || e.burrowed || (this.state === 'grapple' && this.grapple.e === e) || (this.state === 'flashcut' && this.fc.e === e)) continue;
+      if (!e.alive || e.burrowed || Math.abs(e.pos.y - this.pos.y) > 1.2 || (this.state === 'grapple' && this.grapple.e === e) || (this.state === 'flashcut' && this.fc.e === e)) continue;
       const dx = this.pos.x - e.pos.x, dz = this.pos.z - e.pos.z, d = Math.hypot(dx, dz), m = this.radius + e.radius;
       if (d < m && d > 1e-4) {
         const push = m - d, share = e.boss || e.elite || e.state === 'attack' ? 1 : .6;
@@ -910,7 +1031,7 @@ export class Player {
   // Moonstep Riposte: heavy damage and posture, not an outright kill.
   riposteHit(e, big) {
     const G = this.G;
-    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1);
+    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1);
     const res = e.takeHit({ dmg, ki: big ? 90 : 140, poise: 60, dir: this.yaw, heavy: true, crit: true });
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 4.5, 0xb8c8ff);
@@ -958,10 +1079,13 @@ export class Player {
       G.projectiles.cut(pr);
       this.gainAnima(2);
     }
+    const reach = a.reach * (a.air || a.launch ? this.W.airReach : 1), high = this.pos.y > .6 || a.air;
     for (const e of G.enemies) {
       if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
+      // In the air, only foes near the knight's height; from the ground, not foes juggled high overhead.
+      if (high ? Math.abs(e.pos.y - this.pos.y) > 2.2 : e.pos.y > 2.4) continue;
       const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.hypot(dx, dz);
-      if (d > a.reach + e.radius) continue;
+      if (d > reach + e.radius) continue;
       const ang = Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz)));
       if (ang > a.arc * Math.PI / 360 && d > e.radius + .7) continue;
       this.strike(e, a);
@@ -973,10 +1097,12 @@ export class Player {
     this.hitSet.add(e);
     const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.max(.01, Math.hypot(dx, dz));
     const cm = this.chargeMul || 1;
-    const mul = this.dmgMul * S.dmg * cm * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
-    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy });
+    const charm = (a.heavy && this.has('tusk') ? 1.15 : 1) * (a.air && this.has('skyward') ? 1.25 : 1) * (a.air || a.launch ? this.W.airDmg : 1);
+    const mul = this.dmgMul * S.dmg * cm * charm * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
+    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
-    const p = _a.set(e.pos.x - dx / d * e.radius * .6, Math.min(1.3, e.height * .55), e.pos.z - dz / d * e.radius * .6);
+    if (a.launch && res !== 'kill' && e.launch(a.launch)) G.hud.toast('Launch', 'pulse');
+    const p = _a.set(e.pos.x - dx / d * e.radius * .6, e.pos.y + Math.min(1.3, e.height * .55), e.pos.z - dz / d * e.radius * .6);
     const side = this.atkKey === 'light1' || this.atkKey === 'light4' ? 1 : -1;
     const dir = { x: Math.cos(this.yaw) * side, z: -Math.sin(this.yaw) * side };
     G.fx.spark(p, dir, a.heavy ? 22 : 12, this.shifted ? 0xff9cf0 : 0xffd080, a.heavy ? 8 : 6);
@@ -996,7 +1122,7 @@ export class Player {
     }
     if (this.poisoned > 0 && this.alive && G.state === 'play' && this.state !== 'rest') {
       this.poisoned -= dt;
-      this.hp -= this.maxHp * .012 * dt;
+      this.hp -= this.maxHp * .012 * dt * (this.has('rootbound') ? .6 : 1);
       if (Math.random() < dt * 6) G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0x8fe040, 1, .3, .8, .1, .8);
       if (this.hp <= 0) this.die();
     } else this.poison = Math.max(0, this.poison - 8 * dt);
@@ -1026,7 +1152,7 @@ export class Player {
     this.ghosts.update(dt);
 
     // Sword trail while swinging.
-    const swinging = ['attack', 'counter', 'grapple', 'flashcut', 'deflect'].includes(this.state) || (this.state === 'thorn' && this.st < .1);
+    const swinging = ['attack', 'counter', 'grapple', 'flashcut', 'deflect', 'land'].includes(this.state) || (this.state === 'thorn' && this.st < .1);
     k.root.updateMatrixWorld(true);
     if (swinging) {
       k.base.getWorldPosition(_a); k.tip.getWorldPosition(_b);

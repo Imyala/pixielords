@@ -2,6 +2,7 @@
 // Mouse, keyboard (arrows + Enter/Esc) and gamepad (d-pad + A/B) all work.
 import { derive } from './player.js';
 import { levelCost } from './save.js';
+import { CHARMS, CHARM_SLOTS } from './charms.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -21,6 +22,8 @@ const CONTROLS = [
   ['Stance: High / Mid / Low', '1  2  3  (or C / X)', 'D-pad ↑ / ↓'],
   ['Switch weapon  ·  as a strike ends: Switch Strike', 'V', 'D-pad ←'],
   ['Charge a heavy (Moonglaive)', 'Hold right click', 'Hold RT'],
+  ['Launcher  ·  then strike in the air', 'Hold Shift + left click', 'Hold LB + RB'],
+  ['In the air: Starfall  ·  air dash', 'Right click  ·  Space', 'RT  ·  B'],
   ['Thorn Counter', 'F', 'LT'],
   ['Lock on  ·  switch target', 'Q / middle click  ·  wheel / Tab', 'R3  ·  flick right stick'],
   ['Drink Moondew', 'R', 'X'],
@@ -58,7 +61,9 @@ export class Menu {
   get top() { return this.stack[this.stack.length - 1]; }
 
   items() { return [...this.el.querySelectorAll('.btn:not([disabled]),[data-set]')]; }
-  paint() { this.items().forEach((b, i) => b.classList.toggle('focus', i === this.focus)); }
+  paint(scroll = false) {
+    this.items().forEach((b, i) => { b.classList.toggle('focus', i === this.focus); if (scroll && i === this.focus) b.scrollIntoView?.({ block: 'nearest' }); });
+  }
 
   show(screen, data) { this.stack = [{ screen, data }]; this.G.hud?.clearOverlays(); this.render(); }
   push(screen, data) { this.stack.push({ screen, data }); this.render(); }
@@ -69,8 +74,14 @@ export class Menu {
   nav(inp) {
     if (!this.open) return;
     const list = this.items();
-    if (inp.hit('up')) { this.focus = (this.focus - 1 + list.length) % list.length; this.paint(); this.G.audio.sfx('ui'); }
-    if (inp.hit('down')) { this.focus = (this.focus + 1) % list.length; this.paint(); this.G.audio.sfx('ui'); }
+    if (list.length <= 1) {   // a page of reading with a lone Back button: up and down scroll it
+      const panel = this.el.querySelector('.panel');
+      if (panel && inp.hit('up')) panel.scrollBy({ top: -120, behavior: 'smooth' });
+      if (panel && inp.hit('down')) panel.scrollBy({ top: 120, behavior: 'smooth' });
+    } else {
+      if (inp.hit('up')) { this.focus = (this.focus - 1 + list.length) % list.length; this.paint(true); this.G.audio.sfx('ui'); }
+      if (inp.hit('down')) { this.focus = (this.focus + 1) % list.length; this.paint(true); this.G.audio.sfx('ui'); }
+    }
     const cur = list[this.focus];
     if (cur?.dataset.set && cur.type === 'range') {
       const step = +cur.step || .05;
@@ -104,6 +115,8 @@ export class Menu {
       case 'missions': this.show('missions'); break;
       case 'journey': this.push('missions', { from: 'shrine' }); break;
       case 'mission': G.startMission(b.dataset.id); break;
+      case 'charms': this.push('charms'); break;
+      case 'charm': { const f = this.focus; if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); const y = this.el.querySelector('.map')?.scrollTop || 0; this.render(); this.focus = f; this.paint(); const m = this.el.querySelector('.map'); if (m) m.scrollTop = y; break; }
     }
   }
 
@@ -145,6 +158,8 @@ export class Menu {
           <p><b>Moonstep</b>: dash at the last instant and the world slows around you. Strike straight after for a <b>Moonstep Riposte</b>: you blink behind the attacker and cut.</p>
           <p><b>Weapons</b>: switch as a strike ends for a <b>Switch Strike</b>, a wheeling cut with the weapon you draw. The Moonglaive reaches further and hits posture harder; hold a heavy to charge it.</p>
           <p>Strikes cut hex orbs out of the air. Deflect one and it flies back at its caster.</p>
+          <p><b>Launcher</b>: hold guard and strike to throw a foe skyward and leap after it. Up to four air strikes keep you both aloft; a heavy in the air is the <b>Starfall</b>, a plunge that drives everything below into the ground. Floored foes take more damage. Gatekeepers and warlords can't be launched, but you can still leap and strike them.</p>
+          <p><b>Charms</b> bend the rules a little. Wear up to three; change them at any Moonwell.</p>
           <p><b>Dread strikes</b> glow red and can't be guarded. Dash through them, or Thorn Counter as they land.</p>
           <p>Drain a foe's stamina bar and it is <b>Shattered</b>: strike to <b>Execute</b>. Strike unaware foes from behind for an <b>Ambush</b>.</p>
         </div>
@@ -177,6 +192,7 @@ export class Menu {
         ${rows}
         <div class="btns">
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
+          ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
           ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
           <button class="btn" data-act="leave">Rise</button>
         </div>
@@ -199,6 +215,18 @@ export class Menu {
       h = `<div class="panel wide missions"><div class="kicker">The Fae Crossroads</div><h2>Where does the path lead?</h2>
         <div class="map">${rows}</div>
         <div class="btns">${data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : '<button class="btn" data-act="title">Return to title</button>'}</div></div>`;
+    } else if (screen === 'charms') {
+      const d = G.save.data, worn = d.equipped;
+      const rows = d.charms.map(id => {
+        const c = CHARMS[id], on = worn.includes(id), full = !on && worn.length >= CHARM_SLOTS;
+        return `<button class="btn mission charm ${on ? 'on' : ''}" data-act="charm" data-id="${id}">
+          <span class="node" style="color:${c.color};border-color:${c.color}">◆</span><span class="mtext"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></span>
+          <span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Worn' : full ? '' : 'Wear'}</span></button>`;
+      }).join('');
+      h = `<div class="panel wide missions charms"><div class="kicker">Charms · ${worn.length} of ${CHARM_SLOTS} worn</div><h2>What will you carry?</h2>
+        <div class="map">${rows}</div>
+        <p class="dim">${d.charms.length} of ${Object.keys(CHARMS).length} found. Charms lie hidden in the missions, and every gatekeeper and warlord guards one.</p>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'ending') {
       const sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
       h = `<div class="panel ending"><h1>${esc(G.level.endingTitle || 'THE PATHS ARE STILL')}</h1>

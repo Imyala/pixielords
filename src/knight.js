@@ -278,6 +278,39 @@ export const ACTIONS = {
   ] },
 };
 
+// ---- Air combat: the launcher, strikes with the legs tucked, the Starfall plunge and its landing.
+const TUCK = { thLx: -1.1, knL: 1.5, thRx: -.5, knR: 1.3, lift: 0, wings: 1.9 };
+const airVariant = (src, dur) => ({ dur, spinY: src.spinY, keys: src.keys.map(([t, p]) => {
+  const q = p.slice();
+  for (const [k, v] of Object.entries(TUCK)) q[IDX[k]] = v;
+  return [t * dur / src.dur, q];
+}) });
+Object.assign(ACTIONS, {
+  launch: { dur: .62, keys: [
+    K(0, { lift: -.25, chestRx: .35, hiltA: -1.0, hiltR: .34, hiltH: -.4, bladeYaw: -.9, bladePitch: -.7, bladeRoll: 1.57, thLx: -.7, knL: 1.0, thRx: .4, knR: .9 }),
+    K(.12, { lift: .05, chestRx: -.25, hiltA: -.2, hiltR: .45, hiltH: .45, bladeYaw: 0, bladePitch: 1.2, bladeRoll: 1.57, thLx: -.2, knL: .2, thRx: .1, knR: .2, wings: 2 }),
+    K(.3, { chestRx: -.3, hiltA: -.2, hiltR: .4, hiltH: .55, bladeYaw: 0, bladePitch: 1.4, ...TUCK }),
+    K(.62, { chestRx: 0, hiltA: -.6, hiltR: .4, hiltH: .1, bladeYaw: .2, bladePitch: .4, bladeRoll: 0, ...TUCK }),
+  ] },
+  air1: airVariant(ACTIONS.light1, .42),
+  air2: airVariant(ACTIONS.light2, .42),
+  air3: airVariant(ACTIONS.light4, .6),
+  plunge: { dur: 1.2, keys: [
+    K(0, { chestRx: -.3, hiltA: -.1, hiltR: .1, hiltH: .5, bladeYaw: 3.1, bladePitch: .8, bladeRoll: 0, twoHand: 1, ...TUCK }),
+    K(.14, { chestRx: .5, hiltA: 0, hiltR: .32, hiltH: -.15, bladeYaw: 0, bladePitch: -1.2, bladeRoll: 0, twoHand: 1, thLx: -.3, knL: .6, thRx: .2, knR: .5, lift: 0, wings: 2 }),
+    K(1.2, { chestRx: .5, hiltA: 0, hiltR: .32, hiltH: -.15, bladeYaw: 0, bladePitch: -1.2, twoHand: 1, thLx: -.3, knL: .6, thRx: .2, knR: .5, wings: 2 }),
+  ] },
+  plungeLand: { dur: .55, keys: [
+    K(0, { lift: -.32, chestRx: .7, hiltA: 0, hiltR: .45, hiltH: -.3, bladeYaw: 0, bladePitch: -1.1, bladeRoll: 0, twoHand: 1, thLx: -1.1, knL: 1.4, thRx: .8, knR: 1.2, wings: 1.4 }),
+    K(.25, { lift: -.28, chestRx: .6, thLx: -1, knL: 1.3, thRx: .75, knR: 1.1 }),
+    K(.55, {}),
+  ] },
+  fall: { dur: .8, loop: true, keys: [
+    K(0, { thLx: -.55, knL: .9, thRx: -.15, knR: .7, chestRx: .08, wings: 1.7 }),
+    K(.8, { thLx: -.55, knL: .9, thRx: -.15, knR: .7, chestRx: .08, wings: 1.7 }),
+  ] },
+});
+
 const fill = p => p.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v));
 const LOCO = {
   sword: { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow), guard: fill(P.guard), sprint: fill(P.sprint) },

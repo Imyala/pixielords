@@ -28,7 +28,9 @@ export class CameraRig {
   update(dt, player, lock, look) {
     this.t += dt;
     const p = player.pos;
-    this.pivot.set(p.x, 1.55, p.z);
+    // Rise with the knight in the air, a little behind so launches feel tall.
+    this.pivotY = dt ? damp(this.pivotY ?? 1.55, 1.55 + p.y * .75, 9, dt) : 1.55 + p.y * .75;
+    this.pivot.set(p.x, this.pivotY, p.z);
     const bigLock = lock && lock.height > 3;
     this.dist = damp(this.dist, bigLock ? 6 : 4.7, 2, dt);
     if (lock) {
@@ -37,7 +39,7 @@ export class CameraRig {
       const big = lock.height > 3;
       const want = clamp((big ? .38 : .26) - (d < 2.5 ? .05 : 0) + (big && d < 6 ? .12 : 0), .1, .6);
       this.pitch = damp(this.pitch, want, 4, dt);
-      this.look.set(lp.x, Math.min(lock.height * .55, 3), lp.z).lerp(this.pivot, big ? .5 : .6);
+      this.look.set(lp.x, lp.y + Math.min(lock.height * .55, 3), lp.z).lerp(this.pivot, big ? .5 : .6);
     } else {
       this.yaw -= look.x; this.pitch = clamp(this.pitch + look.y, -.32, 1.15);
       if (this.recenterT > 0) { this.recenterT -= dt; this.yaw = dampAngle(this.yaw, this.recenterYaw, 14, dt); this.pitch = damp(this.pitch, .32, 10, dt); }

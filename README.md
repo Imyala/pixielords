@@ -25,6 +25,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
 | Switch weapon (as a strike ends: Switch Strike) | V | D-pad left |
 | Charge a heavy (Moonglaive) | Hold right click | Hold RT |
+| Launcher | Hold Shift + left click | Hold LB + RB |
+| In the air: strike · Starfall · air dash | Left click · right click · Space | RB · RT · B |
 | Thorn Counter | F | LT |
 | Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick / D-pad right |
 | Drink Moondew | R | X |
@@ -51,6 +53,18 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   for a moment while you don't. Strike straight after for a **Moonstep Riposte**: you blink behind the
   attacker and cut.
 - **Hex orbs** can be cut out of the air with any strike. Deflect one and it flies back at its caster.
+- **Launcher and air combos.** Hold guard and strike: a rising cut throws ordinary foes skyward and the knight
+  leaps after them. Up to four air strikes keep you both aloft (each blow draws the foe to your height); a
+  heavy in the air is the **Starfall**, a plunge that drives everything below into the ground. Floored foes
+  take a fifth more damage while they get up. Heavy foes (brutes, packleaders) stand firm until their stamina
+  is below 40% or broken; gatekeepers and warlords can't be launched at all, but you can still leap and
+  strike them. You get one air dash per jump. High in the air, most blows pass beneath you, but big foes can
+  still reach up.
+- **Charms** bend the rules: sixteen of them, hidden in the missions or won from every gatekeeper and
+  warlord. Wear up to three and change them at any Moonwell. Among them: Dewdrop (Moondew heals more),
+  Thornheart (Deflects restore more), Moonpetal (a wider Moonstep window), Emberwing (fire hurts less),
+  Skyward Feather (cheaper launchers, harder air strikes) and the trophies, like the Gatewarden's Seal
+  (+10% health) and the Skullsplitter's Bead (heavies charge twice as fast).
 - **Dread strikes** glow red and can't be guarded. Dash through them or **Thorn Counter** them into a
   Flashcut.
 - Drain a foe's stamina to **Shatter** it, then strike to **Execute**. Catch sleeping foes from behind for
@@ -96,7 +110,8 @@ items, gate, seal and exit, plus a `build()` that dresses the world with the eng
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, the boss fight, saving
-src/player.js     the knight's controller: weapons and stances, chains, charge, Switch Strike, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift
+src/player.js     the knight's controller: weapons and stances, chains, charge, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
+src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and both weapons, built from primitives, with pose blending and two-bone IK for the arms
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings), AI, procedural animation on the five-bone rigs, projectiles
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails), Moonwells, gates, Briar Seal, wall cutout shader
@@ -105,7 +120,7 @@ src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
-src/menu.js       title, pause, Moonwell, mission map, controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, mission map, controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js
