@@ -30,6 +30,7 @@ function migrate(d) {
   // Weapons came later: a save that has cleared the Grubhold already carries the Moonglaive.
   d.arms ||= ['sword']; d.wield ||= 'sword'; d.charms ||= []; d.equipped ||= [];
   if (d.missions?.keep?.cleared && !d.arms.includes('glaive')) d.arms.push('glaive');
+  if (d.missions?.rotwood?.cleared && !d.arms.includes('fangs')) d.arms.push('fangs');
   return d;
 }
 

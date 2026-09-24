@@ -111,9 +111,10 @@ export class HUD {
 
   weapon(id) {
     const el = this.el.querySelector('.weapon'), p = this.G.player;
-    el.querySelector('b').textContent = { sword: 'Fae Sword', glaive: 'Moonglaive' }[id] || id;
+    el.querySelector('b').textContent = { sword: 'Fae Sword', glaive: 'Moonglaive', fangs: 'Twin Fangs' }[id] || id;
     el.dataset.w = id;
-    el.querySelector('small').textContent = p.arms.length > 1 ? `${this.key('swap')} ⇄` : '';
+    const fz = id === 'fangs' && p.frenzy.n ? `  ·  Frenzy ${p.frenzy.n}` : '';
+    el.querySelector('small').textContent = (p.arms.length > 1 ? `${this.key('swap')} ⇄` : '') + fz;
   }
 
   floatText(e, text, cls) {
@@ -188,7 +189,7 @@ export class HUD {
     q.flaskKey.textContent = this.key('heal');
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
-    const wk = `${p.weapon}|${p.arms.length}|${this.key('swap')}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
+    const wk = `${p.weapon}|${p.arms.length}|${this.key('swap')}|${p.frenzy.n}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
     const ck = [...(p.charms || [])].join(',');
     if (this.charmsShown !== ck) {
       this.charmsShown = ck;

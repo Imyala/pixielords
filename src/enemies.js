@@ -250,6 +250,11 @@ Object.assign(TYPES, {
 
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 
+// Pose channels, all driven by springs. Whole body: pitch/twist/roll/sq/hop/fwd/spin on the lean group.
+// Bones: chest (cPi, cTw), head (hPi, hYaw: where it looks, relative to the body), shoulders (aL/aR forward,
+// aLz/aRz out), elbows (eL/eR, negative bends), stance legs (sL/sR thigh, kL/kR knee bend).
+const POSE0 = { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0, cPi: 0, cTw: 0, hPi: 0, hYaw: 0, eL: 0, eR: 0, sL: 0, sR: 0, kL: 0, kR: 0 };
+
 // ---------------------------------------------------------------- projectiles & hazards
 const _v = new THREE.Vector3();
 
@@ -471,7 +476,8 @@ export class Enemy {
     this.lean.add(model); this.outer.add(this.lean);
     G.scene.add(this.outer);
     this.pos = this.outer.position;
-    this.cur = { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0 };
+    this.bones = model.userData.bones || {}; this.fore = model.userData.fore || []; this.shins = model.userData.shins || [];
+    this.cur = { ...POSE0 };
     this.animVel = Object.fromEntries(Object.keys(this.cur).map(k => [k, 0]));
     this.tg = { ...this.cur };
     this.want = new THREE.Vector3(); this.impulse = new THREE.Vector3(); this.vel = new THREE.Vector3();
@@ -499,7 +505,7 @@ export class Enemy {
     this.patrolI = 0; this.think = rand(0, .3); this.vel.set(0, 0, 0); this.impulse.set(0, 0, 0); this.want.set(0, 0, 0);
     this.yawVel = 0; this.gait = 0; this.speedNow = 0; this.turnRate = 6; this.faceYaw = null; this.planT = 0; this.detour = 0;
     for (const k in this.animVel) this.animVel[k] = 0;
-    Object.assign(this.cur, { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0 });
+    Object.assign(this.cur, POSE0);
     this.phase2 = false; this.usedOnce = {};
     this.dmgShown = 0; this.dmgShowT = 0; this.barT = 0;
     this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0;
@@ -977,13 +983,13 @@ export class Enemy {
       this.planT = rand(.7, 1.6);
       if (ranged) {
         const [lo, hi] = T.prefer;
-        this.plan = d < lo ? 'back' : d > hi ? 'close' : Math.random() < .7 ? 'strafe' : 'hold';
+        this.plan = d < lo ? 'back' : d > hi ? 'close' : Math.random() < .7 ? 'strafe' : 'shuffle';
       } else {
         const want = Math.min(...T.attacks.map(x => x.range)) * .85;
         const crowded = (G.attackTokens || 0) >= 2 && !this.boss && !this.elite;
         if (d > want + 1) this.plan = 'close';
         else if (crowded) this.plan = d < 3.4 ? 'back' : 'strafe';
-        else this.plan = Math.random() < .2 ? 'back' : Math.random() < .75 ? 'strafe' : 'hold';
+        else this.plan = Math.random() < .2 ? 'back' : Math.random() < .7 ? 'strafe' : 'shuffle';
         if (this.plan === 'close') this.planT = rand(.35, .7);
       }
       if (this.plan === 'strafe' && Math.random() < .45) this.strafeDir = -(this.strafeDir || 1);
@@ -1001,7 +1007,11 @@ export class Enemy {
       // Circle, while gently holding the preferred distance.
       const hold = ranged ? (T.prefer[0] + T.prefer[1]) / 2 : want;
       const radial = clamp((d - hold) * .35, -.5, .5);
-      this.steer(toP + this.strafeDir * (Math.PI / 2 - radial), T.walk * .9);
+      this.steer(toP + this.strafeDir * (Math.PI / 2 - radial), T.walk * 1.15);
+    } else if (this.plan === 'shuffle') {
+      // Never stock-still: feint in and ease back out, weight on the balls of the feet.
+      const ph = Math.sin(this.st * 3.2 + this.pos.x);
+      this.steer(ph > 0 ? toP : toP + Math.PI, T.walk * (.55 + .35 * Math.abs(ph)));
     }
 
     // Evasive types hop aside when the player swings at them.
@@ -1069,32 +1079,43 @@ export class Enemy {
     const tg = this.tg;
     for (const key in tg) tg[key] = key === 'sq' ? 1 : 0;
     const spd = this.speedNow || 0;
-    let omega = 9, walk = Math.min(1.2, spd / 3.2);
+    let omega = 9, walk = Math.min(1.25, spd / 2.4);
     const E = x => smooth(clamp(x, 0, 1));
     switch (this.state) {
       case 'sleep':
-        tg.pitch = .42; tg.sq = .8; tg.aL = .25; tg.aR = .25; tg.roll = Math.sin(t * 1.3) * .03; omega = 4;
+        tg.pitch = .3; tg.sq = .86; tg.aL = .25; tg.aR = .25; tg.roll = Math.sin(t * 1.3) * .03; omega = 4;
+        tg.cPi = .35 + Math.sin(t * 1.1 + this.pos.x) * .05; tg.hPi = .5; tg.eL = tg.eR = -.5; tg.kL = tg.kR = .7;
         if (Math.random() < dt * .8) this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0x9fb8ff, 1, .1, .4, .06, 1.5);
         break;
       case 'idle':
       case 'return':
       case 'patrol':
-        tg.pitch = .04 + Math.sin(t * 1.7 + this.pos.x) * .02; tg.twist = Math.sin(t * .6 + this.pos.z) * .06; tg.sq = 1 + Math.sin(t * 2.1 + this.pos.x) * .012; break;
+        tg.pitch = .04 + Math.sin(t * 1.7 + this.pos.x) * .02; tg.twist = Math.sin(t * .6 + this.pos.z) * .06; tg.sq = 1 + Math.sin(t * 2.1 + this.pos.x) * .012;
+        // Breathing, a slouch, and a slow look around.
+        tg.cPi = .06 + Math.sin(t * 2.1 + this.pos.x) * .04; tg.hYaw = Math.sin(t * .45 + this.pos.z) * .7; tg.hPi = Math.sin(t * .3 + this.pos.x) * .12;
+        tg.eL = tg.eR = -.3; tg.aL = -.1; tg.aR = -.1; tg.kL = tg.kR = .08; break;
       case 'engage':
-        tg.pitch = .1; tg.twist = Math.sin(t * .9 + this.pos.z) * .05; tg.aL = -.35; tg.aR = -.25; tg.sq = .97 + Math.sin(t * 3 + this.pos.x) * .012; break;
-      case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; omega = 12; break;
-      case 'intro': tg.pitch = -.4 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -1.4; tg.aLz = .6; tg.aRz = -.6; break;
-      case 'hurt': tg.pitch = -.25; tg.twist = .15; omega = 12; walk = 0; break;
-      case 'broken': tg.pitch = .6 + Math.sin(t * 3) * .05; tg.sq = .84; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0; omega = 7;
+        // Guard up: knees bent, weapon arm raised and cocked, one foot forward, shifting weight.
+        tg.pitch = .08; tg.twist = Math.sin(t * .9 + this.pos.z) * .05 - .12; tg.aL = -.55; tg.aR = -.4; tg.sq = .97 + Math.sin(t * 3 + this.pos.x) * .012;
+        tg.cPi = .14 + Math.sin(t * 3.2 + this.pos.x) * .03; tg.cTw = -.15 + Math.sin(t * 1.3 + this.pos.z) * .1;
+        tg.eL = -1 + Math.sin(t * 2.3 + this.pos.x) * .15; tg.eR = -.85; tg.aLz = -.15; tg.aRz = .15;
+        tg.sL = -.35; tg.sR = .25; tg.kL = .38 + Math.sin(t * 3.2 + this.pos.x) * .06; tg.kR = .45; tg.roll = Math.sin(t * 1.6 + this.pos.z) * .05; break;
+      case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; omega = 12; tg.cPi = -.2; tg.hPi = -.25; tg.eL = tg.eR = -.8; tg.kL = tg.kR = .3; break;
+      case 'intro': tg.pitch = -.4 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -1.6; tg.aLz = .7; tg.aRz = -.7; tg.cPi = -.35; tg.hPi = -.45; tg.eL = tg.eR = -.9; tg.kL = tg.kR = .35; tg.sL = -.3; tg.sR = .3; break;
+      case 'hurt': tg.pitch = -.25; tg.twist = .15; omega = 12; walk = 0; tg.cPi = -.35; tg.cTw = .25; tg.hPi = -.35; tg.aL = .3; tg.aR = -.5; tg.eL = -.2; tg.eR = -.9; tg.kL = tg.kR = .45; tg.sL = .15; tg.sR = -.2; break;
+      case 'broken': tg.pitch = .45 + Math.sin(t * 3) * .05; tg.sq = .88; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0; omega = 7;
+        tg.cPi = .5; tg.hPi = .45 + Math.sin(t * 2.3) * .15; tg.hYaw = Math.sin(t * 1.7) * .4; tg.eL = tg.eR = -.1; tg.kL = tg.kR = .8;
         if (Math.random() < dt * 8) this.G.fx.motes({ x: this.pos.x, y: this.height * .95, z: this.pos.z }, 0xffe070, 1, .3, .2, .1, .6);
         break;
-      case 'grappled': tg.pitch = -.35 - this.grappleK * .4; tg.sq = .95; tg.aL = tg.aR = -.8; omega = 14; walk = 0; break;
-      case 'air': tg.pitch = -.7 + Math.sin(t * 7) * .15; tg.roll = Math.sin(t * 5) * .25; tg.aL = -1.3; tg.aR = -.4; tg.aLz = .7; tg.aRz = -.7; tg.sq = .95; omega = 10; walk = 0; break;
+      case 'grappled': tg.pitch = -.35 - this.grappleK * .4; tg.sq = .95; tg.aL = tg.aR = -.8; omega = 14; walk = 0; tg.cPi = -.4; tg.hPi = -.5; tg.eL = tg.eR = -1.2; tg.kL = tg.kR = .5; break;
+      case 'air': tg.pitch = -.7 + Math.sin(t * 7) * .15; tg.roll = Math.sin(t * 5) * .25; tg.aL = -1.3; tg.aR = -.4; tg.aLz = .7; tg.aRz = -.7; tg.sq = .95; omega = 10; walk = 0;
+        tg.cPi = -.4; tg.hPi = -.3; tg.eL = -.9; tg.eR = -.3; tg.kL = 1.1; tg.kR = .5; tg.sL = -.6; tg.sR = .2; break;
       case 'down': {
         const up = clamp((this.st - (this.downDur - .45)) / .45, 0, 1);
-        tg.pitch = -1.4 * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0; break;
+        tg.pitch = -1.4 * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0;
+        tg.cPi = -.25 * (1 - up) + .3 * up * (1 - up) * 4; tg.hPi = -.4 * (1 - up); tg.kL = .9 * (1 - up) + .6 * up * (1 - up) * 4; tg.kR = .4; tg.eL = tg.eR = -.6; break;
       }
-      case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; break;
+      case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; tg.cPi = .2; tg.hPi = -.3; tg.kL = .7; tg.kR = .3; tg.eL = -.4; break;
       case 'attack': {
         walk *= .3;
         const w = this.phase === 'windup' ? E(this.pt / this.stepDur.windup) : 1;
@@ -1104,46 +1125,64 @@ export class Enemy {
         const mixS = (wind, act) => 1 + mix(wind - 1, act - 1);   // squash is neutral at 1
         omega = this.phase === 'active' ? 26 : this.phase === 'windup' ? 11 : 8;
         switch (s.anim) {
+          // Every swing coils the torso and cocks the elbows in the windup, then uncoils and extends through the blow.
           case 'swing':
-            tg.twist = mix(-.85, .7); tg.pitch = mix(-.2, .32); tg.aL = mix(-1.5, -.9); tg.aR = mix(-.9, -.4); tg.aLz = mix(-.5, .3); tg.sq = mixS(1.03, .96); break;
+            tg.twist = mix(-.6, .5); tg.pitch = mix(-.15, .3); tg.aL = mix(-1.7, -1.1); tg.aR = mix(-.8, -.5); tg.aLz = mix(-.6, .4); tg.sq = mixS(1.03, .96);
+            tg.cTw = mix(-.8, .75); tg.cPi = mix(-.1, .25); tg.eL = mix(-1.5, -.1); tg.eR = mix(-1.1, -.5); tg.sL = mix(-.25, -.55); tg.sR = mix(.3, .35); tg.kL = mix(.35, .5); tg.kR = mix(.3, .4); break;
           case 'backswing':
-            tg.twist = mix(.85, -.7); tg.pitch = mix(-.15, .3); tg.aL = mix(-1.4, -1); tg.aR = mix(-1.1, -.5); tg.aLz = mix(.4, -.3); tg.sq = mixS(1.03, .96); break;
+            tg.twist = mix(.6, -.5); tg.pitch = mix(-.1, .28); tg.aL = mix(-1.5, -1.1); tg.aR = mix(-1.2, -.6); tg.aLz = mix(.5, -.4); tg.sq = mixS(1.03, .96);
+            tg.cTw = mix(.8, -.75); tg.cPi = mix(-.05, .25); tg.eL = mix(-1.4, -.15); tg.eR = mix(-1.2, -.4); tg.sL = mix(-.4, -.5); tg.sR = mix(.35, .3); tg.kL = mix(.4, .5); tg.kR = .35; break;
           case 'overhead':
-            tg.pitch = mix(-.55, .6); tg.aL = tg.aR = mix(-1.55, -.45); tg.sq = mixS(1.08, .86); break;
+            tg.pitch = mix(-.4, .5); tg.aL = tg.aR = mix(-2.1, -.7); tg.sq = mixS(1.08, .86);
+            tg.cPi = mix(-.45, .6); tg.hPi = mix(-.3, .2); tg.eL = tg.eR = mix(-1.7, -.05); tg.sL = mix(-.2, -.5); tg.sR = mix(.25, .35); tg.kL = mix(.25, .7); tg.kR = mix(.25, .6); break;
           case 'thrust':
-            tg.pitch = mix(-.12, .35); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.5, -1.6); tg.aR = mix(.2, -1.2); tg.twist = mix(-.3, .1); tg.sq = mixS(.96, 1.03); break;
+            tg.pitch = mix(-.1, .3); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.2, -1.6); tg.aR = mix(.1, -1.2); tg.twist = mix(-.3, .1); tg.sq = mixS(.96, 1.03);
+            tg.cTw = mix(-.55, .25); tg.cPi = mix(-.05, .3); tg.eL = mix(-1.6, 0); tg.eR = mix(-1.3, -.1); tg.sL = mix(-.15, -.8); tg.sR = mix(.2, .5); tg.kL = mix(.45, .35); tg.kR = mix(.3, .15); break;
           case 'spin':
             tg.twist = mix(.9, .9); tg.sq = mixS(.9, .95); tg.aL = tg.aR = mix(-1.2, -1.5); tg.aLz = mix(-.8, -1.2); tg.aRz = mix(.8, 1.2);
+            tg.cTw = mix(.4, .2); tg.eL = tg.eR = mix(-.8, -.1); tg.kL = tg.kR = mix(.5, .4); tg.sL = -.2; tg.sR = .2;
             tg.spin = this.phase === 'active' ? -E(this.pt / this.stepDur.active) * TAU : 0; break;
           case 'leap':
-            tg.sq = this.phase === 'windup' ? lerp(1, .72, w) : this.phase === 'active' ? 1.08 : lerp(.8, 1, r);
-            tg.pitch = this.phase === 'windup' ? .35 * w : this.phase === 'active' ? -.2 + a * .8 : .6 * (1 - r);
-            tg.aL = tg.aR = this.phase === 'active' ? lerp(-1.5, -.4, a) : mix(.4, -.4); break;
+            tg.sq = this.phase === 'windup' ? lerp(1, .82, w) : this.phase === 'active' ? 1.04 : lerp(.88, 1, r);
+            tg.pitch = this.phase === 'windup' ? .3 * w : this.phase === 'active' ? -.2 + a * .8 : .5 * (1 - r);
+            tg.aL = tg.aR = this.phase === 'active' ? lerp(-2, -.5, a) : mix(.4, -.4);
+            tg.eL = tg.eR = this.phase === 'active' ? lerp(-1.5, -.1, a) : -.6; tg.cPi = this.phase === 'active' ? lerp(-.4, .5, a) : .3 * w;
+            tg.kL = tg.kR = this.phase === 'windup' ? 1.1 * w : this.phase === 'active' ? lerp(1.2, .3, a) : .8 * (1 - r); break;
           case 'shoot':
-            tg.twist = mix(.35, .3); tg.aL = mix(-1.5, -1.4); tg.aR = mix(-1.3, -.9); tg.pitch = mix(-.05, .05); break;
+            tg.twist = mix(.35, .3); tg.aL = mix(-1.5, -1.4); tg.aR = mix(-1.3, -.9); tg.pitch = mix(-.05, .05);
+            tg.cTw = mix(.5, .45); tg.eL = mix(-.2, -.05); tg.eR = mix(-1.8, -1.9); tg.sL = -.35; tg.sR = .3; tg.kL = tg.kR = .3; break;
           case 'throw':
-            tg.aL = mix(-1.6, -.5); tg.pitch = mix(-.3, .3); tg.twist = mix(-.6, .45); break;
+            tg.aL = mix(-2, -.5); tg.pitch = mix(-.3, .3); tg.twist = mix(-.5, .4);
+            tg.cTw = mix(-.8, .6); tg.cPi = mix(-.3, .35); tg.eL = mix(-1.8, -.05); tg.sL = mix(-.1, -.6); tg.sR = mix(.3, .4); tg.kL = mix(.3, .5); tg.kR = .35; break;
           case 'cast':
-            tg.aL = tg.aR = mix(-1.55, -1.1); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
+            tg.aL = tg.aR = mix(-1.7, -1.2); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
+            tg.cPi = mix(-.35, .3); tg.hPi = mix(-.35, .1); tg.eL = tg.eR = mix(-1.2, -.2); tg.kL = tg.kR = mix(.2, .45); tg.sL = -.2; tg.sR = .2;
             if (this.phase === 'windup') this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0xb060ff, 1, .4, .6, .12, .6);
             break;
           case 'roar':
-            tg.pitch = -.45 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.4; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08; break;
+            tg.pitch = -.35 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.6; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08;
+            tg.cPi = -.5; tg.hPi = -.55; tg.eL = tg.eR = -1.1; tg.kL = tg.kR = .45; tg.sL = -.3; tg.sR = .3; break;
           case 'burrow':
-            tg.pitch = this.phase === 'recover' ? -.4 * (1 - r) : .6 * w; tg.aL = tg.aR = this.phase === 'recover' ? -1.4 * (1 - r) : -1.2 * w; tg.sq = this.phase === 'recover' ? 1 + .15 * (1 - r) : 1 - .2 * w; break;
+            tg.pitch = this.phase === 'recover' ? -.4 * (1 - r) : .6 * w; tg.aL = tg.aR = this.phase === 'recover' ? -1.4 * (1 - r) : -1.2 * w; tg.sq = this.phase === 'recover' ? 1 + .15 * (1 - r) : 1 - .2 * w;
+            tg.kL = tg.kR = this.phase === 'recover' ? .6 * (1 - r) : 1.1 * w; tg.cPi = this.phase === 'recover' ? -.3 * (1 - r) : .5 * w; break;
         }
         break;
       }
     }
+    // The head finds the knight whenever the foe is fighting.
+    if (this.aware && this.state !== 'dead' && this.state !== 'down') {
+      const p = this.G.player;
+      tg.hYaw = clamp(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z)), -1.1, 1.1);
+      tg.hPi += clamp((this.height * .8 - 1.2 - p.pos.y) / Math.max(1, this.distToPlayer()), -.5, .5);
+    }
     // Locomotion: a gait driven by distance travelled, so feet don't skate; lean into speed and turns.
     this.gait += spd * dt / (.85 * this.size) * Math.PI;
     const g = this.gait;
-    if (walk > .02 || Math.abs(this.yawVel) > .8) {
-      const wk = Math.max(walk, Math.min(.35, Math.abs(this.yawVel) * .15));
-      tg.pitch += .09 * wk;
-      tg.hop += Math.abs(Math.sin(g)) * .06 * wk * this.size;
-      if (this.state !== 'attack') { tg.aL += Math.sin(g) * .5 * wk; tg.aR -= Math.sin(g) * .5 * wk; }
-      tg.roll += Math.sin(g) * .04 * wk;
+    const wk = walk > .02 || Math.abs(this.yawVel) > .8 ? Math.max(walk, Math.min(.35, Math.abs(this.yawVel) * .15)) : 0;
+    if (wk) {
+      tg.pitch += .07 * wk;
+      tg.hop += Math.abs(Math.sin(g)) * .07 * wk * this.size;
+      tg.roll += Math.sin(g) * .05 * wk;
     }
     tg.roll += clamp(-this.yawVel * spd * .02, -.2, .2);
 
@@ -1167,14 +1206,42 @@ export class Enemy {
     }
 
     this.outer.rotation.y = this.yaw;
-    this.lean.rotation.set(c.pitch, c.twist + c.spin, c.roll);
-    this.lean.position.y = .45 * this.height + c.hop;
+    // The hips take part of every twist and the chest the rest, so blows wind up through the body.
+    const bodyTw = c.twist * .45 + c.spin, chestTw = c.twist * .7 + c.cTw;
+    // Walking: the chest counter-rotates against the stride and the arms swing opposite the legs.
+    const run = clamp((spd - 2.6) / 2.4, 0, 1), sg = Math.sin(g), attacking = this.state === 'attack';
+    // Local velocity: strafing steps sideways instead of marching.
+    const fwdV = Math.cos(this.yaw) * this.vel.z + Math.sin(this.yaw) * this.vel.x, sideV = Math.cos(this.yaw) * this.vel.x - Math.sin(this.yaw) * this.vel.z;
+    const vv = Math.max(.3, Math.hypot(fwdV, sideV)), fk = wk * (fwdV / vv >= -.2 ? 1 : -1) * Math.max(.35, Math.abs(fwdV) / vv), sk = wk * clamp(sideV / vv, -1, 1);
+    const crouch = (Math.max(0, c.kL) + Math.max(0, c.kR)) * .5;
+    this.lean.rotation.set(c.pitch + run * .12 * wk, bodyTw, c.roll);
+    this.lean.position.y = .45 * this.height + c.hop - crouch * this.height * .06;
     this.lean.position.z = c.fwd;
     const sq = clamp(c.sq, .6, 1.3);
     this.model.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
-    const [aL, aR] = this.arms, [lL, lR] = this.legs;
-    if (aL) { aL.rotation.set(clamp(c.aL, -1.7, .8), 0, clamp(c.aLz, -1, 1)); aR.rotation.set(clamp(c.aR, -1.7, .8), 0, clamp(c.aRz, -1, 1)); }   // the region rig tears past ~100°
-    if (lL) { const sw = Math.sin(g) * .6 * Math.min(1, walk + Math.min(.35, Math.abs(this.yawVel) * .15)); lL.rotation.x = sw; lR.rotation.x = -sw; }
+    const B = this.bones;
+    if (B.chest) B.chest.rotation.set(c.cPi + run * .1 * wk, chestTw + sg * .16 * wk * (1 - run * .3), -c.roll * .4 + sk * sg * .06);
+    if (B.head) B.head.rotation.set(clamp(c.hPi - c.pitch * .5 - c.cPi * .6, -.8, .8), clamp(c.hYaw - bodyTw - chestTw - sg * .16 * wk, -1.2, 1.2), 0);
+    const [aL, aR] = this.arms, [lL, lR] = this.legs, [fL, fR] = this.fore, [kL, kR] = this.shins;
+    const armSw = attacking ? 0 : sg * (.45 + run * .35) * fk;
+    if (aL) {
+      aL.rotation.set(clamp(c.aL + armSw, -2.3, 1), 0, clamp(c.aLz - Math.abs(sk) * .1, -1.2, 1.2));
+      aR.rotation.set(clamp(c.aR - armSw, -2.3, 1), 0, clamp(c.aRz + Math.abs(sk) * .1, -1.2, 1.2));
+    }
+    if (fL) {
+      const bend = attacking ? 0 : -(.15 + run * .5) * wk;   // runners pump bent arms
+      fL.rotation.x = clamp(c.eL + bend - Math.max(0, sg) * .25 * wk, -2.3, .05);
+      fR.rotation.x = clamp(c.eR + bend - Math.max(0, -sg) * .25 * wk, -2.3, .05);
+    }
+    if (lL) {
+      // Thighs swing with the stride (forward is negative); knees fold as each foot comes through.
+      const A = (.5 + run * .3), K = .75 + run * .65;
+      const kneeL = Math.max(0, c.kL) + Math.max(0, Math.sin(g + 1.3)) * K * wk + .06 * wk;
+      const kneeR = Math.max(0, c.kR) + Math.max(0, Math.sin(g + 1.3 + Math.PI)) * K * wk + .06 * wk;
+      lL.rotation.set(c.sL - sg * A * fk - kneeL * .45, 0, sk * sg * .3 - .03);
+      lR.rotation.set(c.sR + sg * A * fk - kneeR * .45, 0, -sk * sg * .3 + .03);
+      if (kL) { kL.rotation.x = kneeL; kR.rotation.x = kneeR; }
+    }
 
     // Hit flash and dread glow.
     const burst = this.burstGlow > 0 ? .7 + Math.sin(t * 30) * .3 : 0;

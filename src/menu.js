@@ -156,7 +156,7 @@ export class Menu {
           <p><b>Stances</b>: High hits hardest and slams from the air, Mid is balanced, Low is quick and ends in a dashing thrust.</p>
           <p><b>Deflect</b> by tapping guard just as a blow lands. Strike straight after for a <b>Flashcut</b>, one cut that fells ordinary foes and chains from one to the next.</p>
           <p><b>Moonstep</b>: dash at the last instant and the world slows around you. Strike straight after for a <b>Moonstep Riposte</b>: you blink behind the attacker and cut.</p>
-          <p><b>Weapons</b>: switch as a strike ends for a <b>Switch Strike</b>, a wheeling cut with the weapon you draw. The Moonglaive reaches further and hits posture harder; hold a heavy to charge it.</p>
+          <p><b>Weapons</b>: switch as a strike ends for a <b>Switch Strike</b>, a wheeling cut with the weapon you draw. The Moonglaive reaches further and hits posture harder; hold a heavy to charge it. The Twin Fangs are quickest: flurries hit again and again, and every hit builds <b>Frenzy</b> (faster, harder strikes while it lasts).</p>
           <p>Strikes cut hex orbs out of the air. Deflect one and it flies back at its caster.</p>
           <p><b>Launcher</b>: hold guard and strike to throw a foe skyward and leap after it. Up to four air strikes keep you both aloft; a heavy in the air is the <b>Starfall</b>, a plunge that drives everything below into the ground. Floored foes take more damage. Gatekeepers and warlords can't be launched, but you can still leap and strike them.</p>
           <p><b>Charms</b> bend the rules a little. Wear up to three; change them at any Moonwell.</p>

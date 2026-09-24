@@ -21,7 +21,12 @@ export const STANCES = {
 export const WEAPONS = {
   sword: { id: 'sword', name: 'Fae Sword', speed: 1, cost: 1, chain: 'light1', heavy: { high: 'skyfall', mid: 'heavy', low: 'needle' }, run: 'run', dash: 'dashSlash', switch: 'swSword', color: 0x9ff3ff, airReach: 1, airDmg: 1 },
   glaive: { id: 'glaive', name: 'Moonglaive', speed: .92, cost: 1.08, chain: 'g1', heavy: { high: 'g_moonfall', mid: 'g_crescent', low: 'g_pierce' }, run: 'gRun', dash: 'gDash', switch: 'swGlaive', color: 0xc9b4ff, airReach: 1.3, airDmg: 1.1 },
+  // Fastest of the three and lightest on stamina; every hit builds Frenzy (below).
+  fangs: { id: 'fangs', name: 'Twin Fangs', speed: 1.16, cost: .8, chain: 'f1', heavy: { high: 'f_xfall', mid: 'f_whirl', low: 'f_viper' }, run: 'fRun', dash: 'fDash', switch: 'swFangs', color: 0xffb4c8, airReach: .95, airDmg: 1.2 },
 };
+// Frenzy (Twin Fangs): each hit within 1.4 s of the last adds a stack, up to six; each stack is 5% faster
+// strikes and 4% more damage.
+const FRENZY = { max: 6, keep: 1.4, speed: .05, dmg: .04 };
 const ORDER = ['low', 'mid', 'high'];
 
 // Times are in animation seconds; the stance speed scales them. hit: active frames. chain: earliest next strike.
@@ -47,6 +52,17 @@ const ATK = {
   gRun: { anim: 'g_thrust', dur: .55, hit: [.16, .28], dmg: 50, ki: 30, poise: 16, cost: 15, reach: 3.4, arc: 50, move: 3.2, chain: .36, next: 'g2', fixedMove: true },
   gDash: { anim: 'g_sweep', dur: .64, hit: [.18, .34], dmg: 50, ki: 30, poise: 16, cost: 13, reach: 3.2, arc: 200, move: 1.6, chain: .36, next: 'g3' },
   swGlaive: { anim: 'g_spin', dur: .8, hit: [.18, .48], dmg: 58, ki: 40, poise: 22, cost: 8, reach: 3.2, arc: 360, move: .8, chain: .56, next: 'g1' },
+  // Twin Fangs: light, quick and many. multi: the hit window re-arms every so often, so one strike hits again.
+  f1: { anim: 'f_slash1', dur: .44, hit: [.1, .2], dmg: 26, ki: 14, poise: 5, cost: 9, reach: 2.2, arc: 150, move: .6, chain: .2, next: 'f2' },
+  f2: { anim: 'f_slash2', dur: .44, hit: [.1, .2], dmg: 26, ki: 14, poise: 5, cost: 9, reach: 2.2, arc: 150, move: .6, chain: .2, next: 'f3' },
+  f3: { anim: 'f_cross', dur: .56, hit: [.14, .28], dmg: 34, ki: 20, poise: 8, cost: 11, reach: 2.3, arc: 120, move: .8, chain: .3, next: 'f4' },
+  f4: { anim: 'f_spin', dur: .8, hit: [.12, .6], dmg: 18, ki: 10, poise: 4, cost: 14, reach: 2.4, arc: 360, move: .6, chain: .62, next: 'f1', multi: .12 },
+  f_whirl: { anim: 'f_whirl', dur: 1.0, hit: [.2, .8], dmg: 20, ki: 12, poise: 6, cost: 22, reach: 2.6, arc: 360, move: 1.8, chain: .84, next: 'f_whirl', heavy: true, multi: .1 },
+  f_xfall: { anim: 'f_xfall', dur: .95, hit: [.5, .6], dmg: 96, ki: 56, poise: 34, cost: 24, reach: 2.4, arc: 110, move: 2.4, chain: .76, next: 'f_xfall', heavy: true, aoe: 1.8, aoeAt: 1.6 },
+  f_viper: { anim: 'f_viper', dur: .8, hit: [.12, .46], dmg: 28, ki: 16, poise: 10, cost: 18, reach: 2.2, arc: 140, move: 6, chain: .6, next: 'f_viper', heavy: true, fixedMove: true, pass: true, multi: .1 },
+  fRun: { anim: 'f_slash1', dur: .44, hit: [.1, .2], dmg: 30, ki: 16, poise: 6, cost: 10, reach: 2.2, arc: 150, move: 3.2, chain: .24, next: 'f2', fixedMove: true },
+  fDash: { anim: 'f_cross', dur: .56, hit: [.12, .28], dmg: 36, ki: 20, poise: 8, cost: 10, reach: 2.3, arc: 130, move: 1.8, chain: .3, next: 'f4' },
+  swFangs: { anim: 'f_spin', dur: .8, hit: [.1, .56], dmg: 22, ki: 14, poise: 5, cost: 6, reach: 2.4, arc: 360, move: .8, chain: .56, next: 'f1', multi: .12 },
 };
 // Air combat, shared by both weapons (the glaive reaches further): the launcher (guard + strike) throws the
 // knight and ordinary foes skyward, up to four air strikes keep them hanging, and a heavy is the Starfall.
@@ -125,6 +141,8 @@ export class Player {
     this.vel = new THREE.Vector3();
     this.radius = .38;
     this.trail = new Trail(G.scene, 0x9ff3ff);
+    this.trail2 = new Trail(G.scene, 0xffb4c8);   // the off-hand fang
+    this.frenzy = { n: 0, t: -9 };
     // A pixie wisp rides at the knight's shoulder and lights the dark around them.
     this.wisp = new THREE.Group();
     this.wispLight = new THREE.PointLight(0xd8ecff, 5, 11, 1.4);
@@ -175,6 +193,7 @@ export class Player {
     this.weapon = id;
     this.k.setWeapon(id, this.arms);
     this.trail.mat.uniforms.uColor.value.setHex(this.shifted ? 0xff6ad5 : this.W.color);
+    this.trail2.mat.uniforms.uColor.value.setHex(this.shifted ? 0xff6ad5 : this.W.color);
     this.G.hud?.weapon?.(id);
   }
 
@@ -414,8 +433,8 @@ export class Player {
 
   startAttack(key) {
     const G = this.G, a = ATK[key], S = this.S;
-    this.atk = a; this.atkKey = key; this.hitSet = new Set();
-    this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1);
+    this.atk = a; this.atkKey = key; this.hitSet = new Set(); this.multiBeat = -1;
+    this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1) * (1 + this.frenzy.n * FRENZY.speed);
     this.setState('attack');
     this.anim.play(a.anim, this.aspeed, .04);
     this.spendKi(a.cost * S.cost * this.W.cost * (a.launch && this.has('skyward') ? .6 : 1));
@@ -698,6 +717,7 @@ export class Player {
     k.mats.visor.emissive.setHex(on ? 0xff6ad5 : 0x7ff0ff);
     k.fuller.visible = on;
     this.trail.mat.uniforms.uColor.value.setHex(on ? 0xff6ad5 : this.W.color);
+    this.trail2.mat.uniforms.uColor.value.setHex(on ? 0xff6ad5 : this.W.color);
   }
 
   // ------------------------------------------------ frame
@@ -791,12 +811,17 @@ export class Player {
         const until = a.fixedMove ? a.hit[1] : a.hit[0] + .04;
         if (t < until) {
           const k = smooth(clamp(t / until, 0, 1)), dist = this.lungeDist * k - this.lunged;
-          const blocker = G.enemies.some(e => e.alive && !e.burrowed && e.distToPlayer() < e.radius + this.radius + .45 && Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z))) < .9);
+          const blocker = !a.pass && G.enemies.some(e => e.alive && !e.burrowed && e.distToPlayer() < e.radius + this.radius + .45 && Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z))) < .9);
           if (!blocker) { this.pos.x += Math.sin(this.yaw) * dist; this.pos.z += Math.cos(this.yaw) * dist; }
           this.lunged += dist;
           lean.x = .12;
         }
         if (!this.swung && t >= a.hit[0] - .05) { this.swung = true; G.audio.sfx(a.heavy ? 'swingHeavy' : 'swing', { pitch: this.stance === 'low' ? 1.2 : this.stance === 'high' ? .85 : 1 }); }
+        if (a.multi && t >= a.hit[0] && t <= a.hit[1]) {
+          // Flurries: the hit set clears on a beat, so each foe can be cut again.
+          const beat = Math.floor((t - a.hit[0]) / a.multi);
+          if (beat !== this.multiBeat) { this.multiBeat = beat; this.hitSet.clear(); }
+        }
         if (t >= a.hit[0] && t <= a.hit[1] + .02) this.detectHits(a);
         if (t >= a.hit[1] && this.pulseAmount) this.openPulse();
         if (t >= a.chain) {
@@ -994,6 +1019,7 @@ export class Player {
     if (this.state !== 'fog') G.world.collide(this.pos, this.radius);
     for (const e of G.enemies) {
       if (!e.alive || e.burrowed || Math.abs(e.pos.y - this.pos.y) > 1.2 || (this.state === 'grapple' && this.grapple.e === e) || (this.state === 'flashcut' && this.fc.e === e)) continue;
+      if (this.state === 'attack' && this.atk.pass && this.st * this.aspeed < this.atk.hit[1]) continue;   // the Viper Dash slips through
       const dx = this.pos.x - e.pos.x, dz = this.pos.z - e.pos.z, d = Math.hypot(dx, dz), m = this.radius + e.radius;
       if (d < m && d > 1e-4) {
         const push = m - d, share = e.boss || e.elite || e.state === 'attack' ? 1 : .6;
@@ -1098,7 +1124,8 @@ export class Player {
     const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.max(.01, Math.hypot(dx, dz));
     const cm = this.chargeMul || 1;
     const charm = (a.heavy && this.has('tusk') ? 1.15 : 1) * (a.air && this.has('skyward') ? 1.25 : 1) * (a.air || a.launch ? this.W.airDmg : 1);
-    const mul = this.dmgMul * S.dmg * cm * charm * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
+    const fz = this.weapon === 'fangs' ? 1 + this.frenzy.n * FRENZY.dmg : 1;
+    const mul = this.dmgMul * S.dmg * cm * charm * fz * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
     if (a.launch && res !== 'kill' && e.launch(a.launch)) G.hud.toast('Launch', 'pulse');
@@ -1108,7 +1135,12 @@ export class Player {
     G.fx.spark(p, dir, a.heavy ? 22 : 12, this.shifted ? 0xff9cf0 : 0xffd080, a.heavy ? 8 : 6);
     G.fx.blood(p, { x: dx / d, z: dz / d }, a.heavy ? 16 : 8, 0x2a0606);
     G.audio.sfx(a.heavy ? 'hitHeavy' : 'hit', { x: e.pos.x, z: e.pos.z });
-    G.hitstop = Math.max(G.hitstop, a.heavy ? .08 : .045);
+    G.hitstop = Math.max(G.hitstop, a.multi ? .02 : a.heavy ? .08 : .045);
+    if (this.weapon === 'fangs') {
+      const f = this.frenzy, before = f.n;
+      f.n = Math.min(FRENZY.max, (G.time - f.t <= FRENZY.keep ? f.n : 0) + 1); f.t = G.time;
+      if (f.n === FRENZY.max && before < FRENZY.max) { G.hud.toast('Frenzy', 'anima'); G.fx.ring(this.pos, 0xffb4c8, 2, .3); }
+    }
     G.cam.shake(a.heavy ? .22 : .08);
     this.gainAnima(a.heavy ? 7 : 4);
   }
@@ -1137,6 +1169,7 @@ export class Player {
       if (this.anima <= 0) this.endShift();
     }
     if (this.state !== 'attack') this.aoeDone = false;
+    if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep) this.frenzy.n = 0;
   }
 
   updateVisuals(dt) {
@@ -1157,8 +1190,9 @@ export class Player {
     if (swinging) {
       k.base.getWorldPosition(_a); k.tip.getWorldPosition(_b);
       this.trail.add(_a, _b, G.time);
+      if (k.tip2) { k.base2.getWorldPosition(_a); k.tip2.getWorldPosition(_b); this.trail2.add(_a, _b, G.time); }
     }
-    this.trail.update(G.time);
+    this.trail.update(G.time); this.trail2.update(G.time);
 
     // The wisp bobs behind the right shoulder, lagging a little.
     const wt = G.time;

@@ -9,6 +9,10 @@
 //   pos:u16x3 · uv:u16x2 · idx:u16x3 · nrm:i8x3 · limb:u8 · limbW:u8   (2-byte arrays first for alignment)
 // h.min / h.scale de-quantise positions into model units: Y up, faces +Z, feet at y = -0.95.
 // Each vertex blends one limb bone (1 armL, 2 armR, 3 legL, 4 legR, 0 none) with the root.
+//
+// PixieLords grows that five-bone rig into eleven at load time (see buildRig): a chest and head over the
+// waist, an elbow in each arm and a knee in each leg, placed and weighted from the vertex layout, so enemies
+// can twist, look, bend and stride instead of swinging rigid limbs.
 import * as THREE from 'three';
 
 export const AUTHOR = 'Imyala';
@@ -42,24 +46,82 @@ function decode(D) {
 
   const pos = new Float32Array(nv * 3);
   for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) pos[i * 3 + k] = h.min[k] + p16[i * 3 + k] * h.scale[k] + (k === 1 ? .95 : 0);   // feet on y = 0
-  const si = new Uint8Array(nv * 4), sw = new Uint8Array(nv * 4);
-  for (let i = 0; i < nv; i++) { si[i * 4] = limb[i]; sw[i * 4] = limbW[i]; sw[i * 4 + 1] = 255 - limbW[i]; }   // one limb bone + the root takes the rest
+  const bones = {};   // absolute pivots, shifted with the mesh so feet sit on y = 0
+  for (const [name, p] of Object.entries(h.bones)) bones[name] = [p[0], p[1] + .95, p[2]];
+  const rig = buildRig(pos, limb, limbW, bones);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(nrm), 3, true));
   geo.setAttribute('uv', new THREE.BufferAttribute(new Uint16Array(uv16), 2, true));
-  geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
-  geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4, true));
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(rig.si, 4));
+  geo.setAttribute('skinWeight', new THREE.BufferAttribute(rig.sw, 4, true));
   geo.setIndex(new THREE.BufferAttribute(new Uint16Array(idx), 1));
   geo.computeBoundingSphere(); geo.computeBoundingBox();
 
   const tex = new THREE.TextureLoader().load(D.tex);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.flipY = true;
 
-  const bones = {};   // pivots, shifted with the mesh so feet sit on y = 0
-  for (const [name, p] of Object.entries(h.bones)) bones[name] = [p[0], p[1] + .95, p[2]];
-  return { geo, tex, bones, id: h.id, author: h.author };
+  return { geo, tex, bones: rig.piv, has: rig.has, id: h.id, author: h.author };
+}
+
+// Bone order in the skeleton. The first five keep the baked limb ids.
+export const BONES = ['root', 'armL', 'armR', 'legL', 'legR', 'chest', 'head', 'foreL', 'foreR', 'shinL', 'shinR'];
+const BI = Object.fromEntries(BONES.map((b, i) => [b, i]));
+const PARENT = { root: null, chest: 'root', head: 'chest', armL: 'chest', armR: 'chest', foreL: 'armL', foreR: 'armR', legL: 'root', legR: 'root', shinL: 'legL', shinR: 'legR' };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// Derive chest, head, elbows and knees from the region rig: pivots from the geometry, weights by position.
+function buildRig(pos, limb, limbW, B) {
+  const nv = limb.length, P = (i, k) => pos[i * 3 + k];
+  const has = { arms: !!(B.armL && B.armR), legs: !!(B.legL && B.legR) };
+  let maxY = 0; for (let i = 0; i < nv; i++) maxY = Math.max(maxY, P(i, 1));
+  const hipY = has.legs ? (B.legL[1] + B.legR[1]) / 2 : maxY * .32;
+  const shY = has.arms ? (B.armL[1] + B.armR[1]) / 2 : hipY + (maxY - hipY) * .5;
+  const torso = Math.max(.15, shY - hipY);
+  const waist = hipY + torso * .22, neck = shY + torso * .06;
+  const piv = { root: [0, 0, 0], chest: [0, waist, 0], head: [0, neck, 0] };
+  for (const n of ['armL', 'armR', 'legL', 'legR']) piv[n] = B[n] || (n.startsWith('arm') ? [n === 'armL' ? -.3 : .3, shY, 0] : [n === 'legL' ? -.15 : .15, hipY, 0]);
+  // Elbows: the ring of arm vertices about half a torso from the shoulder (weapons belong to the forearm).
+  const ua = torso * .55;
+  for (const [arm, fore, id] of [['armL', 'foreL', 1], ['armR', 'foreR', 2]]) {
+    const S = piv[arm]; let n = 0, x = 0, y = 0, z = 0;
+    for (let i = 0; i < nv; i++) {
+      if (limb[i] !== id) continue;
+      const d = Math.hypot(P(i, 0) - S[0], P(i, 1) - S[1], P(i, 2) - S[2]);
+      if (d > ua * .85 && d < ua * 1.15) { n++; x += P(i, 0); y += P(i, 1); z += P(i, 2); }
+    }
+    piv[fore] = n ? [x / n, y / n, z / n] : [S[0], S[1] - ua, S[2]];
+  }
+  // Knees: halfway down each leg.
+  for (const [leg, shin, id] of [['legL', 'shinL', 3], ['legR', 'shinR', 4]]) {
+    const H = piv[leg], ky = H[1] * .5; let n = 0, x = 0, z = 0;
+    for (let i = 0; i < nv; i++) if (limb[i] === id && Math.abs(P(i, 1) - ky) < .05) { n++; x += P(i, 0); z += P(i, 2); }
+    piv[shin] = n ? [x / n, ky, z / n] : [H[0], ky, H[2]];
+  }
+  // Weights: at most four influences per vertex, quantised to sum to 255.
+  const si = new Uint8Array(nv * 4), sw = new Uint8Array(nv * 4), w = [0, 0, 0, 0], ix = [0, 0, 0, 0];
+  for (let i = 0; i < nv; i++) {
+    const L = limb[i], wl = L ? limbW[i] / 255 : 0, y = P(i, 1);
+    const c = sstep(waist - torso * .1, waist + torso * .3, y);
+    if (L === 1 || L === 2) {
+      const S = piv[L === 1 ? 'armL' : 'armR'], d = Math.hypot(P(i, 0) - S[0], y - S[1], P(i, 2) - S[2]);
+      const f = sstep(ua * .8, ua * 1.2, d);
+      ix[0] = L; w[0] = wl * (1 - f); ix[1] = BI[L === 1 ? 'foreL' : 'foreR']; w[1] = wl * f;
+      ix[2] = BI.chest; w[2] = (1 - wl) * c; ix[3] = BI.root; w[3] = (1 - wl) * (1 - c);
+    } else if (L === 3 || L === 4) {
+      const kn = piv[L === 3 ? 'shinL' : 'shinR'], sh = 1 - sstep(kn[1] - .05, kn[1] + .05, y);
+      ix[0] = L; w[0] = wl * (1 - sh); ix[1] = BI[L === 3 ? 'shinL' : 'shinR']; w[1] = wl * sh;
+      ix[2] = BI.root; w[2] = 1 - wl; ix[3] = 0; w[3] = 0;
+    } else {
+      const hd = sstep(neck - torso * .05, neck + torso * .2, y);
+      ix[0] = BI.root; w[0] = 1 - c; ix[1] = BI.chest; w[1] = c * (1 - hd); ix[2] = BI.head; w[2] = c * hd; ix[3] = 0; w[3] = 0;
+    }
+    let tot = 0, big = 0;
+    for (let k = 0; k < 4; k++) { const q = Math.round(w[k] * 255); sw[i * 4 + k] = q; si[i * 4 + k] = ix[k]; tot += q; if (w[k] > w[big]) big = k; }
+    sw[i * 4 + big] += 255 - tot;
+  }
+  return { si, sw, piv, has };
 }
 
 // Fetch + decode once per id. Resolves to {geo, tex, bones}.
@@ -88,12 +150,19 @@ export async function createModel(id, opts = {}) {
   skin.scale.setScalar(k); skin.castShadow = true; skin.receiveShadow = true; skin.frustumCulled = false;
   grp.add(skin); grp.userData.mesh = skin;
 
-  const B = M.bones;
-  const mk = (name, parent) => { const b = new THREE.Bone(); b.name = name; const p = B[name] || [0, 0, 0]; b.position.set(p[0], p[1], p[2]); parent.add(b); return b; };
-  const root = mk('root', skin), aL = mk('armL', root), aR = mk('armR', root), lL = mk('legL', root), lR = mk('legR', root);   // order matches the baked limb ids
-  skin.bind(new THREE.Skeleton([root, aL, aR, lL, lR]));
-  if (B.armL && B.armR) grp.userData.arms.push(aL, aR);   // two-handed bows / planted spears have no arm swing
-  if (B.legL && B.legR) grp.userData.legs.push(lL, lR);   // floor-length robes have no leg swing
+  // Bones sit at their pivots, each positioned relative to its parent.
+  const B = M.bones, bone = {};
+  for (const name of ['root', 'chest', 'head', 'armL', 'armR', 'foreL', 'foreR', 'legL', 'legR', 'shinL', 'shinR']) {   // parents first
+    const b = new THREE.Bone(); b.name = name; const p = B[name], par = PARENT[name] && B[PARENT[name]];
+    b.position.set(p[0] - (par ? par[0] : 0), p[1] - (par ? par[1] : 0), p[2] - (par ? par[2] : 0));
+    (PARENT[name] ? bone[PARENT[name]] : skin).add(b); bone[name] = b;
+  }
+  skin.bind(new THREE.Skeleton(BONES.map(n => bone[n])));
+  grp.userData.bones = bone;
+  if (M.has.arms) grp.userData.arms.push(bone.armL, bone.armR);   // two-handed bows / planted spears have no arm swing
+  if (M.has.legs) grp.userData.legs.push(bone.legL, bone.legR);   // floor-length robes have no leg swing
+  grp.userData.fore = M.has.arms ? [bone.foreL, bone.foreR] : [];
+  grp.userData.shins = M.has.legs ? [bone.shinL, bone.shinR] : [];
   return grp;
 }
 

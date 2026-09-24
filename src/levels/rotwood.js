@@ -101,6 +101,8 @@ export default {
     { id: 'glimmer2', x: 12.5, z: 74.5, kind: 'glimmer', amount: 900, label: 'Glimmer Shard', desc: '+900 Glimmer' },
     { id: 'glimmer3', x: 17, z: 110, kind: 'glimmer', amount: 1200, label: 'Glimmer Shard', desc: '+1200 Glimmer' },
     { id: 'c-quickstep', x: 8.5, z: 39, kind: 'charm', charm: 'quickstep', label: 'Charm' },
+    { id: 'fangs', x: -5.5, z: 69.5, kind: 'weapon', weapon: 'fangs', label: 'Twin Fangs', desc: 'paired moon-steel blades',
+      tip: 'The Twin Fangs are the quickest of your arms: light cuts, flurries that hit again and again, and a Viper Dash straight through a foe.\nEvery hit builds Frenzy (up to six), and each stack makes you faster and deadlier. Keep cutting to keep it.' },
     { id: 'c-emberwing', x: -4, z: 87, kind: 'charm', charm: 'emberwing', label: 'Charm' },
     { id: 'c-skyward', x: -11, z: 97.5, kind: 'charm', charm: 'skyward', label: 'Charm' },
     { id: 'c-glimmerseed', x: -17.5, z: 121, kind: 'charm', charm: 'glimmerseed', label: 'Charm' },
