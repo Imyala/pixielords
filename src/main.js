@@ -188,7 +188,10 @@ function startRun() {
   G.input.wantLock = true; G.input.requestLock();
 }
 
-G.newGame = () => { G.save.reset(); G.save.write(); startRun(); };
+G.newGame = () => {
+  G.save.reset(); G.save.write(); startRun();
+  G.after(1.2, () => G.hud.big('The warren gnaws at the roots of the fae realm.\nClimb the keep. Fell its lord.', 'intro', 5.5));
+};
 G.continueGame = () => startRun();
 G.newGamePlus = () => {
   const d = G.save.data;
@@ -429,7 +432,7 @@ function frame(fixed, draw = true) {
 
   // Menus eat input first.
   const menuWasOpen = G.menu.open;
-  if (menuWasOpen) G.menu.nav(inp);
+  if (menuWasOpen) { G.menu.nav(inp); inp.pressed.clear(); }   // a button that closes a menu shouldn't also act in game
 
   if (G.state === 'play') {
     if (!menuWasOpen && G.player.state !== 'rest') {
