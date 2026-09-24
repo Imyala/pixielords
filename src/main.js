@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
-import { World, SHRINES, SPAWNS, CUT } from './world.js';
+import { World, CUT } from './world.js';
+import { LEVELS, ORDER } from './levels/index.js';
 import { Player } from './player.js';
 import { buildKnight, KnightAnimator } from './knight.js';
 import { Enemy, Projectiles } from './enemies.js';
@@ -16,7 +17,7 @@ import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { clamp, damp, rand } from './util.js';
 
-const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], controlsOn: false, attackTokens: 0, shrines: SHRINES, state: 'boot', ready: false, ngMul: 1 };
+const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -79,7 +80,8 @@ G.save = new Save();
 G.input = new Input(canvas);
 G.audio = new Audio();
 G.fx = new FX(scene);
-G.world = new World(G);
+G.level = LEVELS[G.save.data.mission] || LEVELS.keep;
+G.world = new World(G, G.level);
 G.cam = new CameraRig(camera, G.world);
 G.hud = new HUD(G);
 G.menu = new Menu(G);
@@ -120,43 +122,72 @@ const echo = buildKnight(), echoAnim = new KnightAnimator(echo);
   grave.visible = false; scene.add(grave);
 }
 
-const FOG = { grove: .028, yard: .024, halls: .03, throne: .014 };
 
 // ---------------------------------------------------------------- loading
-const ADDS = [
-  { id: 'add1', type: 'ratman-scout', x: -9, z: 146, yaw: Math.PI, add: true },
-  { id: 'add2', type: 'ratman-scout', x: 9, z: 146, yaw: Math.PI, add: true },
-];
+// The level look: fog, sky tint and moonlight.
+function applyLevelLook() {
+  const L = G.level, lt = L.light || {};
+  scene.fog.color.setHex(L.fog.color); scene.background.setHex(L.fog.color); scene.fog.density = L.fog.base;
+  hemi.color.setHex(lt.sky ?? 0x7d8fc4); hemi.groundColor.setHex(lt.ground ?? 0x2a2016); hemi.intensity = lt.hemi ?? 1.35;
+  moon.color.setHex(lt.moonColor ?? 0xb4c4ff); moon.intensity = lt.moon ?? 1.9;
+}
 
-async function load() {
-  const types = [...new Set([...SPAWNS, ...ADDS].map(s => s.type))];
+async function loadEnemies() {
+  const L = G.level, all = [...L.spawns, ...(L.adds || [])];
+  const types = [...new Set(all.map(s => Enemy.modelFor(s.type)))];
   let done = 0;
   G.loadProgress = 0;
   await Promise.all(types.map(t => loadModel(t).then(() => { done++; G.loadProgress = done / types.length; if (G.menu.top?.screen === 'title') G.menu.render(); })));
-  G.enemies = await Promise.all([...SPAWNS, ...ADDS].map(s => Enemy.create(G, s)));
+  G.enemies = await Promise.all(all.map(s => Enemy.create(G, s)));
   for (const e of G.enemies) if (e.spawn.add) e.kill();
-  G.boss = G.enemies.find(e => e.id === 'boss');
-  G.warden = G.enemies.find(e => e.id === 'warden');
+  G.boss = G.enemies.find(e => e.id === L.boss);
+  G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
+}
+
+// Swap in another mission's world and foes.
+async function setLevel(id) {
+  const L = LEVELS[id] || LEVELS.keep;
+  if (G.level === L && G.enemies.length) return;
+  G.loading = true;
+  if (G.level !== L) {
+    for (const e of G.enemies) e.dispose();
+    G.enemies = [];
+    G.projectiles.clear();
+    G.world.dispose();
+    G.level = L;
+    G.world = new World(G, L);
+    G.cam.world = G.world;
+    applySettings();
+  }
+  applyLevelLook();
+  await loadEnemies();
+  G.loading = false;
+}
+
+async function load() {
+  applyLevelLook();
+  await loadEnemies();
   G.ready = true;
-  if (G.menu.top?.screen === 'title') G.menu.render();
+  if (G.menu.top?.screen === 'title') { titleScene(); G.menu.render(); }
 }
 
 // ---------------------------------------------------------------- flow
 function applyWorldState() {
-  const d = G.save.data;
+  const d = G.save.data, m = G.save.m, L = G.level;
   G.player.lock = null;
   G.ngMul = 1 + d.ng * .5;
   for (const e of G.enemies) {
     e.reset();
-    if (e.spawn.add || d.dead.includes(e.id)) e.kill();
+    if (e.spawn.add || m.dead.includes(e.id)) e.kill();
   }
-  if (d.dead.includes('warden')) G.world.openPortcullis(true); else G.world.closePortcullis();
-  const bossDead = d.dead.includes('boss');
+  if (L.gate) { if (m.dead.includes(L.gate.guardian)) G.world.openPortcullis(true); else G.world.closePortcullis(); }
+  const bossDead = m.dead.includes(L.boss);
   G.world.setFogGate(!bossDead);
   G.world.setExit(bossDead);
-  for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, d.items.includes(it.id));
-  for (const s of Object.values(SHRINES)) s.fx.lit = d.kindled.includes(s.id) ? 1 : 0;
+  for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, m.items.includes(it.id));
+  for (const s of Object.values(L.shrines)) s.fx.lit = m.kindled.includes(s.id) ? 1 : 0;
   G.projectiles.clear();
+  for (const h of L.hazards || []) G.projectiles.hazard(h.x, h.z, h.r, Infinity, h.poison ?? 45, h.kind, true);
   G.attackTokens = 0;
   G.bossFight = false;
   G.hud.setBoss(null);
@@ -166,12 +197,13 @@ function applyWorldState() {
 G.updateGrave = () => updateGrave();
 function updateGrave() {
   const g = G.save.data.grave;
-  grave.visible = !!g;
+  grave.visible = !!g && g.mission === G.level.id;
   if (g) grave.position.set(g.x, 0, g.z);
 }
 
+function firstShrine() { return G.level.titleShrine || Object.keys(G.level.shrines)[0]; }
 function placeAtShrine(id) {
-  const s = SHRINES[id] || SHRINES.grove;
+  const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
   p.stats = { ...G.save.stats }; p.applyStats();
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
@@ -179,12 +211,19 @@ function placeAtShrine(id) {
   G.cam.snap(p);
 }
 
-function startRun() {
+async function startRun() {
   G.audio.init();
   G.traveling = false;
   timers.length = 0;
+  if (G.level.id !== G.save.data.mission || !G.enemies.length) {
+    G.hud.fadeTo(true, .3); G.menu.close(); G.hud.loading(true);
+    await setLevel(G.save.data.mission);
+    G.hud.loading(false);
+  }
+  const m = G.save.m;
+  if (!m.shrine) { m.shrine = firstShrine(); m.kindled.push(m.shrine); }
   applyWorldState();
-  placeAtShrine(G.save.data.shrine);
+  placeAtShrine(m.shrine);
   G.player.anima = 0;
   G.player.setState('rise'); G.player.anim.play('rise');
   G.state = 'play'; G.controlsOn = true;
@@ -196,18 +235,23 @@ function startRun() {
   G.input.wantLock = true; G.input.requestLock();
 }
 
-G.newGame = () => {
-  G.save.reset(); G.save.write(); startRun();
-  G.after(1.2, () => G.hud.big('The warren gnaws at the roots of the fae realm.\nClimb the keep. Fell its lord.', 'intro', 5.5));
-};
+// A mission's opening line, shown once as you set out.
+function missionIntro() { if (G.level.intro) G.after(1.2, () => G.hud.big(G.level.intro, 'intro', 5.5)); }
+G.newGame = async () => { G.save.reset(); G.save.write(); await startRun(); missionIntro(); };
 G.continueGame = () => startRun();
-G.newGamePlus = () => {
+G.startMission = async id => {
+  const d = G.save.data, fresh = !G.save.mission(id).shrine;
+  d.mission = id; G.save.write();
+  await startRun();
+  if (fresh) missionIntro();
+};
+G.newGamePlus = async () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1 };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
-  startRun();
+  await startRun(); missionIntro();
 };
 
 G.quitToTitle = () => {
@@ -227,7 +271,7 @@ G.onMenuClosed = () => {
 
 function titleScene() {
   applyWorldStateSafe();
-  const s = SHRINES.grove;
+  const s = G.level.shrines[firstShrine()];
   G.player.spawnAt(s.spawn[0], s.spawn[1] - .4, Math.PI);
   G.player.setState('rest'); G.player.anim.play('rest');
   s.fx.lit = 1;
@@ -248,23 +292,24 @@ G.onEnemyKilled = (e, hit = {}) => {
   G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
   if (e === G.boss) bossDefeated();
-  else if (e === G.warden) wardenDefeated();
+  else if (e === G.gatekeeper) gatekeeperDefeated();
 };
 
-function wardenDefeated() {
-  G.save.data.dead.push('warden');
+function gatekeeperDefeated() {
+  const gt = G.level.gate;
+  G.save.m.dead.push(gt.guardian);
   G.save.write();
   G.slowmo = .9;
   G.after(0.9, () => {
-    G.hud.big('GATEWARDEN VANQUISHED', 'gold', 4);
+    G.hud.big(gt.banner || 'VANQUISHED', 'gold', 4);
     G.audio.sfx('felled');
     G.hud.setBoss(null);
   });
-  G.after(2.6, () => { G.world.openPortcullis(); G.audio.sfx('gate', { x: 0, z: 66 }); G.hud.toast('The portcullis rises'); });
+  G.after(2.6, () => { G.world.openPortcullis(); G.audio.sfx('gate', { x: gt.x, z: gt.z }); G.hud.toast(gt.toast || 'The way opens'); });
 }
 
 function bossDefeated() {
-  G.save.data.dead.push('boss');
+  G.save.m.dead.push(G.level.boss);
   G.save.write();
   G.slowmo = 1.6;
   G.audio.music('none');
@@ -275,11 +320,11 @@ function bossDefeated() {
     G.hud.setBoss(null);
     G.bossFight = false;
   });
-  G.after(5.2, () => { G.world.setFogGate(false); G.world.setExit(true); G.hud.toast('A Pixie Gate opens beyond the throne'); G.audio.sfx('rest'); G.audio.music('explore'); });
+  G.after(5.2, () => { G.world.setFogGate(false); G.world.setExit(true); G.hud.toast(G.level.exitToast || 'A Pixie Gate opens'); G.audio.sfx('rest'); G.audio.music('explore'); });
 }
 
 G.onBossPhase2 = (boss) => {
-  G.hud.toast('Gnawfang calls the warren', 'warn');
+  G.hud.toast(G.level.phase2Line || 'The warlord rages', 'warn');
   let i = 0;
   for (const e of G.enemies) {
     if (!e.spawn.add) continue;
@@ -309,7 +354,7 @@ G.onPlayerDeath = () => {
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
   d.deaths++;
-  d.grave = d.glimmer > 0 ? { x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
+  d.grave = d.glimmer > 0 ? { mission: G.level.id, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
   d.glimmer = 0;
   G.save.write();
   G.audio.music('none');
@@ -323,7 +368,7 @@ G.onPlayerDeath = () => {
 function respawn() {
   if (G.state !== 'dead') return;
   applyWorldState();
-  placeAtShrine(G.save.data.shrine);
+  placeAtShrine(G.save.m.shrine);
   G.player.anima = 0;
   G.player.setState('rise'); G.player.anim.play('rise');
   G.hud.fadeTo(false, 1.2);
@@ -333,10 +378,10 @@ function respawn() {
 
 // ---------------------------------------------------------------- Moonwells & interaction
 function rest(shrine) {
-  const p = G.player, d = G.save.data;
-  const first = !d.kindled.includes(shrine.id);
-  if (first) d.kindled.push(shrine.id);
-  d.shrine = shrine.id;
+  const p = G.player, d = G.save.data, m = G.save.m;
+  const first = !m.kindled.includes(shrine.id);
+  if (first) m.kindled.push(shrine.id);
+  m.shrine = shrine.id;
   p.setState('rest'); p.anim.play('rest');
   p.vel.set(0, 0, 0); p.poisoned = 0; p.poison = 0;
   G.controlsOn = false;
@@ -383,8 +428,8 @@ G.travel = id => {
   G.after(0.55, () => {
     G.traveling = false;
     G.input.wantLock = false; G.input.releaseLock();
-    G.save.data.shrine = id;
-    const s = SHRINES[id];
+    G.save.m.shrine = id;
+    const s = G.level.shrines[id];
     placeAtShrine(id);
     G.player.setState('rest'); G.player.anim.play('rest');
     G.save.write();
@@ -399,7 +444,7 @@ function findInteractable() {
   let best = null, bd = Infinity;
   for (const it of w.interactables) {
     if (it.kind === 'item' && it.taken) continue;
-    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || p.pos.z > 118.1 || !G.boss?.alive)) continue;
+    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.boss?.alive)) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
@@ -408,13 +453,13 @@ function findInteractable() {
 }
 
 function interact(it) {
-  const p = G.player, d = G.save.data;
+  const p = G.player, d = G.save.data, m = G.save.m;
   switch (it.kind) {
     case 'shrine': rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
     case 'item': {
       const item = it.item;
-      d.items.push(item.id);
+      m.items.push(item.id);
       G.world.setItemTaken(item.id, true);
       if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
       if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
@@ -428,14 +473,19 @@ function interact(it) {
       p.setState('fog'); p.anim.play('fog'); p.lock = null;
       G.audio.sfx('fog');
       break;
-    case 'exit':
+    case 'exit': {
       G.state = 'ending'; G.controlsOn = false;
       p.poisoned = 0; p.poison = 0; p.iframesT = 99;
+      // Mission cleared: unlock the next one.
+      m.cleared = true;
+      const next = ORDER[ORDER.indexOf(G.level.id) + 1];
+      if (next && !d.unlocked.includes(next)) d.unlocked.push(next);
       G.save.write();
       G.audio.sfx('shift');
       G.hud.fadeTo(true, 1.5);
-      G.after(1.6, () => { G.hud.show(false); G.input.releaseLock(); G.menu.show('ending'); });
+      G.after(1.6, () => { G.hud.show(false); G.input.releaseLock(); G.menu.show(next ? 'cleared' : 'ending', { next }); });
       break;
+    }
   }
 }
 
@@ -505,10 +555,10 @@ function step(dt, rdt) {
     separate(edt);
     G.projectiles.update(edt);
   }
-  // Boss phases and the Gatewarden's bar.
+  // Boss phases and the gatekeeper's bar.
   const b = G.boss;
   if (b && b.alive && G.bossFight && !b.phase2 && b.hp < b.maxHp * .5) b.phase2 = true;
-  const w = G.warden;
+  const w = G.gatekeeper;
   if (w && w.alive) {
     const engaged = w.aware && w.state !== 'return' && w.distToPlayer() < 22;
     if (engaged && G.hud.bossE !== w) G.hud.setBoss(w);
@@ -522,7 +572,7 @@ function step(dt, rdt) {
     if (it && inp.hit('interact')) { interact(it); G.hud.prompt(null); }
   } else G.hud.prompt(null);
   const gd = G.save.data.grave;
-  if (gd && p.alive && G.state === 'play' && Math.hypot(p.pos.x - gd.x, p.pos.z - gd.z) < 1.3) {
+  if (gd && gd.mission === G.level.id && p.alive && G.state === 'play' && Math.hypot(p.pos.x - gd.x, p.pos.z - gd.z) < 1.3) {
     G.save.glimmer += gd.amount; G.hud.addGlimmer(gd.amount);
     G.fx.wisps({ x: gd.x, y: 1, z: gd.z }, 16, () => ({ x: p.pos.x, y: 1.1, z: p.pos.z }), () => G.audio.sfx('glimmer', { vol: .5 }), 0x9dff9a);
     G.hud.toast('Echo reclaimed', 'item');
@@ -533,11 +583,13 @@ function step(dt, rdt) {
   // Area names.
   const area = G.world.areaAt(p.pos.x, p.pos.z);
   if (area && area.id !== G.lastArea && G.state === 'play') { G.lastArea = area.id; G.hud.banner(area.name); }
-  scene.fog.density = damp(scene.fog.density, FOG[area?.id] ?? .026, 1.5, rdt);
+  const L = G.level;
+  scene.fog.density = damp(scene.fog.density, L.fog.byArea?.[area?.id] ?? L.fog.base, 1.5, rdt);
 
-  // Ambient particles: embers in the keep, fireflies in the grove.
-  if (Math.random() < rdt * 10) G.fx.motes({ x: p.pos.x + rand(-12, 12), y: rand(.2, 3), z: p.pos.z + rand(-12, 12) }, area?.id === 'grove' ? 0xc8ff8a : area?.id === 'throne' ? 0xff6a3a : 0xffb070, 1, .1, .25, .07, 4);
-  for (const s of Object.values(SHRINES)) if (Math.random() < rdt * 6) G.fx.motes({ x: s.x, y: 1.4, z: s.z }, 0x9ff3ff, 1, .4, .6, .08, 1.6);
+  // Ambient particles: embers, fireflies, falling leaves.
+  if (Math.random() < rdt * 10) G.fx.motes({ x: p.pos.x + rand(-12, 12), y: rand(.2, 3), z: p.pos.z + rand(-12, 12) }, L.motes?.[area?.id] ?? L.motes?.base ?? 0xffb070, 1, .1, .25, .07, 4);
+  if (L.leaves && Math.random() < rdt * 6) G.fx.leaf({ x: p.pos.x + rand(-10, 10), y: rand(5, 8), z: p.pos.z + rand(-10, 10) });
+  for (const s of Object.values(L.shrines)) if (Math.random() < rdt * 6) G.fx.motes({ x: s.x, y: 1.4, z: s.z }, 0x9ff3ff, 1, .4, .6, .08, 1.6);
 
   G.world.update(dt, G.time, p.pos);
   G.fx.update(dt, G.time);
@@ -552,7 +604,7 @@ function step(dt, rdt) {
   G.audio.listener = { x: p.pos.x, z: p.pos.z, yaw: G.cam.yaw };
   moon.position.set(p.pos.x - 18, 40, p.pos.z + 30); moon.target.position.set(p.pos.x, 0, p.pos.z);
   const fg = G.world.fogGate;
-  fg.viewFade = damp(fg.viewFade, G.bossFight && camera.position.z < 119.4 ? .12 : 1, 6, rdt);
+  fg.viewFade = damp(fg.viewFade, G.bossFight && G.world.sealSide(camera.position.x, camera.position.z) < .2 ? .12 : 1, 6, rdt);
   updateCutout(p);
   G.hud.update(rdt);
 }
@@ -573,7 +625,7 @@ function updateCutout(p) {
 // While resting, the camera drifts round to the front of the Moonwell.
 const _rc = new THREE.Vector3(), _rl = new THREE.Vector3();
 function restCam() {
-  const p = G.player, s = Object.values(SHRINES).reduce((a, b) => (Math.hypot(b.x - p.pos.x, b.z - p.pos.z) < Math.hypot(a.x - p.pos.x, a.z - p.pos.z) ? b : a));
+  const p = G.player, s = Object.values(G.level.shrines).reduce((a, b) => (Math.hypot(b.x - p.pos.x, b.z - p.pos.z) < Math.hypot(a.x - p.pos.x, a.z - p.pos.z) ? b : a));
   const a = Math.atan2(p.pos.x - s.x, p.pos.z - s.z) + .9;
   _rc.set(s.x + Math.sin(a) * 4.6, 2.1, s.z + Math.cos(a) * 4.6);
   _rl.set((s.x + p.pos.x) / 2, 1.1, (s.z + p.pos.z) / 2);
@@ -585,7 +637,6 @@ function restCam() {
   camera.lookAt(_rl.lerp(G.cam.look, 1 - k));
 }
 
-// Keep bodies from overlapping.
 // Keep bodies apart softly: overlap is eased out over a few frames and a little personal space is kept,
 // so crowds drift apart instead of jittering.
 function separate(dt) {
@@ -607,7 +658,7 @@ function separate(dt) {
 }
 
 function titleFrame(dt) {
-  const t = G.time * .08, s = SHRINES.grove;
+  const t = G.time * .08, s = G.level.shrines[firstShrine()];
   G.player.update(dt);
   G.world.update(dt, G.time, G.player.pos);
   G.fx.update(dt, G.time);

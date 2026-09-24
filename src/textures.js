@@ -100,6 +100,55 @@ export function arenaStone(seed = 21) {
   }, 3);
 }
 
+// Forest floor: dark earth, fallen leaves and moss. Leaves are stamped over their own bounds only.
+export function forestFloor(seed = 8) {
+  const n = 512, N = makeNoise(seed), R = rng(seed);
+  const col = new Float32Array(n * n * 3), H = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const a = N.fbm(x * .015, y * .015, 4), b = N.fbm(x * .08, y * .08, 3), f = N.n2(x * .7, y * .7);
+    const moss = clamp((N.fbm(x * .01 + 5, y * .01, 3) - .52) * 5, 0, 1), i = y * n + x;
+    col[i * 3] = (34 + a * 26 + f * 8) * (1 - moss) + (30 + b * 20) * moss;
+    col[i * 3 + 1] = (28 + a * 20 + f * 6) * (1 - moss) + (48 + b * 30) * moss;
+    col[i * 3 + 2] = (22 + a * 12) * (1 - moss) + (24 + b * 8) * moss;
+    H[i] = a * .5 + f * .1;
+  }
+  for (let k = 0; k < 260; k++) {
+    const lx = R() * n, ly = R() * n, sz = 3 + R() * 6, ang = R() * 6.28, tone = R();
+    for (let dy = -Math.ceil(sz); dy <= Math.ceil(sz); dy++) for (let dx = -Math.ceil(sz); dx <= Math.ceil(sz); dx++) {
+      const u = (dx * Math.cos(ang) + dy * Math.sin(ang)) / sz, v = (-dx * Math.sin(ang) + dy * Math.cos(ang)) / (sz * .5);
+      if (u * u + v * v >= 1) continue;
+      const x = ((Math.round(lx) + dx) % n + n) % n, y = ((Math.round(ly) + dy) % n + n) % n, i = y * n + x;
+      col[i * 3] = 70 + tone * 60; col[i * 3 + 1] = 40 + tone * 30; col[i * 3 + 2] = 18 + tone * 10; H[i] += .3;
+    }
+  }
+  return surface(n, (x, y) => { const i = y * n + x; return [col[i * 3], col[i * 3 + 1], col[i * 3 + 2], H[i]]; }, 2);
+}
+
+// Cliff rock: layered, cracked grey-green stone.
+export function rockFace(seed = 13) {
+  const n = 512, N = makeNoise(seed);
+  return surface(n, (x, y) => {
+    const layers = Math.abs(Math.sin(y * .05 + N.fbm(x * .01, y * .01, 3) * 6));
+    const a = N.fbm(x * .02, y * .03, 5), f = N.n2(x * .5, y * .5);
+    const crack = clamp(1 - Math.abs(N.fbm(x * .03 + 7, y * .015, 4) - .5) / .02, 0, 1);
+    const moss = clamp((N.fbm(x * .02 + 3, y * .02, 3) - .55) * 4, 0, 1) * clamp(1 - y / n + .3, 0, 1);
+    const v = 48 + a * 50 + layers * 14 + f * 8;
+    const r = v * (1 - moss) + 34 * moss, g = v * 1.02 * (1 - moss) + 52 * moss, b = v * .96 * (1 - moss) + 30 * moss;
+    const k = 1 - crack * .6;
+    return [r * k, g * k, b * k, a * .6 + layers * .3 - crack * .5];
+  }, 3.5);
+}
+
+// Straw thatch for goblin huts.
+export function thatch(seed = 9) {
+  const n = 256, N = makeNoise(seed);
+  return surface(n, (x, y) => {
+    const s = N.n2(x * .9, y * .08), a = N.fbm(x * .05, y * .05, 3);
+    const v = 60 + s * 50 + a * 30;
+    return [v * 1.05, v * .85, v * .5, s];
+  }, 2);
+}
+
 // Translucent wing with veins, used additively.
 export function wingTexture() {
   const c = canvas(256), g = c.getContext('2d');

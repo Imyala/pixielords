@@ -1,74 +1,19 @@
-// The level: a ruined keep climbed from south to north.
-//   Fallen Grove (first Moonwell) → Gatehouse Yard (Gatewarden) → portcullis → Gnawing Halls (second Moonwell)
-//   → Briar Seal → Throne of the Warren (boss).
+// The world engine: collision, raycasts and reusable builders. The level itself (layout, foes, Moonwells,
+// lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
-import { flagstone, brick, grass, arenaStone, runeCircle, glowTexture, skyTexture } from './textures.js';
+import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, runeCircle, glowTexture, skyTexture } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
 
-export const AREAS = [
-  { id: 'grove', name: 'The Fallen Grove', x0: -11, x1: 11, z0: -12, z1: 10 },
-  { id: 'yard', name: 'Grubhold Gatehouse', x0: -18, x1: 28, z0: 10, z1: 64 },
-  { id: 'halls', name: 'The Gnawing Halls', x0: -19, x1: 12, z0: 64, z1: 120.2 },
-  { id: 'throne', name: 'Throne of the Warren', x0: -17, x1: 17, z0: 120.2, z1: 152 },
-];
-
-export const SHRINES = {
-  grove: { id: 'grove', name: 'Moonwell of the Fallen Grove', x: 0, z: -5.5, spawn: [2.2, -4.2], yaw: 0 },
-  halls: { id: 'halls', name: 'Moonwell of the Gnawing Halls', x: -16.2, z: 102, spawn: [-13.9, 100.1], yaw: Math.PI / 2 },
-};
-
-// Enemy placements. idle: 'stand' | 'sleep'. patrol: waypoints.
-export const SPAWNS = [
-  { id: 'g1', type: 'goblin-scout', x: 0, z: 7.6, yaw: 0, idle: 'sleep' },
-  { id: 'g2', type: 'goblin-scout', x: 1.2, z: 23, yaw: Math.PI, idle: 'stand' },
-  { id: 'g3', type: 'goblin-spearguard', x: -9, z: 37, yaw: Math.PI / 2 },
-  { id: 'g4', type: 'goblin-spearguard', x: 7, z: 41, yaw: Math.PI, patrol: [[7, 41], [10, 51], [2, 49]] },
-  { id: 'g5', type: 'goblin-archer', x: -14, z: 55, yaw: 2.4 },
-  { id: 'g6', type: 'goblin-bomber', x: 13, z: 56, yaw: -2.6 },
-  { id: 'g7', type: 'goblin-berserker', x: -7, z: 50, yaw: 2.8, idle: 'sleep' },
-  { id: 'g8', type: 'goblin-poisoner', x: 24.5, z: 41, yaw: -Math.PI / 2 },
-  { id: 'warden', type: 'goblin-clubber', x: 0, z: 59, yaw: Math.PI, elite: 'warden' },
-  { id: 'r1', type: 'ratman-scout', x: -4, z: 81, yaw: Math.PI },
-  { id: 'r2', type: 'ratman-skirmisher', x: 4.5, z: 83, yaw: Math.PI },
-  { id: 'r3', type: 'ratman-poisoner', x: -8, z: 91, yaw: 2.6 },
-  { id: 'r4', type: 'ratman-skirmisher', x: 8, z: 95, yaw: -2.6, patrol: [[8, 95], [8, 80], [3, 88]] },
-  { id: 'r5', type: 'ratman-brute', x: 0, z: 97, yaw: Math.PI },
-  { id: 'r6', type: 'ratman-slinger', x: -9, z: 107, yaw: 2.8 },
-  { id: 'r7', type: 'ratman-assassin', x: 8.4, z: 87, yaw: -Math.PI / 2, idle: 'sleep' },
-  { id: 'r8', type: 'ratman-shaman', x: 6, z: 108, yaw: Math.PI },
-  { id: 'boss', type: 'ratman-warblade', x: 0, z: 143, yaw: Math.PI, elite: 'boss' },
-];
-
-export const MESSAGES = [
-  { x: 0, z: -1.2, text: 'Move with WASD. Click the screen to take the mouse, and turn the camera with it.\nA gamepad works too.' },
-  { x: -4.5, z: 1.5, text: 'Space dashes, and mid-dash nothing can touch you.\nDash just as a blow lands to Moonstep: the world slows around you. Hold Space to sprint.' },
-  { x: 4.5, z: 1.5, text: 'Left click strikes, right click strikes hard. Four strikes make a chain.\nHold Shift to guard. Tap it just as a blow lands to Deflect.' },
-  { x: 2.6, z: 5, text: 'A goblin dozes ahead. Strike an unaware foe from behind: an Ambush.' },
-  { x: -1.6, z: 12.5, text: 'Stamina, the green bar, fuels every strike. As a strike ends, blue light gathers: tap Shift then for Resonance, and the stamina flows back.\n1, 2 and 3 change stance. High hits hardest, Low moves fastest.' },
-  { x: 1.6, z: 26, text: 'Strike the moment after a Deflect to Flashcut: one cut that fells a foe outright.\nDrain a foe\'s stamina bar to shatter it, then strike to Execute. Q locks on.' },
-  { x: 0, z: 49, text: 'Foes that flare RED unleash Dread strikes. No guard stops them.\nDash through them, or press F as they land to Thorn Counter.' },
-  { x: -2, z: 70, text: 'R drinks Moondew. Rest at a Moonwell to refill it, and spend Glimmer there to grow stronger.\nFall, and your Glimmer lingers in your Echo until you reach it again.' },
-  { x: 2, z: 104, text: 'Strikes, Deflects and Resonance fill the violet Faelight.\nWhen it is full, G awakens your Fae Shift.' },
-  { x: -1.8, z: 114, text: 'Beyond the briars, the Warblade waits upon his throne.' },
-];
-
-export const ITEMS = [
-  { id: 'grace1', x: 26.2, z: 41, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
-  { id: 'glimmer1', x: -16, z: 30.5, kind: 'glimmer', amount: 350, label: 'Glimmer Shard', desc: '+350 Glimmer' },
-  { id: 'glimmer2', x: 10.6, z: 110.4, kind: 'glimmer', amount: 600, label: 'Glimmer Shard', desc: '+600 Glimmer' },
-  { id: 'grace2', x: -17.8, z: 99.3, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
-];
-
 // ---------------------------------------------------------------- geometry helpers
-function scaleUV(geo, su, sv) {
+export function scaleUV(geo, su, sv) {
   const uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
   return geo;
 }
 
 // Box with texel density `tile` metres per repeat on every face.
-function boxGeo(w, h, d, tile = 3) {
+export function boxGeo(w, h, d, tile = 3) {
   const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv;
   const faces = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];   // px nx py ny pz nz
   for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) {
@@ -78,7 +23,7 @@ function boxGeo(w, h, d, tile = 3) {
   return g;
 }
 
-function merge(geos) {
+export function merge(geos) {
   let nv = 0, ni = 0;
   for (const g of geos) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
   const pos = new Float32Array(nv * 3), nrm = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), idx = new Uint32Array(ni);
@@ -139,19 +84,37 @@ function cutout(mat) {
   return mat;
 }
 
+// Procedural textures are slow to paint, so every level shares one cache.
+const TEX = {};
+const tex = (k, f) => (TEX[k] ||= f());
+
 // ---------------------------------------------------------------- the world
 export class World {
-  constructor(G) {
+  constructor(G, level) {
     this.G = G;
+    this.level = level;
     this.scene = G.scene;
     this.boxes = [];       // {x, z, hw, hd, c, s, y0, h, on}
     this.cyls = [];        // {x, z, r, h, on}
     this.flames = [];      // flame sources: {x, y, z, color, base, phase}
     this.anim = [];        // per-frame callbacks
     this.interactables = [];
+    this.batches = {};     // material key -> geometries merged at the end of the build
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.build();
+  }
+
+  dispose() {
+    this.scene.remove(this.group, this.sky);
+    for (const l of this.lightPool) this.scene.remove(l);
+    const seen = new Set();
+    const free = o => {
+      if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
+      const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of ms) if (!seen.has(m)) { seen.add(m); m.dispose(); }
+    };
+    this.group.traverse(free); this.sky.traverse(free);
   }
 
   // ---------------- colliders
@@ -232,15 +195,16 @@ export class World {
     return this.raycast(o, d, L) >= L - .05;
   }
 
-  areaAt(x, z) { return AREAS.find(a => x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1) || null; }
+  areaAt(x, z) { return this.level.areas.find(a => x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1) || null; }
 
   // ---------------- building
   build() {
-    const R = rng(1234);
+    this.R = rng(this.level.seed || 1234);
     const T = {
-      floor: flagstone(3), wall: brick(11), grass: grass(5), arena: arenaStone(21),
-      pillar: brick(17, [.9, .92, 1]),
+      floor: tex('floor', () => flagstone(3)), wall: tex('wall', () => brick(11)), grass: tex('grass', () => grass(5)),
+      arena: tex('arena', () => arenaStone(21)), pillar: tex('pillar', () => brick(17, [.9, .92, 1])),
     };
+    const lazy = (k, f) => () => tex(k, f);
     this.mats = {
       floor: new THREE.MeshStandardMaterial({ ...T.floor, roughness: .92, normalScale: new THREE.Vector2(1.2, 1.2) }),
       wall: new THREE.MeshStandardMaterial({ ...T.wall, roughness: .95, normalScale: new THREE.Vector2(1.4, 1.4) }),
@@ -253,302 +217,28 @@ export class World {
       bone: new THREE.MeshStandardMaterial({ color: 0xc9bfa6, roughness: .7 }),
       stone: new THREE.MeshStandardMaterial({ color: 0x5a5a5e, roughness: .95 }),
     };
-    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood']) cutout(this.mats[k]);
-    this.glowTex = glowTexture();
-    this.starTex = glowTexture('star');
+    // Forest materials are only painted for levels that ask for them.
+    if (this.level.forest) {
+      const earth = lazy('earth', () => forestFloor(8))(), rock = lazy('rock', () => rockFace(13))(), th = lazy('thatch', () => thatch(9))();
+      Object.assign(this.mats, {
+        earth: new THREE.MeshStandardMaterial({ ...earth, roughness: 1 }),
+        rock: new THREE.MeshStandardMaterial({ ...rock, roughness: .95, normalScale: new THREE.Vector2(1.6, 1.6) }),
+        thatch: new THREE.MeshStandardMaterial({ ...th, roughness: 1 }),
+        leaves: new THREE.MeshStandardMaterial({ color: 0x1f3322, roughness: 1, flatShading: true }),
+        stake: new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: .9 }),
+      });
+    }
+    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves']) if (this.mats[k]) cutout(this.mats[k]);
+    this.glowTex = tex('glow', () => glowTexture());
+    this.starTex = tex('star', () => glowTexture('star'));
 
     this.buildSky();
-    this.buildFloors();
-    this.buildWalls(R);
-    this.buildDressing(R);
+    this.level.build(this, this.R);
+    this.flush();
     this.buildShrines();
     this.buildMessages();
     this.buildItems();
     this.buildGates();
-    this.buildLights();
-  }
-
-  buildSky() {
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }));
-    sky.renderOrder = -10;
-    this.scene.add(sky); this.sky = sky;
-    const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
-    moon.position.set(-120, 150, 260); moon.scale.set(60, 60, 1);
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 32), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
-    disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
-    sky.add(moon, disc);
-    // Far towers of the keep, dim in the fog.
-    const tower = this.mats.wall;
-    for (const [x, z, h, r] of [[-40, 60, 40, 5], [38, 100, 52, 6], [-30, 150, 60, 7], [30, 20, 34, 4], [0, 175, 80, 9]]) {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(r * .8, r, h, 12), tower);
-      m.position.set(x, h / 2, z); this.group.add(m);
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(r * 1.1, r * 2.2, 12), this.mats.iron);
-      roof.position.set(x, h + r * 1.1, z); this.group.add(roof);
-    }
-  }
-
-  floor(x0, z0, x1, z1, mat, tile = 4) {
-    const w = x1 - x0, d = z1 - z0;
-    const g = scaleUV(new THREE.PlaneGeometry(w, d), w / tile, d / tile);
-    const m = new THREE.Mesh(g, mat);
-    m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
-    m.receiveShadow = true;
-    this.group.add(m);
-    return m;
-  }
-
-  buildFloors() {
-    const outer = this.floor(-60, -40, 60, 190, this.mats.floor, 5);
-    outer.position.y = -.01;
-    this.floor(-11, -12, 11, 10, this.mats.grass, 6).position.y = .005;
-    const ar = new THREE.Mesh(scaleUV(new THREE.CircleGeometry(16.5, 64), 8, 8), this.mats.arena);
-    ar.rotation.x = -Math.PI / 2; ar.position.set(0, .01, 135); ar.receiveShadow = true;
-    this.group.add(ar);
-  }
-
-  buildWalls(R) {
-    const H = 6.5, TH = 1.2, geos = [], pil = [];
-    const seg = (x0, z0, x1, z1, h = H) => {
-      const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
-      const g = boxGeo(L + TH, h, TH, 3);
-      g.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition((x0 + x1) / 2, h / 2, (z0 + z1) / 2));
-      geos.push(g);
-      this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + TH / 2, TH / 2, rot, h);
-      // Crenellations along the top.
-      for (let s = .8; s < L - .4; s += 1.6) {
-        const cx = x0 + dx * s / L, cz = z0 + dz * s / L;
-        const m = boxGeo(.8, .7, TH + .1, 3);
-        m.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition(cx, h + .35, cz));
-        geos.push(m);
-      }
-    };
-    const path = pts => { for (let i = 0; i < pts.length - 1; i++) seg(...pts[i], ...pts[i + 1]); };
-
-    // Fallen Grove
-    path([[-3, 10], [-11, 10], [-11, -12], [11, -12], [11, 10], [3, 10]]);
-    // Corridor to the yard
-    seg(-3, 10, -3, 28); seg(3, 10, 3, 28);
-    // Gatehouse Yard
-    path([[-3, 28], [-18, 28], [-18, 64], [-3, 64]]);
-    path([[3, 28], [18, 28], [18, 37], [28, 37], [28, 45], [18, 45], [18, 64], [3, 64]]);
-    // Passage to the halls, with a gatehouse arch over the portcullis
-    seg(-3, 64, -3, 74, 8); seg(3, 64, 3, 74, 8);
-    const arch = boxGeo(7.2, 2, 2.4, 3); arch.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 7, 66)); geos.push(arch);
-    // Gnawing Halls
-    path([[-3, 74], [-12, 74], [-12, 98], [-19, 98], [-19, 106], [-12, 106], [-12, 112], [-3, 112]]);
-    path([[3, 74], [12, 74], [12, 112], [3, 112]]);
-    // Fog corridor
-    seg(-3, 112, -3, 120.5, 8); seg(3, 112, 3, 120.5, 8);
-    const arch2 = boxGeo(7.2, 2.4, 2, 3); arch2.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 7.2, 113)); geos.push(arch2);
-    // Throne arena: a ring of 28 segments with a gap to the south.
-    const N = 28, cz = 135, rad = 16.6;
-    for (let i = 1; i < N - 1; i++) {
-      const a0 = (i - .5) * Math.PI * 2 / N + Math.PI * 2 / N / 2, a1 = a0 + Math.PI * 2 / N;
-      seg(Math.sin(a0) * rad, cz - Math.cos(a0) * rad, Math.sin(a1) * rad, cz - Math.cos(a1) * rad, 9);
-    }
-
-    const walls = new THREE.Mesh(merge(geos), this.mats.wall);
-    walls.castShadow = true; walls.receiveShadow = true;
-    this.group.add(walls);
-
-    // Pillars: yard ruins, the hall's colonnade and the arena ring.
-    const pillar = (x, z, r = .7, h = 7, broken = false) => {
-      const hh = broken ? h * (.35 + R() * .3) : h;
-      const g = scaleUV(new THREE.CylinderGeometry(r * .92, r, hh, 14), 2, hh / 3);
-      g.translate(x, hh / 2, z); pil.push(g);
-      const cap = boxGeo(r * 2.6, .5, r * 2.6, 2); cap.translate(x, .25, z); pil.push(cap);
-      if (!broken) { const top = boxGeo(r * 2.6, .5, r * 2.6, 2); top.translate(x, hh - .25, z); pil.push(top); }
-      this.prop(this.addCyl(x, z, r + .05, hh));   // the camera passes pillars rather than jamming into the knight
-    };
-    for (const [x, z, b] of [[-11, 36, 0], [-11, 46, 1], [11, 34, 1], [12, 47, 0], [-6, 58, 0], [6, 58, 0]]) pillar(x, z, .75, 7, !!b);
-    for (let z = 80; z <= 106; z += 6.5) { pillar(-6, z, .8, 9); pillar(6, z, .8, 9); }
-    for (let i = 0; i < 8; i++) {
-      const a = (i + .5) / 8 * Math.PI * 2;
-      pillar(Math.sin(a) * 11.5, cz - Math.cos(a) * 11.5, .9, 10, i === 2 || i === 5);
-    }
-    const pm = new THREE.Mesh(merge(pil), this.mats.pillar);
-    pm.castShadow = true; pm.receiveShadow = true;
-    this.group.add(pm);
-  }
-
-  buildDressing(R) {
-    const g = this.group, M = this.mats;
-    const add = (geo, mat, x, y, z, ry = 0, shadow = true) => {
-      const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry;
-      m.castShadow = shadow; m.receiveShadow = true; g.add(m); return m;
-    };
-
-    // Dead trees in the grove.
-    const treeGeos = [];
-    const tree = (x, z, h, seed) => {
-      const r = rng(seed);
-      const trunk = new THREE.CylinderGeometry(.12, .35, h, 7); trunk.translate(0, h / 2, 0);
-      const parts = [trunk];
-      for (let i = 0; i < 6; i++) {
-        const bl = 1 + r() * 1.8, br = new THREE.CylinderGeometry(.03, .12, bl, 5);
-        br.translate(0, bl / 2, 0);
-        br.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(.5 + r() * .7, r() * 6.28, 0, 'YXZ')));
-        br.translate(0, h * (.45 + r() * .5), 0);
-        parts.push(br);
-      }
-      for (const p of parts) { p.translate(x, 0, z); treeGeos.push(p); }
-      this.prop(this.addCyl(x, z, .4, h));
-    };
-    tree(-7.5, -8, 5.5, 1); tree(8, -3, 6, 2); tree(-8, 6, 4.5, 3); tree(7.5, 7, 5, 4);
-    const trees = new THREE.Mesh(merge(treeGeos), M.bark); trees.castShadow = true; g.add(trees);
-
-    // A weathered pixie statue behind the first shrine.
-    const statue = new THREE.Group();
-    const base = new THREE.Mesh(boxGeo(1.6, 1, 1.6, 2), M.stone); base.position.y = .5; statue.add(base);
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(.35, 1, 4, 10), M.stone); body.position.y = 1.9; statue.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 10), M.stone); head.position.y = 2.85; statue.add(head);
-    for (const s of [-1, 1]) {
-      const w = new THREE.Mesh(new THREE.SphereGeometry(.8, 10, 8), M.stone);
-      w.scale.set(.15, 1, .6); w.position.set(s * .45, 2.4, -.35); w.rotation.z = -s * .5; statue.add(w);
-    }
-    statue.position.set(0, 0, -9.5); statue.traverse(o => { o.castShadow = true; o.receiveShadow = true; });
-    g.add(statue); this.addBox(0, -9.5, .8, .8, 0, 3);
-
-    // Gravestones in the grove.
-    for (let i = 0; i < 14; i++) {
-      const x = (R() < .5 ? -1 : 1) * (4.5 + R() * 5.5), z = -10 + R() * 18;
-      if (Math.abs(x) < 3.5) continue;
-      const h = .7 + R() * .6;
-      const ry = R() * .6 - .3;
-      add(boxGeo(.6, h, .18, 1), M.stone, x, h / 2 - .1, z, ry).rotation.z = R() * .3 - .15;
-      this.prop(this.addBox(x, z, .32, .12, ry, h));
-    }
-
-    // Grass blades and glowing mushrooms in the grove.
-    const blade = new THREE.ConeGeometry(.03, .3, 3); blade.translate(0, .15, 0);
-    const grassMesh = new THREE.InstancedMesh(blade, new THREE.MeshStandardMaterial({ color: 0x4f6b35, roughness: 1 }), 1400);
-    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
-    let gi = 0;
-    for (let i = 0; i < 1400; i++) {
-      const x = -10.5 + R() * 21, z = -11.5 + R() * 21;
-      if (Math.abs(x) < 1.2 && z > -4) continue;
-      e.set((R() - .5) * .5, R() * 6.28, (R() - .5) * .5); q.setFromEuler(e);
-      const k = .6 + R() * .9; s.set(k, k * (.7 + R() * .8), k); p.set(x, 0, z);
-      grassMesh.setMatrixAt(gi++, mtx.compose(p, q, s));
-    }
-    grassMesh.count = gi; g.add(grassMesh);
-    const cap = new THREE.SphereGeometry(.09, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-    for (const [col, n] of [[0x7fe8ff, 30], [0xff8fe0, 20]]) {
-      const mush = new THREE.InstancedMesh(cap, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .7 }), n);
-      for (let i = 0; i < n; i++) {
-        const k = .4 + R() * .7;
-        p.set(-10 + R() * 20, .04, -11 + R() * 20); if (Math.abs(p.x) < 2) p.x += 3 * Math.sign(p.x || 1);
-        mush.setMatrixAt(i, mtx.compose(p, q.identity(), s.set(k, k * .8, k)));
-      }
-      g.add(mush);
-    }
-
-    // Rubble everywhere.
-    const rock = new THREE.IcosahedronGeometry(.3, 0);
-    const rubble = new THREE.InstancedMesh(rock, M.stone, 220);
-    for (let i = 0; i < 220; i++) {
-      const zone = R();
-      let x, z;
-      if (zone < .3) { x = -17 + R() * 34; z = 29 + R() * 34; }
-      else if (zone < .55) { x = -11.5 + R() * 23; z = 75 + R() * 36; }
-      else if (zone < .75) { const a = R() * 6.28, r = 8 + R() * 8; x = Math.sin(a) * r; z = 135 - Math.cos(a) * r; }
-      else { x = (R() < .5 ? -1 : 1) * (2.4 + R() * .5); z = 11 + R() * 16; }
-      const k = .3 + R() * 1.1;
-      e.set(R() * 3, R() * 3, R() * 3); q.setFromEuler(e);
-      rubble.setMatrixAt(i, mtx.compose(p.set(x, .05, z), q, s.set(k, k * .6, k)));
-    }
-    rubble.castShadow = true; rubble.receiveShadow = true; g.add(rubble);
-
-    // Crates, a cart and goblin banners in the yard.
-    const crate = boxGeo(1, 1, 1, 1);
-    for (const [x, z, r] of [[-15.5, 33, .2], [-15.4, 34.2, .5], [-14.5, 33.3, .1], [15.5, 60.5, .3], [14.4, 61, -.2], [23, 43.5, .1]]) {
-      add(crate, M.wood, x, .5, z, r); this.prop(this.addBox(x, z, .5, .5, r, 1));
-    }
-    const bigCrate = add(crate, M.wood, -15.1, 1.5, 33.6, .3); bigCrate.scale.setScalar(.9);
-    const cart = new THREE.Group();
-    const bed = new THREE.Mesh(boxGeo(2.4, .3, 1.4, 1), M.wood); bed.position.y = .8; cart.add(bed);
-    for (const [wx, wz] of [[-.8, .75], [.8, .75], [-.8, -.75], [.8, -.75]]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .12, 14), M.wood); w.rotation.x = Math.PI / 2; w.position.set(wx, .45, wz); cart.add(w);
-    }
-    for (const o of [[0, 1.05, .7], [0, 1.05, -.7]]) { const rail = new THREE.Mesh(boxGeo(2.4, .3, .08, 1), M.wood); rail.position.set(...o); cart.add(rail); }
-    cart.position.set(12, 0, 34); cart.rotation.y = .7; cart.traverse(o => { o.castShadow = true; });
-    g.add(cart); this.prop(this.addBox(12, 34, 1.3, .8, .7, 1.2));
-
-    const bannerMat = new THREE.MeshStandardMaterial({ color: 0x6b1414, roughness: .9, side: THREE.DoubleSide });
-    const bannerGeo = new THREE.PlaneGeometry(1.4, 3.2, 1, 6);
-    const hang = (x, z, ry, mat = bannerMat) => {
-      const b = new THREE.Mesh(bannerGeo, mat); b.position.set(x, 4, z); b.rotation.y = ry; g.add(b);
-      const ph = R() * 6;
-      this.anim.push(t => { b.rotation.x = Math.sin(t * .9 + ph) * .04; });
-    };
-    hang(-17.3, 40, Math.PI / 2); hang(-17.3, 52, Math.PI / 2); hang(17.3, 52, -Math.PI / 2); hang(-4.2, 63.3, 0); hang(4.2, 63.3, 0);
-    const ratBanner = new THREE.MeshStandardMaterial({ color: 0x2f3a1c, roughness: .9, side: THREE.DoubleSide });
-    for (let z = 80; z <= 106; z += 13) { hang(-11.3, z, Math.PI / 2, ratBanner); hang(11.3, z, -Math.PI / 2, ratBanner); }
-
-    // Bones and cages in the halls; bones and a throne in the arena.
-    const bone = new THREE.CylinderGeometry(.04, .05, .5, 5);
-    const bones = new THREE.InstancedMesh(bone, M.bone, 120);
-    for (let i = 0; i < 120; i++) {
-      const inArena = i < 70;
-      const a = R() * 6.28, r = 3 + R() * 12;
-      p.set(inArena ? Math.sin(a) * r : -11 + R() * 22, .05, inArena ? 135 - Math.cos(a) * r : 75 + R() * 36);
-      e.set(Math.PI / 2, R() * 6.28, 0); q.setFromEuler(e);
-      bones.setMatrixAt(i, mtx.compose(p, q, s.set(1, .6 + R(), 1)));
-    }
-    g.add(bones);
-    const skull = new THREE.SphereGeometry(.13, 8, 6);
-    for (let i = 0; i < 16; i++) { const a = R() * 6.28, r = 4 + R() * 10; add(skull, M.bone, Math.sin(a) * r, .1, 135 - Math.cos(a) * r, 0, false); }
-    const cageGeo = [];
-    for (const [cx, cz] of [[-10, 78], [10, 101]]) {
-      for (let i = 0; i < 10; i++) {
-        const a = i / 10 * Math.PI * 2, bar = new THREE.CylinderGeometry(.03, .03, 2.2, 4);
-        bar.translate(cx + Math.sin(a) * .7, 1.1, cz + Math.cos(a) * .7); cageGeo.push(bar);
-      }
-      for (const y of [0, 2.2]) { const ring = new THREE.CylinderGeometry(.75, .75, .08, 12, 1, true); ring.translate(cx, y, cz); cageGeo.push(ring); }
-      this.prop(this.addCyl(cx, cz, .8, 2.2));
-    }
-    const cages = new THREE.Mesh(merge(cageGeo), M.iron); cages.castShadow = true; g.add(cages);
-
-    const throne = new THREE.Group();
-    const tb = (w, h, d, x, y, z) => { const m = new THREE.Mesh(boxGeo(w, h, d, 2), M.stone); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; throne.add(m); };
-    tb(6, .6, 4, 0, .3, 0); tb(4.5, .6, 3, 0, .9, .3); tb(2.4, 1.2, 1.6, 0, 1.8, .6); tb(2.6, 4.5, .5, 0, 3.4, 1.4); tb(.4, 1.8, 1.6, -1.2, 2.5, .6); tb(.4, 1.8, 1.6, 1.2, 2.5, .6);
-    throne.position.set(0, 0, 148.5); g.add(throne);
-    this.prop(this.addBox(0, 148.5, 3, 2, 0, 1.2));
-    this.addBox(0, 149.8, 1.4, .6, 0, 6);
-  }
-
-  // Flame source: brazier bowl + flickering light slot + ember sprites.
-  brazier(x, z, color = 0xff8a3a, tall = true) {
-    const g = this.group, M = this.mats;
-    const h = tall ? 1.2 : .1;
-    if (tall) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.08, .12, h, 6), M.iron); leg.position.set(x, h / 2, z); leg.castShadow = true; g.add(leg);
-      this.prop(this.addCyl(x, z, .35, h + .4));
-    }
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.45, .22, .35, 10, 1, true), M.iron);
-    bowl.position.set(x, h + .15, z); g.add(bowl);
-    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-    flame.position.set(x, h + .5, z); flame.scale.set(1, 1.4, 1); flame.material.opacity = .85; g.add(flame);
-    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .8 }));
-    core.position.set(x, h + .4, z); core.scale.set(.5, .7, 1); g.add(core);
-    const src = { x, y: h + .8, z, color: new THREE.Color(color), base: 9, phase: Math.random() * 10, flame };
-    this.flames.push(src);
-    this.anim.push(t => {
-      const f = .85 + Math.sin(t * 9 + src.phase) * .08 + Math.sin(t * 23 + src.phase * 2) * .06;
-      flame.scale.set(.95 * f, 1.4 * f, 1); src.flick = f;
-    });
-    return src;
-  }
-
-  buildLights() {
-    for (const [x, z] of [[-6, -9], [6, -9]]) this.brazier(x, z, 0x6fd8ff);
-    for (const [x, z] of [[-2.2, 12.5], [2.2, 27]]) this.brazier(x, z);
-    for (const [x, z] of [[-16, 30], [16, 30], [-16, 62], [16, 62], [-4, 63], [4, 63], [26.5, 44]]) this.brazier(x, z);
-    for (const [x, z] of [[-11, 76], [11, 76], [-11, 110], [11, 110], [0, 88]]) this.brazier(x, z, 0x9cff5a);
-    for (const [x, z] of [[-2.3, 116.6], [2.3, 116.6]]) this.brazier(x, z, 0xff5030);
-    for (let i = 0; i < 6; i++) { const a = (i + 1) / 7 * Math.PI * 2; this.brazier(Math.sin(a) * 14.4, 135 - Math.cos(a) * 14.4, 0xff4020); }
-
-    // A small pool of real point lights, moved each frame onto the nearest flames.
     this.lightPool = [];
     for (let i = 0; i < 6; i++) {
       const l = new THREE.PointLight(0xff8a3a, 0, 13, 1.6);
@@ -556,9 +246,130 @@ export class World {
     }
   }
 
+  buildSky() {
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.MeshBasicMaterial({ map: tex('sky', () => skyTexture()), side: THREE.BackSide, fog: false, depthWrite: false }));
+    sky.renderOrder = -10;
+    this.scene.add(sky); this.sky = sky;
+    const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
+    moon.position.set(-120, 150, 260); moon.scale.set(60, 60, 1);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 32), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
+    disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
+    sky.add(moon, disc);
+  }
+
+  // Queue geometry to be merged into one mesh per material when the build finishes.
+  batch(mat, geo) { (this.batches[mat] ||= []).push(geo); return geo; }
+  flush() {
+    for (const [k, geos] of Object.entries(this.batches)) {
+      if (!geos.length) continue;
+      const m = new THREE.Mesh(merge(geos), this.mats[k]);
+      m.castShadow = true; m.receiveShadow = true;
+      this.group.add(m);
+    }
+    this.batches = {};
+  }
+
+  add(geo, mat, x, y, z, ry = 0, shadow = true) {
+    const m = new THREE.Mesh(geo, typeof mat === 'string' ? this.mats[mat] : mat);
+    m.position.set(x, y, z); m.rotation.y = ry;
+    m.castShadow = shadow; m.receiveShadow = true; this.group.add(m); return m;
+  }
+
+  floor(x0, z0, x1, z1, mat, tile = 4, y = 0) {
+    const w = x1 - x0, d = z1 - z0;
+    const g = scaleUV(new THREE.PlaneGeometry(w, d), w / tile, d / tile);
+    const m = new THREE.Mesh(g, typeof mat === 'string' ? this.mats[mat] : mat);
+    m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+    m.receiveShadow = true;
+    this.group.add(m);
+    return m;
+  }
+
+  disc(x, z, r, mat, tile = 4, y = .01) {
+    const m = new THREE.Mesh(scaleUV(new THREE.CircleGeometry(r, 64), r * 2 / tile, r * 2 / tile), typeof mat === 'string' ? this.mats[mat] : mat);
+    m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true;
+    this.group.add(m);
+    return m;
+  }
+
+  // A straight wall segment with an optional crenellated top; o: { h, th, mat, crenel, cam }.
+  wall(x0, z0, x1, z1, o = {}) {
+    const h = o.h ?? 6.5, TH = o.th ?? 1.2, mat = o.mat || 'wall';
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+    const g = boxGeo(L + TH, h, TH, 3);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition((x0 + x1) / 2, h / 2, (z0 + z1) / 2));
+    this.batch(mat, g);
+    const b = this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + TH / 2, TH / 2, rot, h);
+    if (o.cam === false) this.prop(b);
+    if (o.crenel !== false && mat === 'wall') {
+      for (let s = .8; s < L - .4; s += 1.6) {
+        const m = boxGeo(.8, .7, TH + .1, 3);
+        m.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition(x0 + dx * s / L, h + .35, z0 + dz * s / L));
+        this.batch(mat, m);
+      }
+    }
+    return b;
+  }
+  wallPath(pts, o) { for (let i = 0; i < pts.length - 1; i++) this.wall(...pts[i], ...pts[i + 1], o); }
+
+  pillar(x, z, r = .7, h = 7, broken = false, mat = 'pillar') {
+    const hh = broken ? h * (.35 + this.R() * .3) : h;
+    const g = scaleUV(new THREE.CylinderGeometry(r * .92, r, hh, 14), 2, hh / 3);
+    g.translate(x, hh / 2, z); this.batch(mat, g);
+    const cap = boxGeo(r * 2.6, .5, r * 2.6, 2); cap.translate(x, .25, z); this.batch(mat, cap);
+    if (!broken) { const top = boxGeo(r * 2.6, .5, r * 2.6, 2); top.translate(x, hh - .25, z); this.batch(mat, top); }
+    this.prop(this.addCyl(x, z, r + .05, hh));   // the camera passes pillars rather than jamming into the knight
+  }
+
+  deadTree(x, z, h, seed, collide = true) {
+    const r = rng(seed);
+    const trunk = new THREE.CylinderGeometry(.12, .35, h, 7); trunk.translate(x, h / 2, z);
+    this.batch('bark', trunk);
+    for (let i = 0; i < 6; i++) {
+      const bl = 1 + r() * 1.8, br = new THREE.CylinderGeometry(.03, .12, bl, 5);
+      br.translate(0, bl / 2, 0);
+      br.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(.5 + r() * .7, r() * 6.28, 0, 'YXZ')));
+      br.translate(x, h * (.45 + r() * .5), z);
+      this.batch('bark', br);
+    }
+    if (collide) this.prop(this.addCyl(x, z, .4, h));
+  }
+
+  banner(x, z, ry, color = 0x6b1414, y = 4) {
+    this.bannerMats ||= {};
+    const mat = this.bannerMats[color] ||= new THREE.MeshStandardMaterial({ color, roughness: .9, side: THREE.DoubleSide });
+    const b = new THREE.Mesh(this.bannerGeo ||= new THREE.PlaneGeometry(1.4, 3.2, 1, 6), mat);
+    b.position.set(x, y, z); b.rotation.y = ry; this.group.add(b);
+    const ph = this.R() * 6;
+    this.anim.push(t => { b.rotation.x = Math.sin(t * .9 + ph) * .04; });
+  }
+
+  // Flame source: brazier bowl (or a ground fire) + flickering light slot.
+  brazier(x, z, color = 0xff8a3a, tall = true, size = 1) {
+    const g = this.group, M = this.mats;
+    const h = tall ? 1.2 : .05;
+    if (tall) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.08, .12, h, 6), M.iron); leg.position.set(x, h / 2, z); leg.castShadow = true; g.add(leg);
+      this.prop(this.addCyl(x, z, .35, h + .4));
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.45, .22, .35, 10, 1, true), M.iron);
+      bowl.position.set(x, h + .15, z); g.add(bowl);
+    }
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    flame.position.set(x, h + .5 * size, z); flame.scale.set(size, 1.4 * size, 1); flame.material.opacity = .85; g.add(flame);
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .8 }));
+    core.position.set(x, h + .4 * size, z); core.scale.set(.5 * size, .7 * size, 1); g.add(core);
+    const src = { x, y: h + .8 * size, z, color: new THREE.Color(color), base: 9 * Math.sqrt(size), phase: Math.random() * 10, flame };
+    this.flames.push(src);
+    this.anim.push(t => {
+      const f = .85 + Math.sin(t * 9 + src.phase) * .08 + Math.sin(t * 23 + src.phase * 2) * .06;
+      flame.scale.set(.95 * f * size, 1.4 * f * size, 1); src.flick = f;
+    });
+    return src;
+  }
+
   buildShrines() {
-    const ring = runeCircle('120,230,255');
-    for (const s of Object.values(SHRINES)) {
+    const ring = tex('runeShrine', () => runeCircle('120,230,255'));
+    for (const s of Object.values(this.level.shrines)) {
       const grp = new THREE.Group(); grp.position.set(s.x, 0, s.z);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(.75, .95, .5, 10), this.mats.stone); base.position.y = .25; base.castShadow = true; base.receiveShadow = true;
       const col = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, 1, 8), this.mats.stone); col.position.y = 1;
@@ -571,12 +382,11 @@ export class World {
       const crescent = new THREE.Mesh(new THREE.TorusGeometry(.2, .055, 8, 28, Math.PI * 1.35), moonMat);
       crescent.rotation.z = Math.PI * .83;
       core.add(crescent, new THREE.Mesh(new THREE.SphereGeometry(.045, 10, 8), moonMat));
-      grp.add(water);
       const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0x6fe8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       halo.position.y = 2.05; halo.scale.setScalar(1.4); halo.material.opacity = .7;
       const rune = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), new THREE.MeshBasicMaterial({ map: ring, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .45 }));
       rune.rotation.x = -Math.PI / 2; rune.position.y = .03;
-      grp.add(base, col, bowl, core, halo, rune);
+      grp.add(base, col, bowl, water, core, halo, rune);
       this.group.add(grp);
       this.prop(this.addCyl(s.x, s.z, .95, 2));
       const src = { x: s.x, y: 2.1, z: s.z, color: new THREE.Color(0x6fe8ff), base: 7, phase: 0, flame: halo };
@@ -600,7 +410,7 @@ export class World {
     const paper = new THREE.MeshStandardMaterial({ color: 0x8a4a2a, emissive: 0xff8a3a, emissiveIntensity: .75, roughness: .8, side: THREE.DoubleSide });
     const frame = new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: .8 });
     const body = new THREE.CylinderGeometry(.13, .13, .26, 10, 1, true), cap = new THREE.CylinderGeometry(.09, .14, .04, 10);
-    for (const [i, m] of MESSAGES.entries()) {
+    for (const [i, m] of (this.level.messages || []).entries()) {
       const lan = new THREE.Group();
       lan.add(new THREE.Mesh(body, paper));
       const top = new THREE.Mesh(cap, frame); top.position.y = .15; const bot = new THREE.Mesh(cap, frame); bot.position.y = -.15; bot.rotation.x = Math.PI;
@@ -615,14 +425,13 @@ export class World {
   }
 
   buildItems() {
-    for (const it of ITEMS) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.starTex, color: it.kind === 'grace' ? 0xaef6ff : 0xffe7a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    for (const it of this.level.items || []) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.starTex, color: it.kind === 'grace' ? 0xaef6ff : it.kind === 'charm' ? 0xff9cf0 : 0xffe7a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       s.position.set(it.x, .5, it.z); s.scale.setScalar(.9);
       this.group.add(s);
       const ph = Math.random() * 6;
       this.anim.push(t => { s.position.y = .45 + Math.sin(t * 2 + ph) * .08; s.material.rotation = t * .5; s.scale.setScalar(.8 + Math.sin(t * 4 + ph) * .12); });
-      const obj = { kind: 'item', id: it.id, x: it.x, z: it.z, r: 1.4, prompt: 'Pick up', item: it, sprite: s, taken: false };
-      this.interactables.push(obj);
+      this.interactables.push({ kind: 'item', id: it.id, x: it.x, z: it.z, r: 1.4, prompt: 'Pick up', item: it, sprite: s, taken: false });
     }
   }
 
@@ -631,33 +440,51 @@ export class World {
     if (it) { it.taken = taken; it.sprite.visible = !taken; }
   }
 
+  // Seal direction helpers: +1 inside the arena, -1 outside.
+  sealSide(x, z) {
+    const S = this.level.seal;
+    return (x - S.x) * Math.sin(S.yaw) + (z - S.z) * Math.cos(S.yaw);
+  }
+
   buildGates() {
-    // Portcullis between the yard and the halls; the Gatewarden's death raises it.
-    const port = new THREE.Group();
-    for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.12, 6, .12), this.mats.iron); b.position.set(-3 + .75 * i, 3, 0); b.castShadow = true; port.add(b); }
-    for (let j = 0; j < 5; j++) { const b = new THREE.Mesh(new THREE.BoxGeometry(6.2, .12, .12), this.mats.iron); b.position.set(0, .6 + j * 1.3, 0); b.castShadow = true; port.add(b); }
-    port.position.set(0, 0, 66);
-    this.group.add(port);
-    this.portcullis = { mesh: port, col: this.prop(this.addBox(0, 66, 3, .25, 0, 6)), open: 0, opening: false };
+    const L = this.level;
+    // A gate held shut until its guardian falls: an iron portcullis or a wooden palisade gate.
+    if (L.gate) {
+      const G = L.gate, w = G.width || 6, port = new THREE.Group();
+      if (G.style === 'palisade') {
+        for (let i = 0; i < 9; i++) {
+          const x = -w / 2 + (i + .5) * w / 9, st = new THREE.Mesh(new THREE.CylinderGeometry(.16, .18, 5, 7), this.mats.stake || this.mats.wood);
+          st.position.set(x, 2.5, 0); st.castShadow = true; port.add(st);
+          const tip = new THREE.Mesh(new THREE.ConeGeometry(.18, .5, 7), this.mats.stake || this.mats.wood); tip.position.set(x, 5.25, 0); port.add(tip);
+        }
+        for (const y of [1.2, 3.6]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w + .2, .18, .18), this.mats.wood); b.position.set(0, y, .2); port.add(b); }
+      } else {
+        for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.12, 6, .12), this.mats.iron); b.position.set(-w / 2 + w / 8 * i, 3, 0); b.castShadow = true; port.add(b); }
+        for (let j = 0; j < 5; j++) { const b = new THREE.Mesh(new THREE.BoxGeometry(w + .2, .12, .12), this.mats.iron); b.position.set(0, .6 + j * 1.3, 0); b.castShadow = true; port.add(b); }
+      }
+      port.position.set(G.x, 0, G.z); port.rotation.y = G.rot || 0;
+      this.group.add(port);
+      this.portcullis = { mesh: port, col: this.prop(this.addBox(G.x, G.z, w / 2, .3, G.rot || 0, 6)), open: 0, opening: false, lift: G.style === 'palisade' ? 0 : 5.6, style: G.style };
+    }
 
     // The Briar Seal in front of the arena: a violet veil and thorned vines.
+    const S = L.seal;
     const fogMat = new THREE.ShaderMaterial({
       vertexShader: FOG_VERT, fragmentShader: FOG_FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       uniforms: { uTime: { value: 0 }, uOpacity: { value: 1 } },
     });
-    // The fog seals the arena mouth. Seen from behind during the fight it thins to a veil (viewFade).
-    const fog = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 6.8), fogMat);
-    fog.position.set(0, 3.4, 119.2);
-    this.group.add(fog);
-    // Thorned briars woven across the arch; they wither when the seal breaks.
+    const sw = S.width || 7.2, sh = S.height || 6.8;
+    const seal = new THREE.Group(); seal.position.set(S.x, 0, S.z); seal.rotation.y = S.yaw;
+    const fog = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), fogMat);
+    fog.position.y = sh / 2; seal.add(fog);
     const vineMat = new THREE.MeshStandardMaterial({ color: 0x2a1830, emissive: 0x5a1a6a, emissiveIntensity: .5, roughness: .7 });
     const vines = new THREE.Group(), R = rng(77);
     for (let v = 0; v < 7; v++) {
       const pts = [];
-      const y0 = R() * 6.2, y1 = R() * 6.2;
+      const y0 = R() * (sh - .6), y1 = R() * (sh - .6);
       for (let k = 0; k <= 8; k++) {
         const u = k / 8;
-        pts.push(new THREE.Vector3(-3.7 + u * 7.4, lerp(y0, y1, u) + Math.sin(u * 9 + v) * .5, (R() - .5) * .5));
+        pts.push(new THREE.Vector3(-sw / 2 - .1 + u * (sw + .2), lerp(y0, y1, u) + Math.sin(u * 9 + v) * .5, (R() - .5) * .5));
       }
       const curve = new THREE.CatmullRomCurve3(pts);
       vines.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, .06 + R() * .04, 5), vineMat));
@@ -666,32 +493,40 @@ export class World {
         th.position.copy(pt); th.rotation.set(R() * 6, R() * 6, R() * 6); vines.add(th);
       }
     }
-    vines.position.set(0, 0, 119.2);
-    this.group.add(vines);
-    this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(0, 119.2, 3.7, .9, 0, 7)), gone: false, fade: 1, viewFade: 1 };
+    seal.add(vines);
+    this.group.add(seal);
+    this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(S.x, S.z, sw / 2 + .1, .9, S.yaw, 7)), gone: false, fade: 1, viewFade: 1 };
     this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade * this.fogGate.viewFade; fog.visible = this.fogGate.fade > .01;
       vines.scale.y = this.fogGate.fade; vines.visible = this.fogGate.fade > .01; });
-    this.interactables.push({ kind: 'fog', x: 0, z: 117.4, r: 1.7, prompt: 'Part the briars' });
+    const out = { x: S.x - Math.sin(S.yaw) * 1.8, z: S.z - Math.cos(S.yaw) * 1.8 };
+    this.interactables.push({ kind: 'fog', x: out.x, z: out.z, r: 1.7, prompt: 'Part the briars' });
 
-    // The way onward, lit once the Warblade falls.
+    // The way onward, lit once the warlord falls.
+    const E = L.exit;
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, .08, 8, 48), new THREE.MeshBasicMaterial({ color: 0xffd6ff, transparent: true, blending: THREE.AdditiveBlending }));
-    ring.position.set(0, 1.8, 145.6);
+    ring.position.set(E.x, 1.8, E.z); ring.rotation.y = E.yaw || 0;
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xff9cf0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     glow.position.copy(ring.position); glow.scale.setScalar(5);
     ring.visible = glow.visible = false;
     this.group.add(ring, glow);
     this.exitGate = { ring, glow, on: false };
     this.anim.push(t => { ring.rotation.z = t; ring.scale.setScalar(1 + Math.sin(t * 2) * .05); });
-    this.interactables.push({ kind: 'exit', x: 0, z: 145, r: 2.4, prompt: 'Step through the Pixie Gate' });
+    this.interactables.push({ kind: 'exit', x: E.x, z: E.z - .6, r: 2.4, prompt: 'Step through the Pixie Gate' });
   }
 
   openPortcullis(instant = false) {
     const p = this.portcullis;
+    if (!p) return;
     p.col.on = false;
-    if (instant) { p.open = 1; p.mesh.position.y = 5.6; return; }
+    if (instant) { p.open = 1; this.poseGate(); return; }
     p.opening = true;
   }
-  closePortcullis() { const p = this.portcullis; p.col.on = true; p.open = 0; p.opening = false; p.mesh.position.y = 0; }
+  closePortcullis() { const p = this.portcullis; if (!p) return; p.col.on = true; p.open = 0; p.opening = false; this.poseGate(); }
+  poseGate() {
+    const p = this.portcullis;
+    if (p.style === 'palisade') { p.mesh.position.y = -p.open * 5.4; }   // stakes sink into the earth
+    else p.mesh.position.y = p.open * p.lift;
+  }
 
   setFogGate(on) { this.fogGate.gone = !on; this.fogGate.col.on = on; if (on) this.fogGate.fade = 1; }
   setExit(on) { this.exitGate.on = on; this.exitGate.ring.visible = this.exitGate.glow.visible = on; }
@@ -699,7 +534,7 @@ export class World {
   update(dt, t, focus) {
     for (const f of this.anim) f(t);
     const p = this.portcullis;
-    if (p.opening) { p.open = Math.min(1, p.open + dt / 3); p.mesh.position.y = p.open * 5.6; if (p.open >= 1) p.opening = false; }
+    if (p?.opening) { p.open = Math.min(1, p.open + dt / 3); this.poseGate(); if (p.open >= 1) p.opening = false; }
     if (this.fogGate.gone) this.fogGate.fade = Math.max(0, this.fogGate.fade - dt * .6);
 
     // Assign the light pool to the closest flames.
@@ -708,7 +543,7 @@ export class World {
       .sort((a, b) => a.d - b.d);
     this.lightPool.forEach((l, i) => {
       const s = sorted[i];
-      if (!s || s.d > 30 * 30) { l.intensity = 0; return; }
+      if (!s || s.d > 30 * 30 || !l.visible) { l.intensity = 0; return; }
       l.position.set(s.f.x, s.f.y, s.f.z);
       l.color.copy(s.f.color);
       l.intensity = s.f.base * (s.f.flick || 1);

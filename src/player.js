@@ -168,6 +168,15 @@ export class Player {
 
   heal(n) { this.hp = Math.min(this.maxHp, this.hp + n); }
 
+  // Standing in flames: steady damage, no stagger.
+  burn(dmg) {
+    const G = this.G;
+    if (this.shifted) { this.anima -= dmg * .5; if (this.anima <= 0) this.endShift(); return; }
+    this.hp -= dmg;
+    G.hud.screenFlash('hurt'); G.audio.sfx('playerHurt', { vol: .35 });
+    if (this.hp <= 0) this.die();
+  }
+
   addPoison(n) {
     if (this.poisoned > 0 || !this.alive) return;
     this.poison += n;
@@ -718,11 +727,13 @@ export class Player {
       case 'fog': {
         // Walk through the briars and on into the arena, so the camera ends up inside too.
         this.iframes = true;
-        const sp = 3.6;
-        this.pos.x = damp(this.pos.x, 0, 6, dt);
-        this.pos.z += sp * dt; this.yaw = 0;
-        want = { x: 0, z: sp };
-        if (this.pos.z >= 122.6 || this.st >= 3) { this.pos.set(0, 0, 122.6); this.setState('free'); this.anim.stop(); G.onFogCrossed(); }
+        const S = G.level.seal, [ix, iz] = S.inside, sp = 3.6;
+        const dx = ix - this.pos.x, dz = iz - this.pos.z, dd = Math.hypot(dx, dz);
+        const step = Math.min(dd, sp * dt);
+        if (dd > 1e-3) { this.pos.x += dx / dd * step; this.pos.z += dz / dd * step; }
+        this.yaw = S.yaw;
+        want = { x: Math.sin(S.yaw) * sp, z: Math.cos(S.yaw) * sp };
+        if (dd < .1 || this.st >= 3) { this.pos.set(ix, 0, iz); this.setState('free'); this.anim.stop(); G.onFogCrossed(); }
         break;
       }
       case 'pickup':

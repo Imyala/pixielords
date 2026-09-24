@@ -207,9 +207,10 @@ export class Projectiles {
     }
   }
 
-  hazard(x, z, r, dur, poison = 55) {
-    this.hazards.push({ x, z, r, t: 0, dur, poison });
-    this.G.audio.sfx('poison', { x, z });
+  // Lingering ground effects: poison clouds and pools, or fire. Static ones belong to the level.
+  hazard(x, z, r, dur, poison = 55, kind = 'poison', stat = false) {
+    this.hazards.push({ x, z, r, t: 0, dur, poison, kind, stat });
+    if (!stat) this.G.audio.sfx(kind === 'fire' ? 'explode' : 'poison', { x, z, vol: kind === 'fire' ? .4 : 1 });
   }
 
   update(dt) {
@@ -264,8 +265,14 @@ export class Projectiles {
     }
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const h = this.hazards[i]; h.t += dt;
-      if (Math.random() < dt * 14) fx.poisonCloud(h, h.r);
-      if (p.alive && Math.hypot(p.pos.x - h.x, p.pos.z - h.z) < h.r) p.addPoison(h.poison * dt);
+      const near = Math.hypot(p.pos.x - h.x, p.pos.z - h.z);
+      if (h.kind === 'fire') {
+        if (Math.random() < dt * 30 * Math.min(1, h.r)) fx.fire(h, h.r);
+        if (p.alive && near < h.r && !p.iframes) { p.burnT = (p.burnT || 0) + dt; if (p.burnT > .5) { p.burnT = 0; p.burn(h.poison * .5); } }
+      } else {
+        if ((!h.stat || near < 30) && Math.random() < dt * (h.stat ? 5 : 14) * Math.min(2, h.r / 2)) fx.poisonCloud(h, h.r);
+        if (p.alive && near < h.r) p.addPoison(h.poison * dt);
+      }
       if (h.t > h.dur) this.hazards.splice(i, 1);
     }
   }
@@ -282,16 +289,24 @@ export class Projectiles {
 
 // ---------------------------------------------------------------- enemy
 export class Enemy {
+  // A type can reuse another model (variants and bosses); spawn.type names the TYPES entry.
+  static modelFor(type) { return TYPES[type].model || type; }
+
   static async create(G, spawn) {
     const T = TYPES[spawn.type];
-    const model = await createModel(spawn.type, { scale: T.scale });
+    const model = await createModel(Enemy.modelFor(spawn.type), { scale: T.scale });
     return new Enemy(G, spawn, T, model);
+  }
+
+  dispose() {
+    this.G.scene.remove(this.outer);
+    this.mat.dispose();
   }
 
   constructor(G, spawn, T, model) {
     this.G = G; this.spawn = spawn; this.T = T; this.id = spawn.id;
     this.name = T.name; this.boss = !!T.boss; this.elite = !!T.elite;
-    this.size = T.scale * (MODEL_SIZE[spawn.type] ?? 1);
+    this.size = T.scale * (MODEL_SIZE[Enemy.modelFor(spawn.type)] ?? 1);
     this.height = 1.9 * this.size;
     this.radius = T.radius;
     this.model = model;

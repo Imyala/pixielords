@@ -29,7 +29,8 @@ export class HUD {
       <div class="flash"></div>
       <div class="edge"></div>
       <div class="msg" hidden><p></p><small></small></div>
-      <div class="fade"></div>`;
+      <div class="fade"></div>
+      <div class="loadingMsg"><span>The path unfolds…</span></div>`;
     this.q = {
       hpBar: $('.bar.hp', el), hp: $('.bar.hp .fill', el), hpTrail: $('.bar.hp .trail', el),
       kiBar: $('.bar.ki', el), ki: $('.bar.ki .fill', el), pool: $('.bar.ki .pool', el),
@@ -80,6 +81,8 @@ export class HUD {
     this.q.big.classList.remove('on'); this.q.banner.classList.remove('on');
     this.q.toasts.innerHTML = ''; this.closeMessage(); this.prompt(null);
   }
+
+  loading(on) { this.el.querySelector('.loadingMsg').classList.toggle('on', on); if (on) this.el.classList.add('on'); }
 
   fadeTo(on, sec = .8) { const f = this.q.fade; f.style.transitionDuration = sec + 's'; f.classList.toggle('on', on); }
 

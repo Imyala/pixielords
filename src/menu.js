@@ -76,7 +76,8 @@ export class Menu {
       if (inp.hit('right')) { cur.value = +cur.value + step; cur.dispatchEvent(new Event('input', { bubbles: true })); }
     }
     if (inp.hit('confirm') && cur) { cur.click(); }
-    if (inp.hit('back') && this.top?.screen !== 'title' && this.top?.screen !== 'ending') {
+    const fixed = ['title', 'ending', 'cleared'].includes(this.top?.screen) || (this.top?.screen === 'missions' && this.stack.length === 1);
+    if (inp.hit('back') && !fixed) {
       this.G.audio.sfx('ui');
       if (this.top.screen === 'shrine') this.run('leave'); else this.pop();
     }
@@ -98,6 +99,9 @@ export class Menu {
       case 'leave': G.leaveShrine(); break;
       case 'ngplus': G.newGamePlus(); break;
       case 'title': G.quitToTitle(); break;
+      case 'missions': this.show('missions'); break;
+      case 'journey': this.push('missions', { from: 'shrine' }); break;
+      case 'mission': G.startMission(b.dataset.id); break;
     }
   }
 
@@ -112,7 +116,7 @@ export class Menu {
         <div class="tag">A fae knight · a warren of rot · a lord upon the throne</div>
         ${ready ? '' : `<div class="loading"><i style="transform:scaleX(${G.loadProgress || 0})"></i><span>Summoning the warren… ${Math.round((G.loadProgress || 0) * 100)}%</span></div>`}
         <div class="btns">
-          ${has ? `<button class="btn" data-act="continue" ${ready ? '' : 'disabled'}>Continue <small>${esc(G.save.summary())}</small></button>` : ''}
+          ${has ? `<button class="btn" data-act="continue" ${ready ? '' : 'disabled'}>Continue <small>${esc(G.save.summary(G.LEVELS))}</small></button>` : ''}
           <button class="btn" data-act="new" ${ready ? '' : 'disabled'}>New Game</button>
           <button class="btn" data-act="controls">Controls</button>
           <button class="btn" data-act="settings">Settings</button>
@@ -162,20 +166,39 @@ export class Menu {
         return `<div class="stat"><div><b>${st.name}</b> <span class="val">${sv.stats[st.k]}</span><small>${st.desc} · ${gain}</small></div>
           <button class="btn plus" data-act="level" data-stat="${st.k}" ${sv.glimmer >= cost ? '' : 'disabled'}>+</button></div>`;
       }).join('');
-      const other = Object.values(G.shrines).filter(s => s.id !== data.id && sv.kindled.includes(s.id));
+      const other = Object.values(G.level.shrines).filter(s => s.id !== data.id && sv.m.kindled.includes(s.id));
       h = `<div class="panel shrine"><h2>${esc(data.name)}</h2>
         <div class="lv"><div><small>Level</small><b>${lvl}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div><div><small>Next level</small><b>${cost.toLocaleString()}</b></div></div>
         <div class="derived">Health ${p.maxHp} · Stamina ${p.maxKi} · Damage ×${p.dmgMul.toFixed(2)} · Moondew ${sv.elixirMax}</div>
         ${rows}
         <div class="btns">
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
+          ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
           <button class="btn" data-act="leave">Rise</button>
         </div>
-        <p class="dim">Resting mends you, refills your Moondew, and calls every fallen foe back to the keep.</p></div>`;
+        <p class="dim">Resting mends you, refills your Moondew, and calls every fallen foe back.</p></div>`;
+    } else if (screen === 'cleared') {
+      const sv = G.save, L = G.level, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
+      h = `<div class="panel ending"><div class="kicker">Mission complete</div><h1>${esc(L.name.toUpperCase())}</h1>
+        <p>${esc(L.outro || '')}</p>
+        <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div></div>
+        <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>`;
+    } else if (screen === 'missions') {
+      const sv = G.save;
+      const rows = G.ORDER.map((id, i) => {
+        const L = G.LEVELS[id], open = sv.data.unlocked.includes(id), st = sv.data.missions[id];
+        const tag = !open ? 'Sealed' : st?.cleared ? 'Cleared' : st?.shrine ? 'In progress' : 'New';
+        return `<button class="btn mission ${open ? '' : 'locked'}" data-act="mission" data-id="${id}" ${open ? '' : 'disabled'}>
+          <span class="node">${i + 1}</span><span class="mtext"><b>${esc(L.name)}</b><small>${esc(open ? L.blurb : 'The path here is not yet open.')}</small></span>
+          <span class="mtag ${tag.replace(' ', '').toLowerCase()}">${tag}<small>Lv ${L.level}+</small></span></button>`;
+      }).join('');
+      h = `<div class="panel wide missions"><div class="kicker">The Fae Crossroads</div><h2>Where does the path lead?</h2>
+        <div class="map">${rows}</div>
+        <div class="btns">${data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : '<button class="btn" data-act="title">Return to title</button>'}</div></div>`;
     } else if (screen === 'ending') {
       const sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
-      h = `<div class="panel ending"><h1>THE WARREN IS STILL</h1>
-        <p>Gnawfang is dust upon his throne. The Pixie Gate hums with a light older than the keep. Beyond it lie other halls and other lords, waiting.</p>
+      h = `<div class="panel ending"><h1>${esc(G.level.endingTitle || 'THE PATHS ARE STILL')}</h1>
+        <p>${esc(G.level.ending || G.level.outro || '')}</p>
         <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Cycle</small><b>${sv.ng + 1}</b></div></div>
         <div class="btns"><button class="btn" data-act="ngplus">Journey again · New Game+</button><button class="btn" data-act="title">Return to title</button></div></div>`;
     }

@@ -190,6 +190,16 @@ export class FX {
     }
   }
 
+  fire(p, r = 1.5) {
+    const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r;
+    this.add.emit({ x: p.x + Math.cos(a) * d, y: .1, z: p.z + Math.sin(a) * d, vx: rand(-.3, .3), vy: rand(1.5, 3.5), vz: rand(-.3, .3), life: rand(.35, .8), size: rand(.25, .5), color: this.col(Math.random() < .3 ? 0xffd070 : 0xff5a1a), drag: 1.5, grow: -.3 });
+  }
+
+  // A leaf spiralling down through the canopy light.
+  leaf(p) {
+    this.norm.emit({ x: p.x, y: p.y, z: p.z, vx: rand(-.6, .6), vy: -rand(.5, .9), vz: rand(-.6, .6), life: rand(5, 8), size: rand(.08, .13), color: this.col(Math.random() < .5 ? 0x6b5a2a : 0x8a4a22), alpha: .9, drag: .05 });
+  }
+
   // Expanding flat ring on the ground (or at height y).
   ring(p, color, radius = 2, dur = .4, y = .06, width = .12) {
     const m = new THREE.Mesh(new THREE.RingGeometry(1 - width, 1, 48), new THREE.MeshBasicMaterial({ color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));

@@ -1,26 +1,39 @@
 // Progress lives in localStorage; the game still runs (without saving) if storage is blocked.
+// Each mission keeps its own Moonwells, fallen bosses and taken items; stats and Glimmer are shared.
 const KEY = 'pixielords-save-v1';
 const SKEY = 'pixielords-settings-v1';
 
 export const levelCost = lvl => Math.round(160 + 70 * (lvl - 1) + 9 * (lvl - 1) ** 2);
 
+export const freshMission = () => ({ shrine: null, kindled: [], dead: [], items: [], cleared: false });
+
 export function freshSave(ng = 0) {
   return {
-    v: 1, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, shrine: 'grove', kindled: ['grove'],
-    dead: [], items: [], grave: null, deaths: 0, time: 0, ng, seenMessages: [],
+    v: 2, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, deaths: 0, time: 0, ng,
+    mission: 'keep', unlocked: ['keep'], missions: {}, grave: null, charms: [], equipped: [],
   };
+}
+
+// Version 1 had a single level and called the currency by another name.
+function migrate(d) {
+  if (d.v === 1) {
+    if (d.glimmer == null && d.amrita != null) { d.glimmer = d.amrita; delete d.amrita; }
+    const cleared = (d.dead || []).includes('boss');
+    d.missions = { keep: { shrine: d.shrine || 'grove', kindled: d.kindled || ['grove'], dead: d.dead || [], items: (d.items || []).map(i => i.replace('amrita', 'glimmer')), cleared } };
+    if (d.grave) d.grave.mission = 'keep';
+    d.mission = 'keep'; d.unlocked = cleared ? ['keep', 'rotwood'] : ['keep'];
+    d.charms = []; d.equipped = [];
+    for (const k of ['shrine', 'kindled', 'dead', 'items', 'seenMessages']) delete d[k];
+    d.v = 2;
+  }
+  return d.v === 2 ? d : null;
 }
 
 export class Save {
   constructor() {
     this.data = null;
     try { this.data = JSON.parse(localStorage.getItem(KEY)); } catch { this.data = null; }
-    if (this.data && this.data.v !== 1) this.data = null;
-    // Older saves called the currency by another name.
-    if (this.data && this.data.glimmer == null && this.data.amrita != null) {
-      this.data.glimmer = this.data.amrita; delete this.data.amrita;
-      this.data.items = (this.data.items || []).map(i => i.replace('amrita', 'glimmer'));
-    }
+    if (this.data) this.data = migrate(this.data);
     this.exists = !!this.data;
     if (!this.data) this.data = freshSave();
   }
@@ -29,13 +42,15 @@ export class Save {
   get glimmer() { return this.data.glimmer; }
   set glimmer(v) { this.data.glimmer = Math.max(0, Math.round(v)); }
   get elixirMax() { return this.data.elixirMax; }
-  get kindled() { return this.data.kindled; }
   get deaths() { return this.data.deaths; }
   get time() { return this.data.time; }
   get ng() { return this.data.ng; }
-  summary() {
+  // The current mission's state.
+  get m() { return this.mission(this.data.mission); }
+  mission(id) { return (this.data.missions[id] ||= freshMission()); }
+  summary(levels) {
     const d = this.data, m = Math.floor(d.time / 60);
-    return `Level ${this.level} · ${m} min${d.ng ? ` · NG+${d.ng}` : ''}`;
+    return `${levels?.[d.mission]?.name || ''} · Level ${this.level} · ${m} min${d.ng ? ` · NG+${d.ng}` : ''}`;
   }
   reset(ng = 0) { this.data = freshSave(ng); }
   write() {
