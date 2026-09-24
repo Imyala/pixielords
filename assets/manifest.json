@@ -1,0 +1,784 @@
+{
+  "source": {
+    "repo": "Imyala/TowerLords",
+    "commit": "b6dc98cf5e8dc3097df6cf0040716438bead2c6e",
+    "licence": "MIT, (c) 2026 Imyala"
+  },
+  "families": {
+    "goblin": {
+      "name": "Goblins",
+      "folder": "goblins"
+    },
+    "ratman": {
+      "name": "Ratmen",
+      "folder": "ratmen"
+    }
+  },
+  "models": [
+    {
+      "id": "goblin-scout",
+      "family": "goblin",
+      "role": "scout",
+      "name": "Scout",
+      "class": null,
+      "traits": [
+        "Agile",
+        "Harasses",
+        "Flees"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 4811,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/01-scout.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-scout_asset.json",
+        "atlas": "assets/models/goblins/goblin-scout_atlas.png",
+        "obj": "assets/models/goblins/goblin-scout_5k.obj",
+        "mtl": "assets/models/goblins/goblin-scout_5k.mtl",
+        "rig": "assets/models/goblins/goblin-scout_rig.png"
+      }
+    },
+    {
+      "id": "goblin-shaman",
+      "family": "goblin",
+      "role": "shaman",
+      "name": "Shaman",
+      "class": null,
+      "traits": [
+        "Buffs allies",
+        "Curses",
+        "Heals"
+      ],
+      "size": 1,
+      "triangles": 5000,
+      "vertices": 4983,
+      "rig": {
+        "arms": true,
+        "legs": false
+      },
+      "reference": "assets/reference/goblins/02-shaman.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-shaman_asset.json",
+        "atlas": "assets/models/goblins/goblin-shaman_atlas.png",
+        "obj": "assets/models/goblins/goblin-shaman_5k.obj",
+        "mtl": "assets/models/goblins/goblin-shaman_5k.mtl",
+        "rig": "assets/models/goblins/goblin-shaman_rig.png"
+      }
+    },
+    {
+      "id": "goblin-spearguard",
+      "family": "goblin",
+      "role": "spearguard",
+      "name": "Spear Guard",
+      "class": null,
+      "traits": [
+        "Frontline",
+        "Defensive",
+        "Disciplined"
+      ],
+      "size": 1.1,
+      "triangles": 4999,
+      "vertices": 4604,
+      "rig": {
+        "arms": false,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/03-spearguard.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-spearguard_asset.json",
+        "atlas": "assets/models/goblins/goblin-spearguard_atlas.png",
+        "obj": "assets/models/goblins/goblin-spearguard_5k.obj",
+        "mtl": "assets/models/goblins/goblin-spearguard_5k.mtl",
+        "rig": "assets/models/goblins/goblin-spearguard_rig.png"
+      }
+    },
+    {
+      "id": "goblin-bomber",
+      "family": "goblin",
+      "role": "bomber",
+      "name": "Bomber",
+      "class": null,
+      "traits": [
+        "Explosive",
+        "Area damage",
+        "Suicide"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 4992,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/04-bomber.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-bomber_asset.json",
+        "atlas": "assets/models/goblins/goblin-bomber_atlas.png",
+        "obj": "assets/models/goblins/goblin-bomber_5k.obj",
+        "mtl": "assets/models/goblins/goblin-bomber_5k.mtl",
+        "rig": "assets/models/goblins/goblin-bomber_rig.png"
+      }
+    },
+    {
+      "id": "goblin-archer",
+      "family": "goblin",
+      "role": "archer",
+      "name": "Archer",
+      "class": null,
+      "traits": [
+        "Ranged",
+        "Keeps distance",
+        "Deadly"
+      ],
+      "size": 1,
+      "triangles": 5000,
+      "vertices": 4986,
+      "rig": {
+        "arms": false,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/05-archer.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-archer_asset.json",
+        "atlas": "assets/models/goblins/goblin-archer_atlas.png",
+        "obj": "assets/models/goblins/goblin-archer_5k.obj",
+        "mtl": "assets/models/goblins/goblin-archer_5k.mtl",
+        "rig": "assets/models/goblins/goblin-archer_rig.png"
+      }
+    },
+    {
+      "id": "goblin-clubber",
+      "family": "goblin",
+      "role": "clubber",
+      "name": "Clubber",
+      "class": null,
+      "traits": [
+        "Heavy hit",
+        "Low speed",
+        "Brutal"
+      ],
+      "size": 1.35,
+      "triangles": 4999,
+      "vertices": 4913,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/06-clubber.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-clubber_asset.json",
+        "atlas": "assets/models/goblins/goblin-clubber_atlas.png",
+        "obj": "assets/models/goblins/goblin-clubber_5k.obj",
+        "mtl": "assets/models/goblins/goblin-clubber_5k.mtl",
+        "rig": "assets/models/goblins/goblin-clubber_rig.png"
+      }
+    },
+    {
+      "id": "goblin-poisoner",
+      "family": "goblin",
+      "role": "poisoner",
+      "name": "Poisoner",
+      "class": null,
+      "traits": [
+        "Damage over time",
+        "Tricky",
+        "Toxic"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 4819,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/07-poisoner.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-poisoner_asset.json",
+        "atlas": "assets/models/goblins/goblin-poisoner_atlas.png",
+        "obj": "assets/models/goblins/goblin-poisoner_5k.obj",
+        "mtl": "assets/models/goblins/goblin-poisoner_5k.mtl",
+        "rig": "assets/models/goblins/goblin-poisoner_rig.png"
+      }
+    },
+    {
+      "id": "goblin-trapper",
+      "family": "goblin",
+      "role": "trapper",
+      "name": "Trapper",
+      "class": null,
+      "traits": [
+        "Sets traps",
+        "Controls area",
+        "Tactical"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 4988,
+      "rig": {
+        "arms": false,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/08-trapper.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-trapper_asset.json",
+        "atlas": "assets/models/goblins/goblin-trapper_atlas.png",
+        "obj": "assets/models/goblins/goblin-trapper_5k.obj",
+        "mtl": "assets/models/goblins/goblin-trapper_5k.mtl",
+        "rig": "assets/models/goblins/goblin-trapper_rig.png"
+      }
+    },
+    {
+      "id": "goblin-berserker",
+      "family": "goblin",
+      "role": "berserker",
+      "name": "Berserker",
+      "class": null,
+      "traits": [
+        "High damage",
+        "Enrages",
+        "Unstoppable"
+      ],
+      "size": 1.1,
+      "triangles": 4999,
+      "vertices": 4905,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/09-berserker.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-berserker_asset.json",
+        "atlas": "assets/models/goblins/goblin-berserker_atlas.png",
+        "obj": "assets/models/goblins/goblin-berserker_5k.obj",
+        "mtl": "assets/models/goblins/goblin-berserker_5k.mtl",
+        "rig": "assets/models/goblins/goblin-berserker_rig.png"
+      }
+    },
+    {
+      "id": "goblin-commander",
+      "family": "goblin",
+      "role": "commander",
+      "name": "Commander",
+      "class": null,
+      "traits": [
+        "Stronger allies",
+        "Orders",
+        "Leader"
+      ],
+      "size": 1.15,
+      "triangles": 4999,
+      "vertices": 5007,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/goblins/10-commander.png",
+      "files": {
+        "asset": "assets/models/goblins/goblin-commander_asset.json",
+        "atlas": "assets/models/goblins/goblin-commander_atlas.png",
+        "obj": "assets/models/goblins/goblin-commander_5k.obj",
+        "mtl": "assets/models/goblins/goblin-commander_5k.mtl",
+        "rig": "assets/models/goblins/goblin-commander_rig.png"
+      }
+    },
+    {
+      "id": "ratman-scout",
+      "family": "ratman",
+      "role": "scout",
+      "name": "Ratman Scout",
+      "class": "Common",
+      "traits": [
+        "Fast and agile",
+        "Weak in combat",
+        "Calls for help"
+      ],
+      "size": 0.95,
+      "triangles": 4999,
+      "vertices": 4708,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/01-scout.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-scout_asset.json",
+        "atlas": "assets/models/ratmen/ratman-scout_atlas.png",
+        "obj": "assets/models/ratmen/ratman-scout_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-scout_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-scout_rig.png"
+      }
+    },
+    {
+      "id": "ratman-skirmisher",
+      "family": "ratman",
+      "role": "skirmisher",
+      "name": "Ratman Skirmisher",
+      "class": "Skirmisher",
+      "traits": [
+        "Quick strikes",
+        "High evasion",
+        "Favors flanking"
+      ],
+      "size": 1,
+      "triangles": 5000,
+      "vertices": 4740,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/02-skirmisher.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-skirmisher_asset.json",
+        "atlas": "assets/models/ratmen/ratman-skirmisher_atlas.png",
+        "obj": "assets/models/ratmen/ratman-skirmisher_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-skirmisher_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-skirmisher_rig.png"
+      }
+    },
+    {
+      "id": "ratman-slinger",
+      "family": "ratman",
+      "role": "slinger",
+      "name": "Ratman Slinger",
+      "class": "Ranged",
+      "traits": [
+        "Ranged attacks",
+        "Keeps distance",
+        "Throws rocks and debris"
+      ],
+      "size": 1,
+      "triangles": 5000,
+      "vertices": 5010,
+      "rig": {
+        "arms": false,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/03-slinger.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-slinger_asset.json",
+        "atlas": "assets/models/ratmen/ratman-slinger_atlas.png",
+        "obj": "assets/models/ratmen/ratman-slinger_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-slinger_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-slinger_rig.png"
+      }
+    },
+    {
+      "id": "ratman-brute",
+      "family": "ratman",
+      "role": "brute",
+      "name": "Ratman Brute",
+      "class": "Bruiser",
+      "traits": [
+        "High health",
+        "Heavy damage",
+        "Breaks defense"
+      ],
+      "size": 1.3,
+      "triangles": 4999,
+      "vertices": 5010,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/04-brute.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-brute_asset.json",
+        "atlas": "assets/models/ratmen/ratman-brute_atlas.png",
+        "obj": "assets/models/ratmen/ratman-brute_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-brute_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-brute_rig.png"
+      }
+    },
+    {
+      "id": "ratman-poisoner",
+      "family": "ratman",
+      "role": "poisoner",
+      "name": "Ratman Poisoner",
+      "class": "Support",
+      "traits": [
+        "Poisons weapons",
+        "Throws toxic vials",
+        "Weak in direct combat"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 4925,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/05-poisoner.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-poisoner_asset.json",
+        "atlas": "assets/models/ratmen/ratman-poisoner_atlas.png",
+        "obj": "assets/models/ratmen/ratman-poisoner_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-poisoner_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-poisoner_rig.png"
+      }
+    },
+    {
+      "id": "ratman-shaman",
+      "family": "ratman",
+      "role": "shaman",
+      "name": "Ratman Shaman",
+      "class": "Spellcaster",
+      "traits": [
+        "Casts dark magic",
+        "Summons rats",
+        "Low health"
+      ],
+      "size": 1,
+      "triangles": 5000,
+      "vertices": 5532,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/06-shaman.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-shaman_asset.json",
+        "atlas": "assets/models/ratmen/ratman-shaman_atlas.png",
+        "obj": "assets/models/ratmen/ratman-shaman_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-shaman_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-shaman_rig.png"
+      }
+    },
+    {
+      "id": "ratman-assassin",
+      "family": "ratman",
+      "role": "assassin",
+      "name": "Ratman Assassin",
+      "class": "Stealth",
+      "traits": [
+        "Extremely fast",
+        "High critical damage",
+        "Strikes from shadows"
+      ],
+      "size": 1,
+      "triangles": 4999,
+      "vertices": 5020,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/07-assassin.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-assassin_asset.json",
+        "atlas": "assets/models/ratmen/ratman-assassin_atlas.png",
+        "obj": "assets/models/ratmen/ratman-assassin_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-assassin_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-assassin_rig.png"
+      }
+    },
+    {
+      "id": "ratman-packleader",
+      "family": "ratman",
+      "role": "packleader",
+      "name": "Ratman Pack Leader",
+      "class": "Leader",
+      "traits": [
+        "Inspires nearby ratmen",
+        "Buffs allies",
+        "Heavily armored"
+      ],
+      "size": 1.1,
+      "triangles": 5000,
+      "vertices": 4822,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/08-packleader.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-packleader_asset.json",
+        "atlas": "assets/models/ratmen/ratman-packleader_atlas.png",
+        "obj": "assets/models/ratmen/ratman-packleader_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-packleader_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-packleader_rig.png"
+      }
+    },
+    {
+      "id": "ratman-warblade",
+      "family": "ratman",
+      "role": "warblade",
+      "name": "Ratman Warblade",
+      "class": "Veteran",
+      "traits": [
+        "Balanced warrior",
+        "Strong offense and defense",
+        "Dangerous in groups"
+      ],
+      "size": 1.3,
+      "triangles": 5000,
+      "vertices": 5006,
+      "rig": {
+        "arms": true,
+        "legs": true
+      },
+      "reference": "assets/reference/ratmen/09-warblade.png",
+      "files": {
+        "asset": "assets/models/ratmen/ratman-warblade_asset.json",
+        "atlas": "assets/models/ratmen/ratman-warblade_atlas.png",
+        "obj": "assets/models/ratmen/ratman-warblade_5k.obj",
+        "mtl": "assets/models/ratmen/ratman-warblade_5k.mtl",
+        "rig": "assets/models/ratmen/ratman-warblade_rig.png"
+      }
+    }
+  ],
+  "concept": [
+    {
+      "id": "goblin",
+      "title": "10 Goblin Enemies",
+      "description": "Scout, Shaman, Spear Guard, Bomber, Archer, Clubber, Poisoner, Trapper, Berserker, Commander",
+      "file": "assets/concept/goblin-enemies.png",
+      "source": "GameAssets/file_000000002adc820ba1078bf6a98228da.png"
+    },
+    {
+      "id": "ratman",
+      "title": "10 Ratman Enemies",
+      "description": "Scout, Skirmisher, Slinger, Brute, Poisoner, Shaman, Assassin, Pack Leader, Warblade, Burrower",
+      "file": "assets/concept/ratman-enemies.png",
+      "source": "GameAssets/file_000000002fbc8207b975657e7358651a.png"
+    },
+    {
+      "id": "skeleton",
+      "title": "10 Skeleton Enemies",
+      "description": "Skirmisher, Archer, Spearman, Bone Mage, Bomb Skeleton, Guardian, Dual Wielder, Scythe Reaper, Shieldbearer, Bone Commander",
+      "file": "assets/concept/skeleton-enemies.png",
+      "source": "GameAssets/file_00000000493881fa9b7c47489910ec28.png"
+    },
+    {
+      "id": "ghoul-ghost",
+      "title": "10 Ghoul & Ghost Enemies",
+      "description": "Ghoul Scout, Ghoul Brute, Wailing Spirit, Banshee, Soul Drainer, Hungry Ghoul, Shackled Ghost, Grave Phantom, Cursed Wraith, Lost Soul",
+      "file": "assets/concept/ghoul-ghost-enemies.png",
+      "source": "GameAssets/file_000000005650820790318cdd49f83650.png"
+    },
+    {
+      "id": "slime",
+      "title": "10 Slime Enemies",
+      "description": "Green, Water, Fire, Poison, Electric, Shadow, Ice, Mud Sludge, Acid, Prism",
+      "file": "assets/concept/slime-enemies.png",
+      "source": "GameAssets/file_00000000f2d881faa761c886d6b5b61f.png"
+    },
+    {
+      "id": "troll",
+      "title": "10 Troll Enemies",
+      "description": "Cave, Rock, Ice, Swamp, War, Shaman, Armor, Fire, Stone, Troll Chief",
+      "file": "assets/concept/troll-enemies.png",
+      "source": "GameAssets/file_00000000fe7481fa8e40f8dd4f73d348.png"
+    },
+    {
+      "id": "orc",
+      "title": "10 Orc Enemies",
+      "description": "Grunt, Warrior, Archer, Brute, Shaman, Raider, Berserker, Warboss, Slayer, Overseer",
+      "file": "assets/concept/orc-enemies.png",
+      "source": "GameAssets/file_0000000064d8820b9ca10de345a340dd.png"
+    },
+    {
+      "id": "sahuagin",
+      "title": "10 Sahuagin Enemies",
+      "description": "Scout, Warrior, Spearer, Brute, Priest, Hunter, Shaman, Guardian, Berserker, Champion",
+      "file": "assets/concept/sahuagin-enemies.png",
+      "source": "GameAssets/file_0000000065248206b39e2af9076af842.png"
+    },
+    {
+      "id": "kuo-toa",
+      "title": "10 Kuo-toa Enemies",
+      "description": "Scout, Spearman, Hunter, Brute, Shaman, Slave, Berserker, Priest, Tideguard, Myrmidon",
+      "file": "assets/concept/kuo-toa-enemies.png",
+      "source": "GameAssets/file_000000006a70820b816d743637ec32f5.png"
+    },
+    {
+      "id": "tengu",
+      "title": "10 Tengu Enemies",
+      "description": "Scout, Bandit, Archer, Warrior, Shaman, Ninja, Oni, Windmaster, Blademaster, Chief",
+      "file": "assets/concept/tengu-enemies.png",
+      "source": "GameAssets/file_00000000f01c820bb71f0d6deae91813.png"
+    },
+    {
+      "id": "ursine",
+      "title": "10 Ursine Enemies",
+      "description": "Scout, Warrior, Hunter, Brute, Shaman, Raider, Berserker, Guardian, Frostpaw, Alpha",
+      "file": "assets/concept/ursine-enemies.png",
+      "source": "GameAssets/file_00000000cf94820b9d969fe769c232d9.png"
+    },
+    {
+      "id": "vespertine",
+      "title": "10 Vespertine Enemies",
+      "description": "Lurker, Stalker, Assassin, Matron, Gargoyle, Harvester, Bloodsworn, Wraith, Nightguard, Nightqueen",
+      "file": "assets/concept/vespertine-enemies.png",
+      "source": "GameAssets/file_00000000d408820b820cd989fc6aca35.png"
+    },
+    {
+      "id": "arachne",
+      "title": "10 Arachne Enemies",
+      "description": "Scout, Stalker, Hunter, Matron, Weaver, Assassin, Venommist, Guardian, Broodmother, Tyrant",
+      "file": "assets/concept/arachne-enemies.png",
+      "source": "GameAssets/file_0000000024c8820badbcf4cceff21118.png"
+    },
+    {
+      "id": "cephalopoid",
+      "title": "10 Cephalopoid Enemies",
+      "description": "Scout, Warrior, Hunter, Brute, Spellcaster, Assassin, Venomist, Guardian, Elemental, Elder",
+      "file": "assets/concept/cephalopoid-enemies.png",
+      "source": "GameAssets/file_00000000bbf0820bb2a35de905c186b6.png"
+    }
+  ],
+  "reference": [
+    {
+      "id": "goblin-scout",
+      "title": "1. Scout",
+      "description": "Agile \u00b7 Harasses \u00b7 Flees",
+      "file": "assets/reference/goblins/01-scout.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.30.36.png"
+    },
+    {
+      "id": "goblin-shaman",
+      "title": "2. Shaman",
+      "description": "Buffs allies \u00b7 Curses \u00b7 Heals",
+      "file": "assets/reference/goblins/02-shaman.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.30.58.png"
+    },
+    {
+      "id": "goblin-spearguard",
+      "title": "3. Spear Guard",
+      "description": "Frontline \u00b7 Defensive \u00b7 Disciplined",
+      "file": "assets/reference/goblins/03-spearguard.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.31.10.png"
+    },
+    {
+      "id": "goblin-bomber",
+      "title": "4. Bomber",
+      "description": "Explosive \u00b7 Area damage \u00b7 Suicide",
+      "file": "assets/reference/goblins/04-bomber.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.31.20.png"
+    },
+    {
+      "id": "goblin-archer",
+      "title": "5. Archer",
+      "description": "Ranged \u00b7 Keeps distance \u00b7 Deadly",
+      "file": "assets/reference/goblins/05-archer.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.31.29.png"
+    },
+    {
+      "id": "goblin-clubber",
+      "title": "6. Clubber",
+      "description": "Heavy hit \u00b7 Low speed \u00b7 Brutal",
+      "file": "assets/reference/goblins/06-clubber.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.31.42.png"
+    },
+    {
+      "id": "goblin-poisoner",
+      "title": "7. Poisoner",
+      "description": "Damage over time \u00b7 Tricky \u00b7 Toxic",
+      "file": "assets/reference/goblins/07-poisoner.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.31.52.png"
+    },
+    {
+      "id": "goblin-trapper",
+      "title": "8. Trapper",
+      "description": "Sets traps \u00b7 Controls area \u00b7 Tactical",
+      "file": "assets/reference/goblins/08-trapper.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.32.04.png"
+    },
+    {
+      "id": "goblin-berserker",
+      "title": "9. Berserker",
+      "description": "High damage \u00b7 Enrages \u00b7 Unstoppable",
+      "file": "assets/reference/goblins/09-berserker.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.32.17.png"
+    },
+    {
+      "id": "goblin-commander",
+      "title": "10. Commander",
+      "description": "Stronger allies \u00b7 Orders \u00b7 Leader",
+      "file": "assets/reference/goblins/10-commander.png",
+      "source": "GameAssets/Goblins/Screenshot 2026-09-10 at 06.32.27.png"
+    },
+    {
+      "id": "ratman-scout",
+      "title": "1. Ratman Scout",
+      "description": "Fast and agile \u00b7 Weak in combat \u00b7 Calls for help",
+      "file": "assets/reference/ratmen/01-scout.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.40.54.png"
+    },
+    {
+      "id": "ratman-skirmisher",
+      "title": "2. Ratman Skirmisher",
+      "description": "Quick strikes \u00b7 High evasion \u00b7 Favors flanking",
+      "file": "assets/reference/ratmen/02-skirmisher.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.05.png"
+    },
+    {
+      "id": "ratman-slinger",
+      "title": "3. Ratman Slinger",
+      "description": "Ranged attacks \u00b7 Keeps distance \u00b7 Throws rocks and debris",
+      "file": "assets/reference/ratmen/03-slinger.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.14.png"
+    },
+    {
+      "id": "ratman-brute",
+      "title": "4. Ratman Brute",
+      "description": "High health \u00b7 Heavy damage \u00b7 Breaks defense",
+      "file": "assets/reference/ratmen/04-brute.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.21.png"
+    },
+    {
+      "id": "ratman-poisoner",
+      "title": "5. Ratman Poisoner",
+      "description": "Poisons weapons \u00b7 Throws toxic vials \u00b7 Weak in direct combat",
+      "file": "assets/reference/ratmen/05-poisoner.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.29.png"
+    },
+    {
+      "id": "ratman-shaman",
+      "title": "6. Ratman Shaman",
+      "description": "Casts dark magic \u00b7 Summons rats \u00b7 Low health",
+      "file": "assets/reference/ratmen/06-shaman.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.39.png"
+    },
+    {
+      "id": "ratman-assassin",
+      "title": "7. Ratman Assassin",
+      "description": "Extremely fast \u00b7 High critical damage \u00b7 Strikes from shadows",
+      "file": "assets/reference/ratmen/07-assassin.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.48.png"
+    },
+    {
+      "id": "ratman-packleader",
+      "title": "8. Ratman Pack Leader",
+      "description": "Inspires nearby ratmen \u00b7 Buffs allies \u00b7 Heavily armored",
+      "file": "assets/reference/ratmen/08-packleader.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.41.55.png"
+    },
+    {
+      "id": "ratman-warblade",
+      "title": "9. Ratman Warblade",
+      "description": "Balanced warrior \u00b7 Strong offense and defense \u00b7 Dangerous in groups",
+      "file": "assets/reference/ratmen/09-warblade.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.42.03.png"
+    },
+    {
+      "id": "ratman-burrower",
+      "title": "10. Ratman Burrower",
+      "description": "Burrows underground \u00b7 Ambushes players \u00b7 Escapes after attack",
+      "file": "assets/reference/ratmen/10-burrower.png",
+      "source": "GameAssets/Ratmen/Screenshot 2026-09-10 at 18.42.10.png"
+    }
+  ],
+  "ui": [
+    {
+      "id": "skill-tree-glyphs",
+      "title": "Skill-tree glyphs",
+      "description": "PNG + SVG source",
+      "file": "assets/ui/skill-tree-glyphs.png",
+      "svg": "assets/ui/skill-tree-glyphs.svg",
+      "source": "docs/skill-tree-glyphs.png"
+    }
+  ]
+}
