@@ -19,6 +19,8 @@ const CONTROLS = [
   ['Guard  ·  tap as a blow lands to Deflect', 'Shift', 'LB'],
   ['Dash  ·  hold to sprint', 'Space', 'B'],
   ['Stance: High / Mid / Low', '1  2  3  (or C / X)', 'D-pad ↑ / ↓'],
+  ['Switch weapon  ·  as a strike ends: Switch Strike', 'V', 'D-pad ←'],
+  ['Charge a heavy (Moonglaive)', 'Hold right click', 'Hold RT'],
   ['Thorn Counter', 'F', 'LT'],
   ['Lock on  ·  switch target', 'Q / middle click  ·  wheel / Tab', 'R3  ·  flick right stick'],
   ['Drink Moondew', 'R', 'X'],
@@ -140,7 +142,9 @@ export class Menu {
           <p><b>Resonance</b>: as a strike ends, blue light gathers around you. Tap guard then and the stamina you spent flows back. Change stance in that moment for a Resonant Shift.</p>
           <p><b>Stances</b>: High hits hardest and slams from the air, Mid is balanced, Low is quick and ends in a dashing thrust.</p>
           <p><b>Deflect</b> by tapping guard just as a blow lands. Strike straight after for a <b>Flashcut</b>, one cut that fells ordinary foes and chains from one to the next.</p>
-          <p><b>Moonstep</b>: dash at the last instant and the world slows around you.</p>
+          <p><b>Moonstep</b>: dash at the last instant and the world slows around you. Strike straight after for a <b>Moonstep Riposte</b>: you blink behind the attacker and cut.</p>
+          <p><b>Weapons</b>: switch as a strike ends for a <b>Switch Strike</b>, a wheeling cut with the weapon you draw. The Moonglaive reaches further and hits posture harder; hold a heavy to charge it.</p>
+          <p>Strikes cut hex orbs out of the air. Deflect one and it flies back at its caster.</p>
           <p><b>Dread strikes</b> glow red and can't be guarded. Dash through them, or Thorn Counter as they land.</p>
           <p>Drain a foe's stamina bar and it is <b>Shattered</b>: strike to <b>Execute</b>. Strike unaware foes from behind for an <b>Ambush</b>.</p>
         </div>

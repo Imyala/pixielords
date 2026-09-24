@@ -540,7 +540,7 @@ export class World {
 
   buildItems() {
     for (const it of this.level.items || []) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.starTex, color: it.kind === 'grace' ? 0xaef6ff : it.kind === 'charm' ? 0xff9cf0 : 0xffe7a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.starTex, color: it.kind === 'grace' ? 0xaef6ff : it.kind === 'charm' ? 0xff9cf0 : it.kind === 'weapon' ? 0xc9b4ff : 0xffe7a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       s.position.set(it.x, .5, it.z); s.scale.setScalar(.9);
       this.group.add(s);
       const ph = Math.random() * 6;

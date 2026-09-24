@@ -288,8 +288,11 @@ export class Projectiles {
       const pr = this.list[i], o = pr.obj;
       pr.t += dt;
       let dead = false;
-      if (pr.homing && p.alive) {
-        _v.set(p.pos.x - o.position.x, 1.1 - o.position.y, p.pos.z - o.position.z).normalize().multiplyScalar(pr.vel.length());
+      if (pr.kill) dead = true;
+      // Orbs home on the knight, or on their caster once deflected back.
+      const tgt = pr.reflected ? pr.from : p;
+      if (pr.homing && tgt.alive) {
+        _v.set(tgt.pos.x - o.position.x, (pr.reflected ? tgt.height * .55 : 1.1) - o.position.y, tgt.pos.z - o.position.z).normalize().multiplyScalar(pr.vel.length());
         pr.vel.lerp(_v, 1 - Math.exp(-pr.homing * dt));
       }
       if (pr.gravity) pr.vel.y -= pr.gravity * dt;
@@ -300,7 +303,7 @@ export class Projectiles {
       if (pr.kind === 'arrow') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
       else if (pr.kind === 'snare') o.rotation.y += dt * 22;
       else if (pr.kind !== 'orb') { o.rotation.x += dt * 8; o.rotation.z += dt * 5; }
-      if (pr.kind === 'orb') fx.motes(o.position, 0xb060ff, 1, .1, .2, .12, .5);
+      if (pr.kind === 'orb') fx.motes(o.position, pr.reflected ? 0xbff8ff : 0xb060ff, 1, .1, .2, .12, .5);
       if (pr.kind === 'arrow' || pr.kind === 'stone') fx.add.emit({ x: o.position.x, y: o.position.y, z: o.position.z, life: .22, size: pr.kind === 'arrow' ? .09 : .12, color: fx.col(0xffe6b0), alpha: .8 });
       if (pr.kind === 'bomb') fx.motes({ x: o.position.x, y: o.position.y + .18, z: o.position.z }, 0xffa040, 1, .02, .5, .08, .3);
 
@@ -319,11 +322,27 @@ export class Projectiles {
             fx.ring(o.position, 0x8fe040, 2.1, .4);
           }
         }
+      } else if (pr.reflected) {
+        const e = pr.from;
+        if (!e.alive) dead = true;
+        else if (Math.hypot(e.pos.x - o.position.x, e.pos.z - o.position.z) < e.radius + .5 && o.position.y < e.height + .3) {
+          e.takeHit({ dmg: pr.dmg * 2.2, ki: 45, poise: 12, dir: yawTo(o.position.x, o.position.z, e.pos.x, e.pos.z) });
+          fx.spark(o.position, { x: pr.vel.x / 12, z: pr.vel.z / 12 }, 24, 0xbff8ff, 7);
+          fx.ring(e.pos, 0xbff8ff, 1.8, .3, 1);
+          G.audio.sfx('magic', { x: e.pos.x, z: e.pos.z });
+          dead = true;
+        }
       } else if (p.alive) {
         const dx = p.pos.x - o.position.x, dz = p.pos.z - o.position.z;
         if (Math.hypot(dx, dz) < p.radius + pr.radius && o.position.y > 0 && o.position.y < 2) {
           const res = p.receiveHit({ dmg: pr.dmg, from: pr.from, projectile: true, snare: pr.snare, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z) });
-          if (res !== 'miss') dead = true;
+          // A deflected hex orb flies back at whoever cast it.
+          if (res === 'deflected' && pr.kind === 'orb' && pr.from?.alive) {
+            pr.reflected = true; pr.t = 0; pr.life = 3; pr.homing = 5;
+            _v.set(pr.from.pos.x - o.position.x, 0, pr.from.pos.z - o.position.z).normalize().multiplyScalar(13);
+            pr.vel.copy(_v); o.material.color.setHex(0xbff8ff);
+            G.hud.toast('Reflected', 'pulse');
+          } else if (res !== 'miss') dead = true;
         }
       }
       if (o.position.y < -1 || pr.t > (pr.life || 5)) dead = true;
@@ -346,6 +365,13 @@ export class Projectiles {
       }
       if (h.t > h.dur) this.hazards.splice(i, 1);
     }
+  }
+
+  // A strike cut the orb out of the air.
+  cut(pr) {
+    pr.kill = true;
+    this.G.fx.spark(pr.obj.position, { x: 0, z: 0 }, 16, 0xd8b0ff, 5);
+    this.G.audio.sfx('deflect', { vol: .45 });
   }
 
   clear() {

@@ -1,17 +1,26 @@
 // The Pixie Lord's controller.
-// Three stances (High / Mid / Low) change pace and power. A four-strike chain, stance heavies, a fae dash
-// with afterimages (a perfect dash triggers Moonstep slow time), guard and perfect-guard Deflect, the
-// Flashcut draw-cut that follows a Deflect or a Thorn Counter, Resonance (tap guard as a strike ends to win
-// back stamina), executions, ambushes, Moondew flasks and the Fae Shift.
+// Two weapons (the Fae Sword and the Moonglaive), each with a four-strike chain and a heavy per stance;
+// switching weapons as a strike ends turns into a Switch Strike. Three stances (High / Mid / Low) change pace
+// and power. A fae dash with afterimages (a perfect dash triggers Moonstep slow time, and a strike straight
+// after it is a Moonstep Riposte), guard and perfect-guard Deflect, the Flashcut draw-cut that follows a
+// Deflect or a Thorn Counter, Resonance (tap guard as a strike ends to win back stamina), executions,
+// ambushes, Moondew flasks and the Fae Shift.
 import * as THREE from 'three';
 import { buildKnight, KnightAnimator } from './knight.js';
 import { Trail } from './fx.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, smooth } from './util.js';
 
 export const STANCES = {
-  high: { key: 'high', name: 'High', speed: 1.12, dmg: 1.32, cost: 1.25, ki: 1.4, guard: .9, dash: { dist: .88, dur: 1.1, cost: 1.15 }, color: 0xffb060, heavy: 'skyfall' },
-  mid: { key: 'mid', name: 'Mid', speed: 1.38, dmg: 1, cost: 1, ki: 1, guard: .7, dash: { dist: 1, dur: 1, cost: 1 }, color: 0x8ff0ff, heavy: 'heavy' },
-  low: { key: 'low', name: 'Low', speed: 1.75, dmg: .74, cost: .7, ki: .75, guard: 1.15, dash: { dist: 1.12, dur: .92, cost: .75 }, color: 0x9dff9a, heavy: 'needle' },
+  high: { key: 'high', name: 'High', speed: 1.12, dmg: 1.32, cost: 1.25, ki: 1.4, guard: .9, dash: { dist: .88, dur: 1.1, cost: 1.15 }, color: 0xffb060 },
+  mid: { key: 'mid', name: 'Mid', speed: 1.38, dmg: 1, cost: 1, ki: 1, guard: .7, dash: { dist: 1, dur: 1, cost: 1 }, color: 0x8ff0ff },
+  low: { key: 'low', name: 'Low', speed: 1.75, dmg: .74, cost: .7, ki: .75, guard: 1.15, dash: { dist: 1.12, dur: .92, cost: .75 }, color: 0x9dff9a },
+};
+
+// Weapons: a chain opener, a heavy per stance, running and dashing strikes, and the Switch Strike that
+// comes out when the weapon is drawn as a strike ends. speed and cost scale the stance values.
+export const WEAPONS = {
+  sword: { id: 'sword', name: 'Fae Sword', speed: 1, cost: 1, chain: 'light1', heavy: { high: 'skyfall', mid: 'heavy', low: 'needle' }, run: 'run', dash: 'dashSlash', switch: 'swSword', color: 0x9ff3ff },
+  glaive: { id: 'glaive', name: 'Moonglaive', speed: .92, cost: 1.08, chain: 'g1', heavy: { high: 'g_moonfall', mid: 'g_crescent', low: 'g_pierce' }, run: 'gRun', dash: 'gDash', switch: 'swGlaive', color: 0xc9b4ff },
 };
 const ORDER = ['low', 'mid', 'high'];
 
@@ -26,11 +35,25 @@ const ATK = {
   needle: { anim: 'needle', dur: .72, hit: [.2, .4], dmg: 62, ki: 40, poise: 24, cost: 18, reach: 2.8, arc: 50, move: 4.4, chain: .5, next: 'heavy', heavy: true, fixedMove: true },
   run: { anim: 'light3', dur: .78, hit: [.3, .4], dmg: 56, ki: 30, poise: 20, cost: 16, reach: 2.4, arc: 80, move: 3.2, chain: .5, next: 'light2', fixedMove: true },
   dashSlash: { anim: 'light2', dur: .6, hit: [.15, .29], dmg: 48, ki: 26, poise: 14, cost: 12, reach: 2.5, arc: 170, move: 1.8, chain: .3, next: 'light3' },
+  swSword: { anim: 'light4', dur: .8, hit: [.18, .48], dmg: 56, ki: 38, poise: 22, cost: 8, reach: 2.6, arc: 360, move: .8, chain: .6, next: 'light1' },
+  // Moonglaive: longer reach and wider arcs, heavier on posture. Heavies can be held to charge.
+  g1: { anim: 'g_thrust', dur: .55, hit: [.16, .28], dmg: 44, ki: 28, poise: 12, cost: 14, reach: 3.4, arc: 50, move: .6, chain: .3, next: 'g2' },
+  g2: { anim: 'g_sweep', dur: .64, hit: [.2, .34], dmg: 46, ki: 30, poise: 14, cost: 15, reach: 3.2, arc: 200, move: .5, chain: .36, next: 'g3' },
+  g3: { anim: 'g_spin', dur: .8, hit: [.2, .5], dmg: 52, ki: 32, poise: 18, cost: 17, reach: 3.1, arc: 360, move: .4, chain: .6, next: 'g4' },
+  g4: { anim: 'g_vault', dur: .95, hit: [.48, .58], dmg: 70, ki: 46, poise: 30, cost: 20, reach: 3.0, arc: 110, move: 2.0, chain: .74, next: 'g1', aoe: 2.2, aoeAt: 2.1 },
+  g_crescent: { anim: 'g_crescent', dur: 1.15, hit: [.34, .62], dmg: 96, ki: 64, poise: 40, cost: 28, reach: 3.5, arc: 360, move: .6, chain: .9, next: 'g_crescent', heavy: true, charge: .28 },
+  g_moonfall: { anim: 'g_moonfall', dur: 1.25, hit: [.62, .72], dmg: 124, ki: 82, poise: 50, cost: 32, reach: 3.0, arc: 110, move: 3.4, chain: .98, next: 'g_moonfall', heavy: true, aoe: 3.0, aoeAt: 2.3, charge: .22 },
+  g_pierce: { anim: 'g_pierce', dur: .85, hit: [.22, .46], dmg: 72, ki: 46, poise: 28, cost: 20, reach: 3.6, arc: 40, move: 5.2, chain: .6, next: 'g_pierce', heavy: true, fixedMove: true, charge: .12 },
+  gRun: { anim: 'g_thrust', dur: .55, hit: [.16, .28], dmg: 50, ki: 30, poise: 16, cost: 15, reach: 3.4, arc: 50, move: 3.2, chain: .36, next: 'g2', fixedMove: true },
+  gDash: { anim: 'g_sweep', dur: .64, hit: [.18, .34], dmg: 50, ki: 30, poise: 16, cost: 13, reach: 3.2, arc: 200, move: 1.6, chain: .36, next: 'g3' },
+  swGlaive: { anim: 'g_spin', dur: .8, hit: [.18, .48], dmg: 58, ki: 40, poise: 22, cost: 8, reach: 3.2, arc: 360, move: .8, chain: .56, next: 'g1' },
 };
+const CHARGE = { max: .7 };  // seconds a heavy can be held; a full charge hits 1.8× as hard
 const DASH = { dur: .36, dist: 4.4, iframes: [0, .24], cost: 13, perfect: .16, attackAt: .15, chainAt: .22 };
 const HOP = { dur: .32, dist: 2.4, iframes: [0, .2], cost: 9 };
 const THORN = { dur: .5, window: [.02, .32], cost: 10 };
 const DEFLECT = .2;          // seconds after pressing guard in which a blow is deflected
+const RIPOSTE_WINDOW = .9;   // seconds after a Moonstep in which a strike becomes a Moonstep Riposte
 const FLASH_WINDOW = .5;     // seconds after a deflect in which a strike becomes a Flashcut
 
 export function derive(stats) {
@@ -103,6 +126,7 @@ export class Player {
     this.wispPos = new THREE.Vector3();
     this.yaw = 0;
     this.stance = 'mid';
+    this.arms = ['sword']; this.weapon = 'sword';
     this.stats = { vit: 1, end: 1, str: 1, spi: 1 };
     this.applyStats();
     this.spawnAt(0, 0, 0);
@@ -115,7 +139,7 @@ export class Player {
     this.hp = this.maxHp; this.ki = this.maxKi; this.anima = this.anima ?? 0;
     this.state = 'free'; this.st = 0; this.alive = true;
     this.poison = 0; this.poisoned = 0; this.snared = 0;
-    this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.chain = 0;
+    this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.riposte = null; this.chain = 0; this.chargeMul = 1;
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
     this.exhaustPending = false; this.kiSpentT = -9; this.guardPressT = -9;
     this.anim.stop();
@@ -126,6 +150,36 @@ export class Player {
   get isAttacking() { return this.state === 'attack'; }
   get moving() { return Math.hypot(this.vel.x, this.vel.z) > .5; }
   get S() { return STANCES[this.stance]; }
+  get W() { return WEAPONS[this.weapon]; }
+
+  // Draw a weapon (the rest ride on the back).
+  setWeapon(id) {
+    if (!WEAPONS[id] || !this.arms.includes(id)) id = this.arms[0] || 'sword';
+    this.weapon = id;
+    this.k.setWeapon(id, this.arms);
+    this.trail.mat.uniforms.uColor.value.setHex(this.shifted ? 0xff6ad5 : this.W.color);
+    this.G.hud?.weapon?.(id);
+  }
+
+  // Switch to the next weapon carried. As a strike ends (or out of a dash) it becomes a Switch Strike.
+  swapWeapon(strike = false) {
+    const G = this.G;
+    if (this.arms.length < 2) { if (!this.oneArmToast) { this.oneArmToast = true; G.hud.toast('You carry only one weapon'); } return false; }
+    const resonant = this.pulse && G.time <= this.pulse.close;
+    this.setWeapon(this.arms[(this.arms.indexOf(this.weapon) + 1) % this.arms.length]);
+    G.save.data.wield = this.weapon;
+    G.fx.ring(this.pos, this.W.color, 1.9, .3, .1);
+    G.audio.sfx('stance', { pitch: this.weapon === 'glaive' ? .7 : 1.1 });
+    if (strike && (this.ki > 0 || this.shifted)) {
+      if (resonant) this.doPulse(true);
+      this.startAttack(this.W.switch);
+      this.ghosts.spawn(this.W.color, .4, .55);
+      G.hud.toast('Switch Strike', 'pulse');
+    } else {
+      this.setState('swap'); this.anim.play('swap', 1.3, .04);
+    }
+    return true;
+  }
 
   setState(s) { this.state = s; this.st = 0; }
 
@@ -286,15 +340,20 @@ export class Player {
     if (a === 'light' || a === 'heavy') {
       // A strike inside the Flashcut window after a deflect becomes a Flashcut.
       if (this.flash && G.time <= this.flash.until && this.flash.e?.alive && this.flash.e.distToPlayer() < 5.5) return this.startFlashcut(this.flash.e);
+      // A strike straight after a Moonstep blinks behind the attacker: the Moonstep Riposte.
+      const r = this.riposte;
+      if (r && G.time <= r.until && r.e.alive && r.e.distToPlayer() < 7.5) return this.startFlashcut(r.e, 'riposte');
       const crit = this.findCrit();
       if (crit) return this.startExecution(crit.e, crit.kind);
       if (this.ki <= 0 && !this.shifted) return false;
-      let key = a === 'heavy' ? this.S.heavy : 'light1';
-      if (from === 'chain' && this.atk && a === 'light') key = ATK[this.atk.next] && !ATK[this.atk.next].heavy ? this.atk.next : 'light1';
-      if (from === 'dash') key = a === 'light' ? 'dashSlash' : this.S.heavy;
-      if (from === null && a === 'light' && this.sprinting) key = 'run';
+      const W = this.W;
+      let key = a === 'heavy' ? W.heavy[this.stance] : W.chain;
+      if (from === 'chain' && this.atk && a === 'light') key = ATK[this.atk.next] && !ATK[this.atk.next].heavy ? this.atk.next : W.chain;
+      if (from === 'dash') key = a === 'light' ? W.dash : W.heavy[this.stance];
+      if (from === null && a === 'light' && this.sprinting) key = W.run;
       return this.startAttack(key);
     }
+    if (a === 'swap') return this.swapWeapon(from === 'strike');
     if (a === 'dodge') {
       if (this.ki <= 0 && !this.shifted) return false;
       return this.startDash();
@@ -328,10 +387,11 @@ export class Player {
   startAttack(key) {
     const G = this.G, a = ATK[key], S = this.S;
     this.atk = a; this.atkKey = key; this.hitSet = new Set();
-    this.aspeed = S.speed * (this.shifted ? 1.15 : 1);
+    this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1);
     this.setState('attack');
     this.anim.play(a.anim, this.aspeed, .04);
-    this.spendKi(a.cost * S.cost);
+    this.spendKi(a.cost * S.cost * this.W.cost);
+    this.chargeT = 0; this.chargeDone = false; this.chargeMul = 1;
     this.faceTarget(true);
     // Close the gap to the foe in front, within reason; charges always travel their full length.
     const t = this.focusTarget();
@@ -388,17 +448,26 @@ export class Player {
   }
 
   // Flashcut: the knight blinks through the foe with one draw-cut.
-  startFlashcut(e) {
+  startFlashcut(e, kind = 'flash') {
     const G = this.G;
-    this.flash = null;
-    this.fc = { e, hit: false };
+    this.flash = null; this.riposte = null;
+    this.fc = { e, hit: false, kind };
     const toE = yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z);
-    this.yaw = toE;
     const stand = e.radius + 1.1;
-    this.fc.x = e.pos.x - Math.sin(toE) * stand; this.fc.z = e.pos.z - Math.cos(toE) * stand;
+    if (kind === 'riposte') {
+      // Blink round to the attacker's back and cut from there.
+      const back = e.yaw + Math.PI;
+      this.fc.x = e.pos.x + Math.sin(back) * stand; this.fc.z = e.pos.z + Math.cos(back) * stand;
+      this.yaw = yawTo(this.fc.x, this.fc.z, e.pos.x, e.pos.z);
+      this.ghosts.spawn(0xb8c8ff, .5, .7);
+      G.fx.ring(this.pos, 0x9fb8ff, 2.5, .3);
+    } else {
+      this.yaw = toE;
+      this.fc.x = e.pos.x - Math.sin(toE) * stand; this.fc.z = e.pos.z - Math.cos(toE) * stand;
+    }
     this.setState('flashcut'); this.anim.play('flashcut', 1, .02);
     this.iframes = true; this.iframesT = .9;
-    e.endAttack();
+    if (e.state === 'attack') e.hurt(.7); else e.endAttack();   // never leave a foe mid-attack with no step
     G.slowmo = Math.max(G.slowmo, .35);
     G.hud.screenFlash('flashcut');
     G.audio.sfx('flashDraw');
@@ -419,7 +488,11 @@ export class Player {
     const G = this.G;
     if (!this.alive) return 'miss';
     // Moonstep: a dash that starts just before the blow slows the world.
-    if ((this.state === 'dash' || this.state === 'hop') && this.st <= DASH.perfect && !this.moonstepped) { this.moonstep(); return 'miss'; }
+    if ((this.state === 'dash' || this.state === 'hop') && this.st <= DASH.perfect && !this.moonstepped) {
+      this.moonstep();
+      if (h.from?.alive && !h.projectile) this.riposte = { e: h.from, until: G.time + RIPOSTE_WINDOW };
+      return 'miss';
+    }
     if (this.iframes) return 'miss';
     // Thorn Counter
     if (this.state === 'thorn' && this.st >= THORN.window[0] && this.st <= THORN.window[1] && !(h.aoe && !h.burst)) {
@@ -550,7 +623,7 @@ export class Player {
     k.mats.wing.color.setHex(on ? 0xffb0f0 : 0xffffff);
     k.mats.visor.emissive.setHex(on ? 0xff6ad5 : 0x7ff0ff);
     k.fuller.visible = on;
-    this.trail.mat.uniforms.uColor.value.setHex(on ? 0xff6ad5 : 0x9ff3ff);
+    this.trail.mat.uniforms.uColor.value.setHex(on ? 0xff6ad5 : this.W.color);
   }
 
   // ------------------------------------------------ frame
@@ -560,7 +633,7 @@ export class Player {
 
     // Input buffering.
     if (this.alive && G.controlsOn) {
-      for (const a of ['light', 'heavy', 'dodge', 'burst', 'heal', 'shift']) if (inp.hit(a)) this.buffer = { a, t: G.time };
+      for (const a of ['light', 'heavy', 'dodge', 'burst', 'heal', 'shift', 'swap']) if (inp.hit(a)) this.buffer = { a, t: G.time };
       if (inp.hit('lock')) this.toggleLock();
       if (inp.hit('nextTarget')) this.switchLock(1);
       if (inp.hit('prevTarget')) this.switchLock(-1);
@@ -578,6 +651,7 @@ export class Player {
     if (this.buffer && G.time - this.buffer.t > .35) this.buffer = null;
     if (this.pulse && G.time > this.pulse.close) this.pulse = null;
     if (this.flash && G.time > this.flash.until) this.flash = null;
+    if (this.riposte && G.time > this.riposte.until) this.riposte = null;
     this.updateLock(dt);
 
     // Camera-relative move input.
@@ -599,7 +673,7 @@ export class Player {
       case 'free': {
         if (this.exhaustPending && this.ki <= 0) { this.exhaustPending = false; this.setState('exhausted'); this.anim.play('stagger', 1.3); G.hud.toast('Out of breath', 'warn'); G.audio.sfx('playerHurt', { vol: .4 }); break; }
         this.exhaustPending = false;
-        const act = takeAny(['light', 'heavy', 'dodge', 'burst', 'heal', 'shift']);
+        const act = takeAny(['light', 'heavy', 'dodge', 'burst', 'heal', 'shift', 'swap']);
         if (act && this.tryStart(act)) break;
         this.guarding = G.controlsOn && inp.down('guard');
         this.sprinting = !!this.sprintArmed && inp.down('dodge') && mag > .3 && !this.guarding && !(this.snared > 0);
@@ -611,7 +685,22 @@ export class Player {
         break;
       }
       case 'attack': {
-        const a = this.atk, t = this.st * this.aspeed;
+        const a = this.atk;
+        // Held heavies charge: the pose holds at the top of the windup while the button stays down.
+        if (a.charge && !this.chargeDone && this.st * this.aspeed >= a.charge) {
+          if (G.controlsOn && inp.down('heavy') && this.chargeT < CHARGE.max) {
+            this.chargeT += dt; this.st -= dt; this.anim.speed = 0;
+            const k = this.chargeT / CHARGE.max;
+            if (this.lock) this.yaw = turnTowards(this.yaw, yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z), 6 * dt);
+            else if (moveInput()) this.yaw = turnTowards(this.yaw, this.inputYaw, 6 * dt);
+            if (Math.random() < dt * 40) { this.k.tip.getWorldPosition(_b); G.fx.motes(_b, this.W.color, 1, .2, .6, .08 + k * .06, .4); }
+            if (this.chargeT >= CHARGE.max) { G.fx.flash(_a.set(this.pos.x, 1.2, this.pos.z), 0xffffff, 1.8, .2, true); G.audio.sfx('glint', { vol: 1 }); G.hud.toast('Full charge', 'pulse'); }
+          } else {
+            this.chargeDone = true; this.anim.speed = this.aspeed;
+            this.chargeMul = 1 + .8 * Math.min(1, this.chargeT / CHARGE.max);
+          }
+        }
+        const t = this.st * this.aspeed;
         if (t < .1 && !this.lock && moveInput()) this.yaw = turnTowards(this.yaw, this.inputYaw, 10 * dt);
         // Lunge through the windup, stopping short of whoever is in the way.
         const until = a.fixedMove ? a.hit[1] : a.hit[0] + .04;
@@ -629,10 +718,10 @@ export class Player {
           const nxt = takeAny(['light', 'heavy']);
           if (nxt && this.tryStart(nxt, 'chain')) break;
         }
-        // Recovery can be cut short by a dash, a counter, raising the guard, or simply moving.
+        // Recovery can be cut short by a dash, a counter, a Switch Strike, raising the guard, or simply moving.
         if (t >= a.hit[1] + .02) {
-          const c = takeAny(['dodge', 'burst', 'heal']);
-          if (c && this.tryStart(c)) break;
+          const c = takeAny(['dodge', 'burst', 'heal', 'swap']);
+          if (c && this.tryStart(c, c === 'swap' ? 'strike' : null)) break;
           if (G.controlsOn && inp.down('guard')) { this.setState('free'); break; }
         }
         if (t >= a.dur * .78 && moveInput()) { this.setState('free'); break; }
@@ -655,8 +744,8 @@ export class Player {
         if (this.ghostT <= 0 && t < D.dur * .75) { this.ghostT = .05; this.ghosts.spawn(this.S.color, .28, .35); }
         if (t > D.dur * .6 && this.pulseAmount) this.openPulse();
         if (t >= DASH.attackAt * D.dur / DASH.dur) {
-          const c = takeAny(['light', 'heavy', 'burst']);
-          if (c && this.tryStart(c, c === 'burst' ? null : 'dash')) break;
+          const c = takeAny(['light', 'heavy', 'burst', 'swap']);
+          if (c && this.tryStart(c, c === 'burst' ? null : c === 'swap' ? 'strike' : 'dash')) break;
         }
         if (t >= DASH.chainAt * D.dur / DASH.dur && take('dodge')) { this.setState('free'); this.tryStart('dodge'); break; }
         if (t >= D.dur) { this.setState('free'); this.vel.set(Math.sin(this.dashYaw) * 3, 0, Math.cos(this.dashYaw) * 3); }
@@ -748,6 +837,13 @@ export class Player {
       case 'pickup':
         if (this.st >= .5) this.setState('free');
         break;
+      case 'swap': {
+        const s = 3 * mag;
+        if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
+        if (this.st >= .12) { const c = takeAny(['light', 'heavy', 'dodge', 'burst']); if (c && this.tryStart(c)) break; }
+        if (this.st >= .3) this.setState('free');
+        break;
+      }
       case 'dead':
         break;
     }
@@ -762,7 +858,7 @@ export class Player {
     // Voluntary movement: quick to start, quick to stop.
     const accel = this.state === 'free' ? (Math.hypot(want.x, want.z) > .1 ? 16 : 20) : 30;
     this.vel.x = damp(this.vel.x, want.x, accel, dt); this.vel.z = damp(this.vel.z, want.z, accel, dt);
-    if (this.state === 'free' || this.state === 'drink') { this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; }
+    if (this.state === 'free' || this.state === 'drink' || this.state === 'swap') { this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; }
     else this.vel.multiplyScalar(Math.exp(-10 * dt));
     if (turn !== null) {
       const before = this.yaw;
@@ -794,6 +890,7 @@ export class Player {
     const G = this.G;
     if (!e.alive) return;
     const big = e.boss || e.elite;
+    if (this.fc.kind === 'riposte') return this.riposteHit(e, big);
     const dmg = e.boss ? e.maxHp * .1 : e.elite ? Math.max(e.maxHp * .28, 150) : e.hp + 1;
     this.chain = G.time - (this.chainT || -9) < 3 ? this.chain + 1 : 1;
     this.chainT = G.time;
@@ -807,6 +904,23 @@ export class Player {
     this.gainAnima(12);
     this.ki = Math.min(this.maxKi, this.ki + 25);
     G.hud.toast(this.chain > 1 ? `Flashcut ×${this.chain}` : 'Flashcut', 'flash');
+    return res;
+  }
+
+  // Moonstep Riposte: heavy damage and posture, not an outright kill.
+  riposteHit(e, big) {
+    const G = this.G;
+    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1);
+    const res = e.takeHit({ dmg, ki: big ? 90 : 140, poise: 60, dir: this.yaw, heavy: true, crit: true });
+    const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
+    G.fx.slash(p, this.yaw, 4.5, 0xb8c8ff);
+    G.fx.spark(p, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 36, 0xcfd8ff, 10);
+    G.fx.blood(p, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 20, 0x2a0606);
+    G.audio.sfx('flashcut', { vol: .8 });
+    G.hitstop = .14; G.cam.shake(.4);
+    this.gainAnima(10);
+    this.ki = Math.min(this.maxKi, this.ki + 20);
+    G.hud.toast('Moonstep Riposte', 'flash');
     return res;
   }
 
@@ -827,13 +941,22 @@ export class Player {
     // Area strikes shake the ground in front of the knight.
     if (a.aoe && !this.aoeDone) {
       this.aoeDone = true;
-      const c = { x: this.pos.x + Math.sin(this.yaw) * 1.3, z: this.pos.z + Math.cos(this.yaw) * 1.3 };
+      const at = a.aoeAt ?? 1.3, c = { x: this.pos.x + Math.sin(this.yaw) * at, z: this.pos.z + Math.cos(this.yaw) * at };
       G.fx.ring(c, S.color, a.aoe * 1.3, .35); G.fx.dust(c, 16);
       G.audio.sfx('slam', { vol: .8 }); G.cam.shake(.35);
       for (const e of G.enemies) {
         if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
         if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < a.aoe + e.radius) this.strike(e, a);
       }
+    }
+    // Hex orbs can be cut out of the air.
+    for (const pr of G.projectiles.list) {
+      if (pr.kind !== 'orb' || pr.reflected || pr.kill) continue;
+      const o = pr.obj.position, dx = o.x - this.pos.x, dz = o.z - this.pos.z, d = Math.hypot(dx, dz);
+      if (d > a.reach + .5 || o.y > 2.8) continue;
+      if (d > 1.2 && Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz))) > a.arc * Math.PI / 360 + .25) continue;
+      G.projectiles.cut(pr);
+      this.gainAnima(2);
     }
     for (const e of G.enemies) {
       if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
@@ -849,8 +972,9 @@ export class Player {
     const G = this.G, S = this.S;
     this.hitSet.add(e);
     const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.max(.01, Math.hypot(dx, dz));
-    const mul = this.dmgMul * S.dmg * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
-    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * (this.shifted ? 1.5 : 1), poise: a.poise * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy });
+    const cm = this.chargeMul || 1;
+    const mul = this.dmgMul * S.dmg * cm * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
+    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy });
     if (!res) return;
     const p = _a.set(e.pos.x - dx / d * e.radius * .6, Math.min(1.3, e.height * .55), e.pos.z - dz / d * e.radius * .6);
     const side = this.atkKey === 'light1' || this.atkKey === 'light4' ? 1 : -1;
@@ -897,7 +1021,7 @@ export class Player {
     const ls = Math.cos(this.yaw) * this.vel.x - Math.sin(this.yaw) * this.vel.z;
     A.capeLag = clamp(sp / 8, 0, 1) * .9 + (this.state === 'dash' ? .5 : 0);
     const prevStep = Math.floor(A.gait / Math.PI);
-    A.update(dt, { speed: ['free', 'drink', 'fog'].includes(this.state) ? sp : 0, forward: sp > .1 ? lf / sp : 1, side: sp > .1 ? ls / sp : 0, guard: this.guarding, sprint: this.sprinting, shifted: this.shifted, stance: this.stance });
+    A.update(dt, { speed: ['free', 'drink', 'fog'].includes(this.state) ? sp : 0, forward: sp > .1 ? lf / sp : 1, side: sp > .1 ? ls / sp : 0, guard: this.guarding, sprint: this.sprinting, shifted: this.shifted, stance: this.stance, weapon: this.weapon });
     if (Math.floor(A.gait / Math.PI) !== prevStep && sp > .8) G.audio.sfx('step');
     this.ghosts.update(dt);
 

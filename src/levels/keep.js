@@ -77,6 +77,8 @@ export default {
     { id: 'glimmer1', x: -16, z: 30.5, kind: 'glimmer', amount: 350, label: 'Glimmer Shard', desc: '+350 Glimmer' },
     { id: 'glimmer2', x: 10.6, z: 110.4, kind: 'glimmer', amount: 600, label: 'Glimmer Shard', desc: '+600 Glimmer' },
     { id: 'grace2', x: -17.8, z: 99.3, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+    { id: 'glaive', x: -8.6, z: 76.4, kind: 'weapon', weapon: 'glaive', label: 'Moonglaive', desc: 'a polearm of moon-silver',
+      tip: 'The Moonglaive reaches far and bites deep into posture. V (D-pad ← on a gamepad) switches weapons.\nSwitch as a strike ends for a Switch Strike. Hold a heavy strike to charge it.' },
   ],
 
   gate: { x: 0, z: 66, width: 6, guardian: 'warden', style: 'portcullis', toast: 'The portcullis rises', banner: 'GATEWARDEN VANQUISHED' },

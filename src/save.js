@@ -10,7 +10,7 @@ export const freshMission = () => ({ shrine: null, kindled: [], dead: [], items:
 export function freshSave(ng = 0) {
   return {
     v: 2, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, deaths: 0, time: 0, ng,
-    mission: 'keep', unlocked: ['keep'], missions: {}, grave: null, charms: [], equipped: [],
+    mission: 'keep', unlocked: ['keep'], missions: {}, grave: null, charms: [], equipped: [], arms: ['sword'], wield: 'sword',
   };
 }
 
@@ -26,7 +26,11 @@ function migrate(d) {
     for (const k of ['shrine', 'kindled', 'dead', 'items', 'seenMessages']) delete d[k];
     d.v = 2;
   }
-  return d.v === 2 ? d : null;
+  if (d.v !== 2) return null;
+  // Weapons came later: a save that has cleared the Grubhold already carries the Moonglaive.
+  d.arms ||= ['sword']; d.wield ||= 'sword';
+  if (d.missions?.keep?.cleared && !d.arms.includes('glaive')) d.arms.push('glaive');
+  return d;
 }
 
 export class Save {

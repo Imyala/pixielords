@@ -15,6 +15,7 @@ export class HUD {
         <div class="bar ki"><i class="pool"></i><i class="fill"></i></div>
         <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
         <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
+        <div class="weapon"><b>Fae Sword</b><small></small></div>
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="pbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
@@ -106,6 +107,13 @@ export class HUD {
     this.stanceShown = s;
   }
 
+  weapon(id) {
+    const el = this.el.querySelector('.weapon'), p = this.G.player;
+    el.querySelector('b').textContent = { sword: 'Fae Sword', glaive: 'Moonglaive' }[id] || id;
+    el.dataset.w = id;
+    el.querySelector('small').textContent = p.arms.length > 1 ? `${this.key('swap')} ⇄` : '';
+  }
+
   floatText(e, text, cls) {
     const b = this.bar(e);
     const t = document.createElement('div'); t.className = 'ftext ' + cls; t.textContent = text;
@@ -178,6 +186,7 @@ export class HUD {
     q.flaskKey.textContent = this.key('heal');
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
+    const wk = `${p.weapon}|${p.arms.length}|${this.key('swap')}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
     const sk = this.key('stance'); if (this.stanceKey !== sk) { this.stanceKey = sk; this.el.querySelector('.stance small').textContent = sk; }
 
     // Glimmer counter rolls up.

@@ -206,6 +206,7 @@ function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
   p.stats = { ...G.save.stats }; p.applyStats();
+  p.arms = [...(G.save.data.arms || ['sword'])]; p.setWeapon(G.save.data.wield || 'sword');
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
   p.elixirs = G.save.elixirMax;
   G.cam.snap(p);
@@ -247,7 +248,7 @@ G.startMission = async id => {
 };
 G.newGamePlus = async () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -463,6 +464,10 @@ function interact(it) {
       G.world.setItemTaken(item.id, true);
       if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
       if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
+      if (item.kind === 'weapon' && !d.arms.includes(item.weapon)) {
+        d.arms.push(item.weapon); p.arms = [...d.arms]; p.setWeapon(p.weapon);
+        G.after(.8, () => G.hud.message(item.tip || item.desc));
+      }
       G.hud.toast(`${item.label} — ${item.desc}`, 'item');
       G.audio.sfx('pickup');
       p.setState('pickup'); p.anim.play('pickup');

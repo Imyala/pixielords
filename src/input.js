@@ -13,7 +13,8 @@ const BIND = {
   shift:    ['KeyG', 'Pad3'],
   pause:    ['Escape', 'KeyP', 'Pad9'],
   nextTarget: ['Tab', 'WheelDown', 'Pad15'],
-  prevTarget: ['WheelUp', 'Pad14'],
+  prevTarget: ['WheelUp'],
+  swap:     ['KeyV', 'Pad14'],
   up:    ['KeyW', 'ArrowUp', 'Pad12'],
   down:  ['KeyS', 'ArrowDown', 'Pad13'],
   left:  ['KeyA', 'ArrowLeft'],
@@ -29,11 +30,11 @@ const BIND = {
 
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
-  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3',
+  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V',
 };
 export const PAD_LABEL = {
   light: 'RB', heavy: 'RT', guard: 'LB', dodge: 'B', burst: 'LT', lock: 'R3', heal: 'X',
-  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓',
+  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓', swap: 'D-pad ←',
 };
 
 export class Input {

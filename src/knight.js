@@ -43,6 +43,13 @@ export const P = {
   readyLow: pose({ hiltA: -.75, hiltR: .34, hiltH: -.42, bladeYaw: -.25, bladePitch: -.35, bladeRoll: 0, lhX: .3, lhY: -.2, lhZ: .22, chestRx: .22, lift: -.08, thLx: -.35, knL: .5, thRx: .35, knR: .5 }, true),
   guard: pose({ hiltA: -.25, hiltR: .4, hiltH: .12, bladeYaw: 1.35, bladePitch: .35, bladeRoll: 1.57, lhX: .12, lhY: .16, lhZ: .4, chestRx: .12, headRx: .08 }),
   sprint: pose({ chestRx: .32, hiltA: -1.1, hiltR: .3, hiltH: -.3, bladeYaw: -2.6, bladePitch: -.2, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
+  // The Moonglaive is held two-handed, left hand forward on the shaft. The chest turns right and the
+  // blade yaws back left in chest space, so the point stays on the foe.
+  glaiveMid: pose({ chestRy: -.55, hiltA: -1.0, hiltR: .26, hiltH: -.2, bladeYaw: .65, bladePitch: .25, bladeRoll: 0, twoHand: 1, lift: -.03, thLx: -.3, knL: .32, thRx: .28, knR: .38 }, true),
+  glaiveHigh: pose({ chestRy: -.45, hiltA: -.7, hiltR: .22, hiltH: .3, bladeYaw: .5, bladePitch: -.2, bladeRoll: 0, twoHand: 1, chestRx: -.04 }, true),
+  glaiveLow: pose({ chestRy: -.5, hiltA: -1.1, hiltR: .28, hiltH: -.34, bladeYaw: .6, bladePitch: -.12, bladeRoll: 0, twoHand: 1, chestRx: .22, lift: -.1, thLx: -.45, knL: .6, thRx: .4, knR: .55 }, true),
+  glaiveGuard: pose({ chestRy: -.2, hiltA: -.55, hiltR: .38, hiltH: .05, bladeYaw: 1.4, bladePitch: .3, bladeRoll: 1.57, twoHand: 1, chestRx: .1, headRx: .08 }),
+  glaiveSprint: pose({ chestRx: .32, hiltA: -1.2, hiltR: .3, hiltH: -.3, bladeYaw: -2.7, bladePitch: .15, bladeRoll: 0, twoHand: 0, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
 };
 
 // Actions: duration + keyframes [t, partialPose]. Channels not given fall back to the running pose.
@@ -206,11 +213,76 @@ export const ACTIONS = {
     K(.3, { lift: -.35, chestRx: .7, lhX: .15, lhY: -.55, lhZ: .45, thLx: -1, knL: 1.2, thRx: .1, knR: 1.1 }),
     K(.7, {}),
   ] },
+  // Drawing the other weapon: a quick flourish overhead.
+  swap: { dur: .42, keys: [
+    K(0, {}),
+    K(.16, { hiltA: -.4, hiltR: .26, hiltH: .34, bladeYaw: -1.4, bladePitch: 1.1, bladeRoll: 0, chestRx: -.12, twoHand: 0, lhX: .4, lhY: .1, lhZ: .1, wings: 1.6 }),
+    K(.42, {}),
+  ] },
+
+  // ---- Moonglaive
+  g_thrust: { dur: .55, keys: [
+    K(0, { chestRy: -.75, hiltA: -1.2, hiltR: .2, hiltH: -.1, bladeYaw: .8, bladePitch: .1, bladeRoll: 0, twoHand: 1, lift: -.06, thLx: -.35, knL: .45, thRx: .3, knR: .4 }),
+    K(.12, { chestRy: -.8, hiltA: -1.35, hiltR: .15, hiltH: -.08, bladeYaw: .85, bladePitch: .08 }),
+    K(.2, { chestRy: -.7, hiltA: -.3, hiltR: .4, hiltH: 0, bladeYaw: .7, bladePitch: .03, twoHand: 1, ...LUNGE, wings: 1.2 }),
+    K(.32, { chestRy: -.68, hiltA: -.28, hiltR: .42, hiltH: 0, bladeYaw: .68, bladePitch: .03 }),
+    K(.55, { chestRy: -.55, hiltA: -.9, hiltR: .26, hiltH: -.16, bladeYaw: .6, bladePitch: .2 }),
+  ] },
+  g_sweep: { dur: .64, keys: [
+    K(0, { bodyRy: -.5, chestRy: -.75, hiltA: -.1, hiltR: .32, hiltH: -.02, bladeYaw: .05, bladePitch: -.04, bladeRoll: 1.57, twoHand: 1, lift: -.08, thLx: -.45, knL: .5, thRx: .4, knR: .4 }),
+    K(.14, { bodyRy: -.6, chestRy: -.85, hiltA: -.15, bladeYaw: 0 }),
+    K(.26, { bodyRy: -.05, chestRy: -.15, hiltA: -.05, hiltR: .4, bladeYaw: .3, bladePitch: -.08, wings: 1.2 }),
+    K(.36, { bodyRy: .45, chestRy: .45, hiltA: .15, hiltR: .38, bladeYaw: .6, bladePitch: -.1 }),
+    K(.64, { bodyRy: .1, chestRy: -.2, hiltA: -.5, hiltR: .3, bladeYaw: .55, bladePitch: .12, bladeRoll: .6 }),
+  ] },
+  // One-handed wheel: the glaive held out at arm's length through a full turn.
+  g_spin: { dur: .8, spinY: true, keys: [
+    K(0, { hiltA: -.8, hiltR: .42, hiltH: 0, bladeYaw: -1.4, bladePitch: -.02, bladeRoll: -1.57, bodyRy: 0, chestRy: -.2, twoHand: 0, lhX: .45, lhY: .05, lhZ: 0, ...LUNGE }),
+    K(.12, { hiltA: -1.0, bladeYaw: -1.6, bodyRy: -.7, chestRy: -.45, lift: -.14 }),
+    K(.44, { hiltA: -.8, hiltR: .5, bladeYaw: -1.3, bodyRy: 5.7, chestRy: .2, lift: -.1, wings: 1.8 }),
+    K(.56, { hiltA: -.3, hiltR: .4, bladeYaw: .2, bodyRy: 6.283, chestRy: .1 }),
+    K(.8, { bodyRy: 6.283, chestRy: -.45, hiltA: -.9, hiltR: .26, hiltH: -.16, bladeYaw: .6, bladePitch: .2, bladeRoll: 0, twoHand: 1 }),
+  ] },
+  // Vault and slam: the chain's finisher.
+  g_vault: { dur: .95, keys: [
+    K(0, { lift: -.2, chestRx: .3, chestRy: -.4, hiltA: -.8, hiltR: .28, hiltH: -.2, bladeYaw: .4, bladePitch: -.4, bladeRoll: 0, twoHand: 1, thLx: -.6, knL: .9, thRx: .3, knR: .9 }),
+    K(.24, { lift: .5, chestRx: -.35, chestRy: 0, hiltA: -.2, hiltR: .1, hiltH: .45, bladeYaw: 3.1, bladePitch: .75, twoHand: 1, thLx: -.9, knL: 1.4, thRx: .4, knR: 1.2, wings: 2 }),
+    K(.4, { lift: .55, hiltH: .47, bladePitch: .55, wings: 2 }),
+    K(.52, { lift: -.28, chestRx: .7, hiltA: 0, hiltR: .5, hiltH: -.16, bladeYaw: 0, bladePitch: .12, twoHand: 1, thLx: -1, knL: 1.3, thRx: .7, knR: 1.1, wings: 1 }),
+    K(.95, { lift: -.08, chestRx: .2, chestRy: -.4, hiltA: -.8, hiltR: .28, hiltH: -.2, bladeYaw: .5, bladePitch: -.1 }),
+  ] },
+  // Mid heavy: a low crescent that wheels all the way round.
+  g_crescent: { dur: 1.15, spinY: true, keys: [
+    K(0, { lift: -.1, bodyRy: 0, chestRy: -.9, hiltA: -.4, hiltR: .3, hiltH: -.15, bladeYaw: -.4, bladePitch: -.15, bladeRoll: -1.57, twoHand: 1, thLx: -.5, knL: .6, thRx: .45, knR: .5 }),
+    K(.3, { lift: -.18, bodyRy: -.5, chestRy: -1.05, bladeYaw: -.6, wings: 1.4 }),
+    K(.5, { lift: -.24, bodyRy: 3.4, chestRy: -.2, hiltA: -.5, hiltR: .46, bladeYaw: -1.3, bladePitch: -.1, twoHand: 0, lhX: .45, lhY: .05, lhZ: -.1, wings: 2 }),
+    K(.66, { bodyRy: 6.283, chestRy: .3, hiltA: -.1, bladeYaw: .3, twoHand: 0 }),
+    K(1.15, { bodyRy: 6.283, chestRy: -.55, hiltA: -1.0, hiltR: .26, hiltH: -.2, bladeYaw: .65, bladePitch: .2, bladeRoll: 0, twoHand: 1, lift: -.04 }),
+  ] },
+  // High heavy: the Moonfall, a pole-vault leap that drives the blade into the ground.
+  g_moonfall: { dur: 1.25, keys: [
+    K(0, { lift: -.24, chestRx: .35, chestRy: -.4, hiltA: -.9, hiltR: .26, hiltH: -.25, bladeYaw: .45, bladePitch: -.55, bladeRoll: 0, twoHand: 1, thLx: -.7, knL: 1.1, thRx: .35, knR: 1.1 }),
+    K(.24, { lift: -.3, chestRx: .4, bladePitch: -.6, wings: 1.2 }),
+    K(.4, { lift: .75, chestRx: -.4, chestRy: 0, hiltA: -.15, hiltR: .1, hiltH: .45, bladeYaw: 3.1, bladePitch: .8, twoHand: 1, thLx: -1, knL: 1.5, thRx: .5, knR: 1.3, wings: 2 }),
+    K(.56, { lift: .8, hiltH: .48, bladePitch: .6, wings: 2 }),
+    K(.66, { lift: -.3, chestRx: .75, hiltA: 0, hiltR: .5, hiltH: -.16, bladeYaw: 0, bladePitch: .1, twoHand: 1, thLx: -1.05, knL: 1.35, thRx: .75, knR: 1.1, wings: 1 }),
+    K(1.25, { lift: -.08, chestRx: .2, chestRy: -.4, hiltA: -.8, hiltR: .28, hiltH: -.2, bladeYaw: .5, bladePitch: -.1 }),
+  ] },
+  // Low heavy: a crouched coil and a rushing thrust.
+  g_pierce: { dur: .85, keys: [
+    K(0, { lift: -.26, chestRx: .35, chestRy: -.8, hiltA: -1.3, hiltR: .18, hiltH: -.15, bladeYaw: .8, bladePitch: .02, bladeRoll: 0, twoHand: 1, thLx: -.75, knL: 1, thRx: .6, knR: .7 }),
+    K(.14, { chestRy: -.9, hiltA: -1.45, hiltR: .14, bladeYaw: .85 }),
+    K(.26, { lift: -.32, chestRx: .45, chestRy: -.6, hiltA: -.15, hiltR: .46, hiltH: -.02, bladeYaw: .6, bladePitch: 0, twoHand: 1, thLx: -1.2, knL: .7, thRx: 1.0, knR: .3, wings: 1.8 }),
+    K(.5, { lift: -.3, chestRx: .44, chestRy: -.6, hiltA: -.15, hiltR: .46, bladeYaw: .6, thLx: -1.15, knL: .7, thRx: .95, knR: .3 }),
+    K(.85, {}),
+  ] },
 };
 
 const fill = p => p.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v));
-const READY = { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow) };
-const GUARD_FULL = fill(P.guard), SPRINT_FULL = fill(P.sprint);
+const LOCO = {
+  sword: { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow), guard: fill(P.guard), sprint: fill(P.sprint) },
+  glaive: { mid: P.glaiveMid, high: P.glaiveHigh, low: P.glaiveLow, guard: fill(P.glaiveGuard), sprint: fill(P.glaiveSprint) },
+};
 
 function sampleAction(act, t, out) {
   const keys = act.keys;
@@ -359,6 +431,37 @@ export function buildKnight() {
   fuller.visible = false;
   const tip = node(sword, 0, 0, 1.08), base = node(sword, 0, 0, .2);
 
+  // The Moonglaive: a lacquered shaft ending in a crescent blade. The grip sits a third of the way up.
+  mats.shaft = new THREE.MeshStandardMaterial({ color: 0x2a1d33, roughness: .5, metalness: .35 });
+  const glaive = node(armR.hand, 0, -.04, 0);
+  const shaftGeo = new THREE.CylinderGeometry(.019, .022, 1.72, 8); shaftGeo.rotateX(Math.PI / 2); shaftGeo.translate(0, 0, .3);
+  mesh(shaftGeo, mats.shaft, glaive);
+  for (const z of [-.08, .1, 1.12]) { const band = new THREE.CylinderGeometry(.026, .026, .05, 8); band.rotateX(Math.PI / 2); mesh(band, mats.trim, glaive, 0, 0, z); }
+  const butt = new THREE.ConeGeometry(.026, .12, 6); butt.rotateX(-Math.PI / 2); mesh(butt, mats.trim, glaive, 0, 0, -.62);
+  mesh(new THREE.SphereGeometry(.036, 8, 6), mats.trim, glaive, 0, 0, 1.16);
+  const gShape = new THREE.Shape();
+  gShape.moveTo(-.03, 0); gShape.quadraticCurveTo(-.045, .3, -.01, .62); gShape.lineTo(.004, .64);
+  gShape.quadraticCurveTo(.1, .34, .04, .02); gShape.lineTo(-.03, 0);
+  const gBladeGeo = new THREE.ExtrudeGeometry(gShape, { depth: .008, bevelEnabled: true, bevelThickness: .003, bevelSize: .004, bevelSegments: 1 });
+  gBladeGeo.translate(0, 0, -.004); gBladeGeo.rotateX(Math.PI / 2); gBladeGeo.rotateZ(Math.PI / 2); gBladeGeo.translate(0, 0, 1.16);
+  mesh(gBladeGeo, mats.blade, glaive);
+  const gTip = node(glaive, 0, 0, 1.78), gBase = node(glaive, 0, 0, 1.0);
+
+  // Carried weapons that aren't drawn ride across the back.
+  const backMount = (src, pos, dir) => {
+    const b = src.clone(true); b.position.copy(pos);
+    const zAxis = dir.clone().normalize(), xAxis = V(0, 0, 1), yAxis = V().crossVectors(zAxis, xAxis).normalize();
+    xAxis.crossVectors(yAxis, zAxis).normalize();
+    b.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+    b.visible = false; chest.add(b);
+    return b;
+  };
+  const weapons = {
+    sword: { node: sword, tip, base, grip: -.11, back: backMount(sword, V(-.16, .42, -.21), V(.38, -.92, -.05)) },
+    glaive: { node: glaive, tip: gTip, base: gBase, grip: .24, back: backMount(glaive, V(.05, .12, -.24), V(-.42, .9, -.08)) },
+  };
+  glaive.visible = false;
+
   // Elixir vial in the left hand.
   const vial = mesh(new THREE.CapsuleGeometry(.035, .06, 4, 8), mats.vial, armL.hand, 0, -.08, .03);
   vial.visible = false;
@@ -366,8 +469,15 @@ export function buildKnight() {
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x7ff0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
   glow.scale.setScalar(2.4); glow.position.y = 1.1; root.add(glow);
 
-  return { root, body, hips, spine, chest, neck, head, armL, armR, sword, blade, fuller, tip, base, capeNode, cape, wings, wingRoot, vial, mats, glow, antTip, UP, LO,
-    ...legs(hips, mats, mesh, node) };
+  const k = { root, body, hips, spine, chest, neck, head, armL, armR, sword, blade, fuller, tip, base, capeNode, cape, wings, wingRoot, vial, mats, glow, antTip, UP, LO,
+    weapons, grip: -.11, weapon: 'sword', ...legs(hips, mats, mesh, node) };
+  // Draw a weapon; the others the knight owns hang on the back.
+  k.setWeapon = (id, owned = [id]) => {
+    for (const [w, W] of Object.entries(weapons)) { W.node.visible = w === id; W.back.visible = w !== id && owned.includes(w); }
+    const W = weapons[id];
+    k.weapon = id; k.tip = W.tip; k.base = W.base; k.grip = W.grip;
+  };
+  return k;
 }
 
 function legs(hips, mats, mesh, node) {
@@ -456,8 +566,8 @@ export class KnightAnimator {
   update(dt, m) {
     this.time += dt;
     const L = this.loco;
-    const ready = READY[m.stance || 'mid'];
-    L.set(m.guard ? GUARD_FULL : m.sprint ? SPRINT_FULL : ready);
+    const W = LOCO[m.weapon] || LOCO.sword;
+    L.set(m.guard ? W.guard : m.sprint ? W.sprint : W[m.stance || 'mid']);
     // Gait: legs swing with ground speed; strafing tilts the stride.
     const spd = m.speed, amt = clamp(spd / 5.5, 0, 1.3);
     this.gait += dt * (spd > .1 ? 5.5 + spd * 1.45 : 0);
@@ -478,6 +588,7 @@ export class KnightAnimator {
     L[IDX.bodyRx] = (m.sprint ? .12 : .04) * amt;
     if (!m.guard) {   // off hand swings with the stride
       L[IDX.lhZ] = BASE.lhZ + sw2 * .22 * amt; L[IDX.lhY] = BASE.lhY + Math.abs(sw2) * .05 * amt;
+      L[IDX.hiltH] += Math.abs(sw) * .03 * amt;   // the weapon bobs with the step
     }
     L[IDX.wings] = m.shifted ? 2 : m.sprint ? 1.2 : BASE.wings + amt * .3;
 
@@ -542,9 +653,9 @@ export class KnightAnimator {
     solveArm(k.armR, _grip, POLE_R, k.UP, k.LO + .04);
     orientHand(k.armR, _blade, _edge);
 
-    const two = clamp(p[I.twoHand], 0, 1);
+    const two = p[I.vial] > .5 ? 0 : clamp(p[I.twoHand], 0, 1);
     _lh.set(p[I.lhX], .24 + p[I.lhY], p[I.lhZ]);
-    _grip.copy(_hilt).addScaledVector(_blade, -.11);
+    _grip.copy(_hilt).addScaledVector(_blade, k.grip);
     _lh.lerp(_grip, two);
     solveArm(k.armL, _lh, POLE_L, k.UP, k.LO + .04);
     k.armL.hand.rotation.set(0, 0, 0);
