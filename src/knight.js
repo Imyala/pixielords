@@ -1,0 +1,499 @@
+// The Pixie Lord: a fae knight built from primitives and animated by pose blending.
+// The sword arm uses two-bone IK. Each pose says where the hilt is (cylindrical coords around the chest) and
+// where the blade points; the arm solves itself to hold it there. Sword arcs come from interpolating angles.
+import * as THREE from 'three';
+import { wingTexture, glowTexture } from './textures.js';
+import { lerp, smooth, clamp } from './util.js';
+
+// ---------------------------------------------------------------- pose channels
+const CH = [
+  'lift', 'bodyRx', 'bodyRy', 'bodyRz',
+  'hipsRx', 'hipsRy', 'hipsRz',
+  'chestRx', 'chestRy', 'chestRz',
+  'headRx', 'headRy',
+  'hiltA', 'hiltR', 'hiltH', 'bladeYaw', 'bladePitch', 'bladeRoll',
+  'lhX', 'lhY', 'lhZ',
+  'thLx', 'thLz', 'knL', 'thRx', 'thRz', 'knR',
+  'twoHand', 'wings', 'vial',
+];
+const IDX = Object.fromEntries(CH.map((c, i) => [c, i]));
+const N = CH.length;
+const LEGS = ['lift', 'thLx', 'thLz', 'knL', 'thRx', 'thRz', 'knR'].map(c => IDX[c]);
+
+const BASE = {
+  lift: 0, bodyRx: 0, bodyRy: 0, bodyRz: 0, hipsRx: 0, hipsRy: 0, hipsRz: 0,
+  chestRx: .06, chestRy: 0, chestRz: 0, headRx: 0, headRy: 0,
+  hiltA: -.55, hiltR: .36, hiltH: -.2, bladeYaw: .15, bladePitch: .55, bladeRoll: 0,
+  lhX: .26, lhY: -.34, lhZ: .08,
+  thLx: -.12, thLz: .04, knL: .22, thRx: .16, thRz: -.04, knR: .28,
+  twoHand: 0, wings: .3, vial: 0,
+};
+
+export function pose(o = {}, full = false) {
+  const a = new Float32Array(N).fill(NaN);
+  for (const [k, v] of Object.entries(full ? { ...BASE, ...o } : o)) a[IDX[k]] = v;
+  return a;
+}
+
+// Upper-body presets (legs left to locomotion unless given).
+export const P = {
+  ready: pose({}, true),
+  guard: pose({ hiltA: -.25, hiltR: .4, hiltH: .12, bladeYaw: 1.35, bladePitch: .35, bladeRoll: 1.57, lhX: .12, lhY: .16, lhZ: .4, chestRx: .12, headRx: .08 }),
+  sprint: pose({ chestRx: .32, hiltA: -1.1, hiltR: .3, hiltH: -.3, bladeYaw: -2.6, bladePitch: -.2, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
+};
+
+// Actions: duration + keyframes [t, partialPose]. Channels not given fall back to the running pose.
+const K = (t, o) => [t, pose(o)];
+const LUNGE = { thLx: -.55, knL: .5, thRx: .45, knR: .35, lift: -.08 };
+export const ACTIONS = {
+  light1: { dur: .62, keys: [
+    K(0, { hiltA: -1.3, hiltR: .42, hiltH: .12, bladeYaw: -2.3, bladePitch: .15, bladeRoll: -1.57, chestRy: -.55, ...LUNGE }),
+    K(.14, { hiltA: -1.45, hiltR: .44, hiltH: .15, bladeYaw: -2.5, bladePitch: .2, bladeRoll: -1.57, chestRy: -.7 }),
+    K(.24, { hiltA: 0, hiltR: .56, hiltH: .05, bladeYaw: 0, bladePitch: .02, bladeRoll: -1.57, chestRy: 0, chestRx: .18 }),
+    K(.34, { hiltA: 1.05, hiltR: .44, hiltH: -.05, bladeYaw: 2.1, bladePitch: -.1, bladeRoll: -1.57, chestRy: .6, chestRx: .15 }),
+    K(.62, { hiltA: .6, hiltR: .4, hiltH: -.1, bladeYaw: 1.2, bladePitch: .1, bladeRoll: -1.3, chestRy: .3 }),
+  ] },
+  light2: { dur: .6, keys: [
+    K(0, { hiltA: .9, hiltR: .42, hiltH: -.1, bladeYaw: 1.9, bladePitch: -.15, bladeRoll: 1.57, chestRy: .45, ...LUNGE }),
+    K(.12, { hiltA: 1.15, hiltR: .4, hiltH: -.15, bladeYaw: 2.3, bladePitch: -.2, bladeRoll: 1.57, chestRy: .6 }),
+    K(.22, { hiltA: 0, hiltR: .56, hiltH: .05, bladeYaw: 0, bladePitch: .1, bladeRoll: 1.57, chestRy: 0 }),
+    K(.32, { hiltA: -1.2, hiltR: .44, hiltH: .22, bladeYaw: -2, bladePitch: .35, bladeRoll: 1.57, chestRy: -.6 }),
+    K(.6, { hiltA: -.8, hiltR: .4, hiltH: 0, bladeYaw: -1, bladePitch: .4, bladeRoll: 1.2, chestRy: -.3 }),
+  ] },
+  light3: { dur: .78, keys: [
+    K(0, { hiltA: -.4, hiltR: .2, hiltH: .5, bladeYaw: 3.1, bladePitch: 1.1, bladeRoll: 0, chestRx: -.1, twoHand: 1, lift: 0, thLx: -.2, knL: .2, thRx: .3, knR: .3 }),
+    K(.2, { hiltA: -.2, hiltR: .12, hiltH: .62, bladeYaw: 3.1, bladePitch: .75, bladeRoll: 0, chestRx: -.2, twoHand: 1 }),
+    K(.3, { hiltA: 0, hiltR: .5, hiltH: .15, bladeYaw: 0, bladePitch: .1, bladeRoll: 0, chestRx: .3, twoHand: 1, ...LUNGE }),
+    K(.38, { hiltA: .05, hiltR: .5, hiltH: -.28, bladeYaw: 0, bladePitch: -.75, bladeRoll: 0, chestRx: .5, twoHand: 1, lift: -.18, thLx: -.75, knL: .9, thRx: .55, knR: .7 }),
+    K(.78, { hiltA: -.3, hiltR: .42, hiltH: -.2, bladeYaw: .1, bladePitch: -.2, bladeRoll: 0, chestRx: .2, twoHand: .3 }),
+  ] },
+  heavy: { dur: 1.0, keys: [
+    K(0, { hiltA: 0, hiltR: .3, hiltH: .1, bladeYaw: 0, bladePitch: .8, twoHand: 1, chestRx: 0 }),
+    K(.3, { hiltA: -.2, hiltR: .06, hiltH: .72, bladeYaw: 3.1, bladePitch: .55, bladeRoll: 0, twoHand: 1, chestRx: -.3, chestRy: -.2, lift: .02, thLx: -.1, knL: .15, thRx: .35, knR: .35, wings: 1 }),
+    K(.44, { hiltA: -.2, hiltR: .05, hiltH: .75, bladeYaw: 3.1, bladePitch: .35, bladeRoll: 0, twoHand: 1, chestRx: -.35, chestRy: -.2, wings: 1 }),
+    K(.54, { hiltA: 0, hiltR: .52, hiltH: .2, bladeYaw: 0, bladePitch: .3, bladeRoll: 0, twoHand: 1, chestRx: .35, chestRy: 0, ...LUNGE }),
+    K(.62, { hiltA: 0, hiltR: .5, hiltH: -.35, bladeYaw: 0, bladePitch: -1, bladeRoll: 0, twoHand: 1, chestRx: .65, lift: -.28, thLx: -.95, knL: 1.2, thRx: .7, knR: 1.0 }),
+    K(1.0, { hiltA: -.3, hiltR: .42, hiltH: -.25, bladeYaw: .1, bladePitch: -.3, twoHand: .2, chestRx: .2, lift: -.05 }),
+  ] },
+  roll: { dur: .6, keys: [
+    K(0, { lift: -.1, bodyRx: 0, chestRx: .5, hiltA: -.6, hiltR: .25, hiltH: -.15, bladeYaw: 0, bladePitch: -.4, lhX: .2, lhY: -.1, lhZ: .25, thLx: -.6, knL: .8, thRx: -.2, knR: .6 }),
+    K(.1, { lift: -.45, bodyRx: 1.2, chestRx: .8, thLx: -1.5, knL: 2.1, thRx: -1.4, knR: 2.2 }),
+    K(.3, { lift: -.5, bodyRx: 3.6, chestRx: .8, thLx: -1.6, knL: 2.2, thRx: -1.5, knR: 2.2 }),
+    K(.45, { lift: -.3, bodyRx: 6.1, chestRx: .5, thLx: -.9, knL: 1.4, thRx: -.2, knR: 1.1 }),
+    K(.6, { lift: -.05, bodyRx: 6.283, chestRx: .15, thLx: -.2, knL: .3, thRx: .15, knR: .3 }),
+  ] },
+  backstep: { dur: .42, keys: [
+    K(0, { lift: -.05, chestRx: -.1, thLx: -.3, knL: .3, thRx: .1, knR: .2 }),
+    K(.12, { lift: .05, chestRx: -.25, thLx: .35, knL: .5, thRx: -.2, knR: .2, bodyRx: -.15 }),
+    K(.28, { lift: -.12, chestRx: .1, thLx: .2, knL: .6, thRx: -.3, knR: .6, bodyRx: 0 }),
+    K(.42, {}),
+  ] },
+  hurt: { dur: .5, keys: [
+    K(0, { chestRx: -.45, headRx: -.4, bodyRx: -.12, hiltA: -.9, hiltR: .3, hiltH: .1, bladePitch: .9, lhX: .35, lhY: .05, lhZ: .1, lift: -.05 }),
+    K(.2, { chestRx: -.25, headRx: -.1, bodyRx: -.05 }),
+    K(.5, {}),
+  ] },
+  stagger: { dur: 1.2, keys: [
+    K(0, { chestRx: -.5, headRx: -.4, bodyRx: -.2, hiltA: -1.2, hiltR: .3, hiltH: .2, bladePitch: 1.2, lhX: .4, lhY: .1, lhZ: 0, lift: -.1 }),
+    K(.4, { chestRx: .6, headRx: .3, bodyRx: .1, hiltA: -.8, hiltR: .25, hiltH: -.3, bladePitch: -1.2, lhX: .2, lhY: -.3, lhZ: .2, lift: -.3, thLx: -.6, knL: .9, thRx: .3, knR: 1 }),
+    K(1.0, { chestRx: .5, headRx: .3, lift: -.28 }),
+    K(1.2, {}),
+  ] },
+  drink: { dur: 1.15, keys: [
+    K(0, { hiltA: -.9, hiltR: .22, hiltH: -.35, bladeYaw: -.2, bladePitch: -1.1, vial: 1, lhX: .2, lhY: -.1, lhZ: .25 }),
+    K(.35, { lhX: .04, lhY: .36, lhZ: .2, headRx: -.4, chestRx: -.1, vial: 1 }),
+    K(.8, { lhX: .04, lhY: .38, lhZ: .18, headRx: -.5, chestRx: -.12, vial: 1 }),
+    K(1.15, { vial: 0 }),
+  ] },
+  burst: { dur: .55, keys: [
+    K(0, { hiltA: .75, hiltR: .28, hiltH: -.25, bladeYaw: 2.8, bladePitch: -.25, bladeRoll: 1.57, chestRy: .55, chestRx: .25, lhX: .25, lhY: -.1, lhZ: .3, lift: -.15, thLx: -.6, knL: .7, thRx: .5, knR: .5, wings: 1 }),
+    K(.4, { hiltA: .8, hiltR: .3, hiltH: -.25, bladeYaw: 2.8, bladePitch: -.25, chestRy: .55, wings: 1 }),
+    K(.55, {}),
+  ] },
+  counter: { dur: .7, keys: [
+    K(0, { hiltA: .75, hiltR: .28, hiltH: -.25, bladeYaw: 2.8, bladePitch: -.25, bladeRoll: 1.57, chestRy: .55, lift: -.15, thLx: -.6, knL: .7, thRx: .5, knR: .5, wings: 1 }),
+    K(.1, { hiltA: -.4, hiltR: .56, hiltH: .1, bladeYaw: -.5, bladePitch: .25, bladeRoll: 1.57, chestRy: -.3, lift: -.2, thLx: -.9, knL: .8, thRx: .7, knR: .4, wings: 1 }),
+    K(.18, { hiltA: -1.3, hiltR: .45, hiltH: .3, bladeYaw: -2.2, bladePitch: .6, bladeRoll: 1.57, chestRy: -.7, wings: 1 }),
+    K(.7, {}),
+  ] },
+  grapple: { dur: 1.1, keys: [
+    K(0, { hiltA: -.3, hiltR: .3, hiltH: .05, bladeYaw: 0, bladePitch: .1, bladeRoll: 1.57, twoHand: 1, chestRy: -.4, ...LUNGE }),
+    K(.18, { hiltA: -.5, hiltR: .15, hiltH: .1, bladeYaw: 0, bladePitch: .05, twoHand: 1, chestRy: -.6, chestRx: -.1 }),
+    K(.3, { hiltA: 0, hiltR: .58, hiltH: .05, bladeYaw: 0, bladePitch: 0, twoHand: 1, chestRy: .1, chestRx: .3, lift: -.15, thLx: -.9, knL: .8, thRx: .7, knR: .4 }),
+    K(.65, { hiltA: 0, hiltR: .56, hiltH: .05, bladeYaw: 0, bladePitch: 0, twoHand: 1, chestRy: .1, chestRx: .3 }),
+    K(.8, { hiltA: -1.1, hiltR: .45, hiltH: .35, bladeYaw: -1.8, bladePitch: .6, bladeRoll: 1.57, twoHand: 0, chestRy: -.5, chestRx: 0 }),
+    K(1.1, {}),
+  ] },
+  rest: { dur: 1.2, loop: true, keys: [
+    K(0, { lift: -.42, chestRx: .35, headRx: .45, hiltA: 0, hiltR: .4, hiltH: -.3, bladeYaw: 0, bladePitch: -1.5, bladeRoll: 0, twoHand: 1, thLx: -1.45, knL: 1.5, thRx: .05, knR: 1.9, wings: .1 }),
+    K(1.2, { lift: -.42, chestRx: .35, headRx: .45, hiltA: 0, hiltR: .4, hiltH: -.3, bladeYaw: 0, bladePitch: -1.5, bladeRoll: 0, twoHand: 1, thLx: -1.45, knL: 1.5, thRx: .05, knR: 1.9, wings: .1 }),
+  ] },
+  death: { dur: 2.2, keys: [
+    K(0, { chestRx: -.4, headRx: -.5, hiltA: -1, hiltR: .3, hiltH: .1, bladePitch: 1, lift: -.05 }),
+    K(.5, { lift: -.45, chestRx: .5, headRx: .5, bodyRx: .1, thLx: -1.5, knL: 1.6, thRx: 0, knR: 1.9, hiltA: -.8, hiltR: .3, hiltH: -.4, bladePitch: -1.4, lhX: .25, lhY: -.35, lhZ: .2 }),
+    K(1.1, { lift: -.6, chestRx: .6, headRx: .6, bodyRx: 1.45, thLx: -1.3, knL: 1.2, thRx: -.4, knR: 1.3, wings: 0 }),
+    K(2.2, { lift: -.75, chestRx: .3, headRx: .2, bodyRx: 1.55, thLx: -.1, knL: .2, thRx: 0, knR: .2, hiltA: -1.3, hiltR: .5, hiltH: 0, bladePitch: 0, lhX: .5, lhY: 0, lhZ: .1, wings: 0 }),
+  ] },
+  rise: { dur: 1.4, keys: [
+    K(0, { lift: -.42, chestRx: .35, headRx: .45, hiltA: 0, hiltR: .4, hiltH: -.3, bladeYaw: 0, bladePitch: -1.5, twoHand: 1, thLx: -1.45, knL: 1.5, thRx: .05, knR: 1.9, wings: .1 }),
+    K(.8, { lift: -.2, chestRx: .2, headRx: 0, thLx: -.6, knL: .7, thRx: .1, knR: .8 }),
+    K(1.4, {}),
+  ] },
+  fog: { dur: 1.4, keys: [
+    K(0, { chestRx: .1, lhX: .15, lhY: .2, lhZ: .45 }),
+    K(1.2, { chestRx: .1, lhX: .15, lhY: .2, lhZ: .45 }),
+    K(1.4, {}),
+  ] },
+  shift: { dur: 1.0, keys: [
+    K(0, { chestRx: .3, lift: -.1, wings: .3 }),
+    K(.4, { chestRx: -.4, headRx: -.5, lift: .1, hiltA: -1.2, hiltR: .4, hiltH: .5, bladePitch: 1.4, lhX: .5, lhY: .35, lhZ: 0, wings: 2 }),
+    K(.8, { chestRx: -.3, headRx: -.3, wings: 2 }),
+    K(1.0, {}),
+  ] },
+  pickup: { dur: .7, keys: [
+    K(0, {}),
+    K(.3, { lift: -.35, chestRx: .7, lhX: .15, lhY: -.55, lhZ: .45, thLx: -1, knL: 1.2, thRx: .1, knR: 1.1 }),
+    K(.7, {}),
+  ] },
+};
+
+function sampleAction(act, t, out) {
+  const keys = act.keys;
+  if (act.loop) t %= act.dur;
+  out.fill(NaN);
+  // Each channel interpolates between the nearest keys that define it.
+  for (let c = 0; c < N; c++) {
+    let a = -1, b = -1;
+    for (let i = 0; i < keys.length; i++) {
+      if (Number.isNaN(keys[i][1][c])) continue;
+      if (keys[i][0] <= t) a = i; else { b = i; break; }
+    }
+    if (a < 0 && b < 0) continue;
+    if (a < 0) { out[c] = keys[b][1][c]; continue; }
+    if (b < 0) { out[c] = keys[a][1][c]; continue; }
+    const [ta, pa] = keys[a], [tb, pb] = keys[b];
+    const u = smooth(clamp((t - ta) / (tb - ta), 0, 1));
+    out[c] = lerp(pa[c], pb[c], u);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- model
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+export function buildKnight() {
+  const mats = {
+    steel: new THREE.MeshStandardMaterial({ color: 0xb4bccb, metalness: .85, roughness: .32 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x2c313d, metalness: .7, roughness: .45 }),
+    cloth: new THREE.MeshStandardMaterial({ color: 0x3a2358, roughness: .9, side: THREE.DoubleSide }),
+    trim: new THREE.MeshStandardMaterial({ color: 0xd6ac52, metalness: 1, roughness: .28 }),
+    leather: new THREE.MeshStandardMaterial({ color: 0x3b2a22, roughness: .8 }),
+    visor: new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0x7ff0ff, emissiveIntensity: 2.2 }),
+    blade: new THREE.MeshStandardMaterial({ color: 0xe6eef8, metalness: 1, roughness: .12, emissive: 0x4fd8ff, emissiveIntensity: .12 }),
+    wing: new THREE.MeshBasicMaterial({ map: wingTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: .5 }),
+    vial: new THREE.MeshStandardMaterial({ color: 0xff7ab8, emissive: 0xff4aa0, emissiveIntensity: 1.4, transparent: true, opacity: .85 }),
+  };
+  const mesh = (geo, mat, parent, x = 0, y = 0, z = 0) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m;
+  };
+  const node = (parent, x = 0, y = 0, z = 0) => { const o = new THREE.Object3D(); o.position.set(x, y, z); parent.add(o); return o; };
+
+  const root = new THREE.Group();
+  const body = node(root, 0, .95, 0);
+  const hips = node(body);
+  // Pelvis, belt and tasset skirt.
+  mesh(new THREE.CylinderGeometry(.17, .19, .2, 10), mats.dark, hips, 0, .02, 0).scale.set(1, 1, .75);
+  mesh(new THREE.TorusGeometry(.18, .025, 6, 16), mats.leather, hips, 0, .1, 0).rotation.x = Math.PI / 2;
+  mesh(new THREE.BoxGeometry(.06, .06, .03), mats.trim, hips, 0, .1, .15);
+  const tabF = mesh(new THREE.PlaneGeometry(.22, .5), mats.cloth, hips, 0, -.2, .15); tabF.rotation.x = -.08;
+  const tabB = mesh(new THREE.PlaneGeometry(.26, .52), mats.cloth, hips, 0, -.2, -.14); tabB.rotation.x = .08;
+  for (const s of [-1, 1]) { const t = mesh(new THREE.BoxGeometry(.13, .22, .2), mats.steel, hips, s * .17, -.06, 0); t.rotation.z = s * .18; }
+
+  const spine = node(hips, 0, .1, 0);
+  const chest = node(spine, 0, .18, 0);
+  // Cuirass: a squashed capsule with a gold rim and a gem.
+  const torso = mesh(new THREE.CapsuleGeometry(.19, .2, 6, 14), mats.steel, chest, 0, .1, 0); torso.scale.set(1.12, 1, .78);
+  mesh(new THREE.CylinderGeometry(.155, .19, .12, 12), mats.dark, chest, 0, -.1, 0).scale.set(1.05, 1, .8);
+  mesh(new THREE.TorusGeometry(.14, .018, 6, 16), mats.trim, chest, 0, .26, .015).rotation.x = Math.PI / 2 - .2;
+  mesh(new THREE.OctahedronGeometry(.035), mats.visor, chest, 0, .16, .16);
+  // Pauldrons.
+  const shoulderPos = { L: V(.215, .24, 0), R: V(-.215, .24, 0) };
+  for (const s of [-1, 1]) {
+    const pd = mesh(new THREE.SphereGeometry(.11, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), mats.steel, chest, s * .24, .27, 0);
+    pd.scale.set(1.15, .9, 1.1); pd.rotation.z = -s * .35;
+    mesh(new THREE.TorusGeometry(.105, .012, 5, 14), mats.trim, pd, 0, .02, 0).rotation.x = Math.PI / 2;
+  }
+
+  const neck = node(chest, 0, .31, 0);
+  const head = node(neck, 0, .02, 0);
+  // Helm: rounded dome, faceplate with a glowing visor slit, and two antennae (the pixie part).
+  const helm = mesh(new THREE.SphereGeometry(.125, 16, 12), mats.steel, head, 0, .14, 0); helm.scale.set(1, 1.12, 1.08);
+  mesh(new THREE.BoxGeometry(.2, .1, .06), mats.steel, head, 0, .09, .1).rotation.x = .15;
+  mesh(new THREE.BoxGeometry(.15, .018, .02), mats.visor, head, 0, .145, .128);
+  mesh(new THREE.CylinderGeometry(.13, .14, .06, 14), mats.trim, head, 0, .08, 0);
+  const antTip = [];
+  for (const s of [-1, 1]) {
+    const a = node(head, s * .05, .26, .02);
+    a.rotation.set(-.35, 0, -s * .45);
+    mesh(new THREE.CylinderGeometry(.008, .012, .22, 5), mats.dark, a, 0, .11, 0);
+    const a2 = node(a, 0, .22, 0); a2.rotation.x = -.7;
+    mesh(new THREE.CylinderGeometry(.006, .008, .12, 5), mats.dark, a2, 0, .06, 0);
+    antTip.push(mesh(new THREE.SphereGeometry(.022, 8, 6), mats.visor, a2, 0, .13, 0));
+  }
+
+  // Cape.
+  const capeNode = node(chest, 0, .3, -.14);
+  // Two tattered tails rather than one sheet, so the knight reads from behind.
+  const capeGeo = new THREE.PlaneGeometry(.17, .78, 2, 8); capeGeo.translate(0, -.39, 0);
+  const pa = capeGeo.attributes.position;
+  for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 - y * .35)); if (y < -.7) pa.setY(i, y + Math.sin(pa.getX(i) * 60) * .04); }
+  capeGeo.computeVertexNormals();
+  const cape = new THREE.Group(); capeNode.add(cape);
+  for (const s of [-1, 1]) {
+    const tail = mesh(capeGeo, mats.cloth, cape, s * .085, 0, 0); tail.rotation.y = s * .18;
+    const trim = mesh(new THREE.BoxGeometry(.17, .02, .01), mats.trim, tail, 0, -.02, .005);
+    trim.castShadow = false;
+  }
+
+  // Wings.
+  const wingGeoA = new THREE.PlaneGeometry(.7, .42); wingGeoA.translate(.33, .06, 0);
+  const wingGeoB = new THREE.PlaneGeometry(.5, .32); wingGeoB.translate(.23, -.04, 0);
+  const wingRoot = node(chest, 0, .18, -.17);
+  const wings = [];
+  for (const s of [-1, 1]) {
+    for (const [geo, tilt] of [[wingGeoA, .35], [wingGeoB, -.45]]) {
+      const w = node(wingRoot); const m = new THREE.Mesh(geo, mats.wing); m.renderOrder = 5;
+      if (s < 0) m.scale.x = -1;
+      w.add(m); w.userData = { s, tilt };
+      wings.push(w);
+    }
+  }
+
+  // Arms: shoulder → elbow → hand. Rest direction is -Y.
+  const UP = .29, LO = .27;
+  const arm = side => {
+    const s = side === 'L' ? 1 : -1;
+    const sh = node(chest, shoulderPos[side].x, shoulderPos[side].y, shoulderPos[side].z);
+    const upper = new THREE.CylinderGeometry(.052, .045, UP, 8); upper.translate(0, -UP / 2, 0);
+    mesh(upper, mats.dark, sh);
+    mesh(new THREE.CylinderGeometry(.058, .058, .12, 8), mats.steel, sh, 0, -.1, 0);
+    const el = node(sh, 0, -UP, 0);
+    mesh(new THREE.SphereGeometry(.05, 8, 6), mats.steel, el);
+    const lower = new THREE.CylinderGeometry(.048, .042, LO, 8); lower.translate(0, -LO / 2, 0);
+    mesh(lower, mats.steel, el);
+    mesh(new THREE.CylinderGeometry(.058, .05, .1, 8), mats.trim, el, 0, -LO + .07, 0);
+    const hand = node(el, 0, -LO, 0);
+    mesh(new THREE.BoxGeometry(.075, .09, .085), mats.dark, hand, 0, -.035, 0);
+    return { sh, el, hand, s };
+  };
+  const armL = arm('L'), armR = arm('R');
+
+  // Sword in the right hand: the blade runs along the hand's +Z.
+  const sword = node(armR.hand, 0, -.04, 0);
+  mesh(new THREE.CylinderGeometry(.018, .018, .2, 6), mats.leather, sword, 0, 0, 0).rotation.x = Math.PI / 2;
+  mesh(new THREE.SphereGeometry(.03, 8, 6), mats.trim, sword, 0, 0, -.11);
+  mesh(new THREE.BoxGeometry(.03, .24, .04), mats.trim, sword, 0, 0, .1);
+  const bladeShape = new THREE.Shape();
+  bladeShape.moveTo(-.028, 0); bladeShape.lineTo(-.024, .88); bladeShape.lineTo(0, .98); bladeShape.lineTo(.024, .88); bladeShape.lineTo(.028, 0); bladeShape.lineTo(-.028, 0);
+  const bladeGeo = new THREE.ExtrudeGeometry(bladeShape, { depth: .008, bevelEnabled: true, bevelThickness: .003, bevelSize: .004, bevelSegments: 1 });
+  bladeGeo.translate(0, 0, -.004);
+  // Shape is in XY: rotate so length runs along +Z and the edge faces ±Y.
+  bladeGeo.rotateZ(Math.PI / 2); bladeGeo.rotateY(-Math.PI / 2);
+  const blade = mesh(bladeGeo, mats.blade, sword, 0, 0, .12);
+  const fuller = new THREE.Mesh(new THREE.BoxGeometry(.012, .006, .7), mats.visor); fuller.position.set(0, 0, .45); sword.add(fuller);
+  fuller.visible = false;
+  const tip = node(sword, 0, 0, 1.08), base = node(sword, 0, 0, .2);
+
+  // Elixir vial in the left hand.
+  const vial = mesh(new THREE.CapsuleGeometry(.035, .06, 4, 8), mats.vial, armL.hand, 0, -.08, .03);
+  vial.visible = false;
+
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x7ff0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
+  glow.scale.setScalar(2.4); glow.position.y = 1.1; root.add(glow);
+
+  return { root, body, hips, spine, chest, neck, head, armL, armR, sword, blade, fuller, tip, base, capeNode, cape, wings, wingRoot, vial, mats, glow, antTip, UP, LO,
+    ...legs(hips, mats, mesh, node) };
+}
+
+function legs(hips, mats, mesh, node) {
+  const TH = .45, SH = .44;
+  const leg = s => {
+    const th = node(hips, s * .1, -.04, 0);
+    const tg = new THREE.CylinderGeometry(.075, .06, TH, 8); tg.translate(0, -TH / 2, 0);
+    mesh(tg, mats.dark, th);
+    const kn = node(th, 0, -TH, 0);
+    mesh(new THREE.SphereGeometry(.06, 8, 6), mats.steel, kn, 0, 0, .02);
+    const sg = new THREE.CylinderGeometry(.062, .05, SH, 8); sg.translate(0, -SH / 2, 0);
+    mesh(sg, mats.steel, kn);
+    const ft = mesh(new THREE.BoxGeometry(.1, .07, .22), mats.dark, kn, 0, -SH - .01, .05);
+    ft.userData.foot = true;
+    return { th, kn };
+  };
+  const L = leg(1), R = leg(-1);
+  return { thL: L.th, knL: L.kn, thR: R.th, knR: R.kn };
+}
+
+// ---------------------------------------------------------------- IK
+const _t = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _u = new THREE.Vector3(), _e = new THREE.Vector3();
+const _f = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+
+// Two-bone IK in the shoulder's parent space (the chest). target, pole: Vector3 in chest space.
+function solveArm(arm, target, pole, a, b) {
+  _t.copy(target).sub(arm.sh.position);
+  let d = _t.length();
+  d = clamp(d, .08, a + b - .002);
+  _d.copy(_t).normalize();
+  const cosA = clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), alpha = Math.acos(cosA);
+  const cosB = clamp((a * a + b * b - d * d) / (2 * a * b), -1, 1), beta = Math.acos(cosB);
+  _p.copy(pole).addScaledVector(_d, -pole.dot(_d));
+  if (_p.lengthSq() < 1e-6) _p.set(0, -1, 0).addScaledVector(_d, _d.y); _p.normalize();
+  _u.copy(_d).multiplyScalar(Math.cos(alpha)).addScaledVector(_p, Math.sin(alpha)).normalize();   // upper arm direction
+  _e.copy(_u).multiplyScalar(a);                                                                     // elbow, shoulder-relative
+  _f.copy(_d).multiplyScalar(d).sub(_e).normalize();                                                 // forearm direction
+  // Frame: -Y along the upper arm, +Z toward where the forearm bends.
+  _y.copy(_u).negate();
+  _z.copy(_f).addScaledVector(_u, -_f.dot(_u));
+  if (_z.lengthSq() < 1e-6) _z.set(0, 0, 1).addScaledVector(_y, -_y.z);
+  _z.normalize();
+  _x.crossVectors(_y, _z).normalize();
+  _m.makeBasis(_x, _y, _z);
+  arm.sh.quaternion.setFromRotationMatrix(_m);
+  arm.el.rotation.set(-(Math.PI - beta), 0, 0);
+}
+
+// Orient the hand so its +Z runs along `dir` and +Y along `edge` (both chest space).
+function orientHand(arm, dir, edge) {
+  _z.copy(dir).normalize();
+  _y.copy(edge).addScaledVector(_z, -edge.dot(_z)).normalize();
+  _x.crossVectors(_y, _z).normalize();
+  _m.makeBasis(_x, _y, _z);
+  _q.setFromRotationMatrix(_m);                          // desired, chest space
+  _q2.copy(arm.sh.quaternion).multiply(arm.el.quaternion).invert();
+  arm.hand.quaternion.copy(_q2.multiply(_q));
+}
+
+// ---------------------------------------------------------------- animator
+const _hilt = new THREE.Vector3(), _blade = new THREE.Vector3(), _edge = new THREE.Vector3(), _lh = new THREE.Vector3(), _grip = new THREE.Vector3();
+const POLE_R = new THREE.Vector3(-.6, -.4, -.7), POLE_L = new THREE.Vector3(.6, -.4, -.7);
+
+export class KnightAnimator {
+  constructor(k) {
+    this.k = k;
+    this.cur = pose({}, true);
+    this.loco = pose({}, true);
+    this.act = new Float32Array(N);
+    this.out = new Float32Array(N);
+    this.action = null; this.t = 0; this.speed = 1;
+    this.fadeIn = .08; this.fadeOut = .12;
+    this.gait = 0;
+    this.time = 0;
+  }
+
+  play(name, speed = 1, fadeIn = .06) {
+    this.action = ACTIONS[name]; this.name = name; this.t = 0; this.speed = speed; this.fadeIn = fadeIn;
+  }
+  stop() { this.action = null; this.name = null; }
+  get progress() { return this.action ? this.t / this.action.dur : 1; }
+
+  // m: { speed (m/s), forward, side (local velocity), guard, sprint, locked }
+  update(dt, m) {
+    this.time += dt;
+    const L = this.loco;
+    L.set(m.guard ? P.guard.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v)) : m.sprint ? P.sprint.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v)) : P.ready);
+    // Gait: legs swing with ground speed; strafing tilts the stride.
+    const spd = m.speed, amt = clamp(spd / 4.5, 0, 1.3);
+    this.gait += dt * (spd > .1 ? 5 + spd * 1.6 : 0);
+    const g = this.gait, sw = Math.sin(g), sw2 = Math.sin(g + Math.PI);
+    const fwd = m.forward ?? 1, side = m.side ?? 0;
+    const dirSign = fwd < -.3 ? -1 : 1;
+    const breathe = Math.sin(this.time * 2.2) * .015 * (1 - amt);
+    L[IDX.thLx] = BASE.thLx * (1 - amt) + sw * .6 * amt * dirSign;
+    L[IDX.thRx] = BASE.thRx * (1 - amt) + sw2 * .6 * amt * dirSign;
+    L[IDX.knL] = BASE.knL * (1 - amt) + Math.max(0, Math.sin(g - 1.2)) * 1.1 * amt + .15 * amt;
+    L[IDX.knR] = BASE.knR * (1 - amt) + Math.max(0, Math.sin(g - 1.2 + Math.PI)) * 1.1 * amt + .15 * amt;
+    L[IDX.thLz] = BASE.thLz + side * .25 * amt; L[IDX.thRz] = BASE.thRz + side * .25 * amt;
+    L[IDX.lift] = -Math.abs(Math.cos(g)) * .05 * amt + breathe - (m.guard ? .06 : 0);
+    L[IDX.hipsRy] = sw * .12 * amt;
+    L[IDX.chestRy] += -sw * .1 * amt;
+    L[IDX.chestRx] += amt * .1;
+    L[IDX.bodyRz] = -side * .06 * amt;
+    L[IDX.bodyRx] = (m.sprint ? .12 : .04) * amt;
+    if (!m.guard) {   // off hand swings with the stride
+      L[IDX.lhZ] = BASE.lhZ + sw2 * .22 * amt; L[IDX.lhY] = BASE.lhY + Math.abs(sw2) * .05 * amt;
+    }
+    L[IDX.wings] = m.sprint ? 1.2 : BASE.wings + amt * .3;
+
+    // Action layer.
+    const out = this.out;
+    out.set(L);
+    if (this.action) {
+      this.t += dt * this.speed;
+      const A = this.action;
+      if (!A.loop && this.t >= A.dur) { this.action = null; }
+      else {
+        sampleAction(A, this.t, this.act);
+        const wIn = clamp(this.t / this.fadeIn, 0, 1), wOut = A.loop ? 1 : clamp((A.dur - this.t) / this.fadeOut, 0, 1);
+        const w = Math.min(wIn, wOut);
+        for (let c = 0; c < N; c++) {
+          const v = this.act[c];
+          if (Number.isNaN(v)) continue;
+          // Body roll angles blend in full once inside the action so a roll never unwinds backwards.
+          out[c] = c === IDX.bodyRx && A === ACTIONS.roll ? v : lerp(out[c], v, w);
+        }
+      }
+    }
+
+    // Smooth toward the target a little so action changes don't pop.
+    const cur = this.cur, k = 1 - Math.exp(-dt * 26);
+    for (let c = 0; c < N; c++) {
+      if (c === IDX.bodyRx && this.action === ACTIONS.roll) { cur[c] = out[c]; continue; }
+      cur[c] = lerp(cur[c], out[c], k);
+    }
+    if (!this.action || this.action !== ACTIONS.roll) cur[IDX.bodyRx] = ((cur[IDX.bodyRx] + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    this.apply(cur, dt);
+  }
+
+  apply(p, dt) {
+    const k = this.k, I = IDX;
+    k.body.position.y = .95 + p[I.lift];
+    k.body.rotation.set(p[I.bodyRx], p[I.bodyRy], p[I.bodyRz]);
+    k.hips.rotation.set(p[I.hipsRx], p[I.hipsRy], p[I.hipsRz]);
+    k.chest.rotation.set(p[I.chestRx], p[I.chestRy], p[I.chestRz]);
+    k.head.rotation.set(p[I.headRx], p[I.headRy], 0);
+    k.thL.rotation.set(p[I.thLx], 0, p[I.thLz]); k.knL.rotation.x = p[I.knL];
+    k.thR.rotation.set(p[I.thRx], 0, p[I.thRz]); k.knR.rotation.x = p[I.knR];
+
+    // Sword: hilt in cylindrical coords around the chest; the angle turns toward the character's left (+X).
+    const a = p[I.hiltA], r = p[I.hiltR], h = p[I.hiltH];
+    _hilt.set(Math.sin(a) * r, .24 + h, Math.cos(a) * r);
+    const by = p[I.bladeYaw], bp = p[I.bladePitch];
+    _blade.set(Math.sin(by) * Math.cos(bp), Math.sin(bp), Math.cos(by) * Math.cos(bp));
+    // Edge: 'up' made perpendicular to the blade, then rolled around it.
+    _edge.set(0, 1, 0).addScaledVector(_blade, -_blade.y);
+    if (_edge.lengthSq() < 1e-4) _edge.set(0, 0, 1).addScaledVector(_blade, -_blade.z);
+    _edge.normalize().applyAxisAngle(_blade, p[I.bladeRoll]);
+    // The hand holds the grip a little behind the hilt point.
+    _grip.copy(_hilt).addScaledVector(_blade, -.02);
+    solveArm(k.armR, _grip, POLE_R, k.UP, k.LO + .04);
+    orientHand(k.armR, _blade, _edge);
+
+    const two = clamp(p[I.twoHand], 0, 1);
+    _lh.set(p[I.lhX], .24 + p[I.lhY], p[I.lhZ]);
+    _grip.copy(_hilt).addScaledVector(_blade, -.11);
+    _lh.lerp(_grip, two);
+    solveArm(k.armL, _lh, POLE_L, k.UP, k.LO + .04);
+    k.armL.hand.rotation.set(0, 0, 0);
+    k.vial.visible = p[I.vial] > .5;
+
+    // Cape trails with motion; wings flutter.
+    const t = this.time, wsp = p[I.wings];
+    k.capeNode.rotation.x = .12 + clamp(this.capeLag || 0, 0, 1.1) + Math.sin(t * 3) * .03;
+    for (const w of k.wings) {
+      const { s, tilt } = w.userData;
+      const flap = Math.sin(t * (wsp > 1.5 ? 28 : 9) + (tilt > 0 ? 0 : .8)) * (.18 + wsp * .12);
+      w.rotation.set(0, s * (-.55 + wsp * .35 + flap), tilt * s);
+      w.scale.setScalar(wsp > 1.5 ? 1.6 : 1);
+    }
+  }
+}
