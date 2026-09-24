@@ -248,6 +248,79 @@ Object.assign(TYPES, {
   },
 });
 
+// ---- The Moonspire
+Object.assign(TYPES, {
+  // Raises a war chant: allies nearby hit harder and can't be staggered for a while.
+  'goblin-warchanter': {
+    model: 'goblin-shaman', name: 'Goblin Warchanter', scale: .9, radius: .4, hp: 150, ki: 80, poise: 10, walk: 1.5, run: 3.9, glimmer: 220, voice: 'growl', pitch: 1.2, style: 'ranged', prefer: [7, 12],
+    attacks: [
+      A('War Chant', 22, [S('roar', 1.1, .4, .6, 0, { chant: 9 })], { cd: 10, w: 2.5, cond: 'alliesNear' }),
+      A('Hex Orbs', 15, [S('cast', 1.0, .15, .8, 30, { proj: { kind: 'orb', count: 2, speed: 7.5 } })], { minRange: 3 }),
+      A('Staff Swipe', 2.2, [S('swing', .5, .12, .6, 28, { reach: 2.2, lunge: .6 })], { w: .5 }),
+    ],
+  },
+  // A shield wall: blows from the front glance off until the guard breaks. Go round, or hit hard.
+  'goblin-skyguard': {
+    model: 'goblin-spearguard', name: 'Goblin Skyguard', scale: .95, radius: .45, hp: 200, ki: 140, poise: 24, walk: 1.5, run: 4, glimmer: 200, voice: 'growl', pitch: 1.1, shield: true,
+    attacks: [
+      A('Pike Thrust', 3.2, [S('thrust', .55, .14, .6, 42, { reach: 3.1, arc: 50, lunge: 1.2 })]),
+      A('Shield Bash', 2.2, [S('thrust', .45, .12, .7, 34, { reach: 2.1, arc: 80, lunge: 1.8, poise: 40 })], { w: .8 }),
+      A('Sky Lunge', 8, [S('leap', .6, .55, .9, 66, { reach: 0, aoe: 1.8, shake: .4 })], { minRange: 4.5, cd: 7, w: .7 }),
+    ],
+  },
+  // Steps out of the shadows behind the knight and cuts.
+  'ratman-shadowblade': {
+    model: 'ratman-assassin', name: 'Ratman Shadowblade', scale: 1, radius: .4, hp: 160, ki: 90, poise: 12, walk: 2, run: 5.4, glimmer: 210, voice: 'squeal', pitch: 1.25, evasive: .6, aggro: .85,
+    attacks: [
+      A('Shadow Step', 12, [S('cast', .35, .08, .05, 0, { blink: true, behind: true }), S('swing', .28, .12, .7, 52, { reach: 2.4, arc: 140, lunge: .8 })], { minRange: 3, cd: 6, w: 1.3 }),
+      A('Twin Rake', 2.4, [S('swing', .35, .1, .08, 30, { reach: 2.3, lunge: .8 }), S('backswing', .22, .1, .6, 30, { reach: 2.3, lunge: .8 })]),
+      A('Knife Fan', 14, [S('throw', .6, .1, .6, 24, { proj: { kind: 'knife', speed: 18, count: 3 } })], { minRange: 4, cd: 5, w: .7 }),
+    ],
+  },
+  varkh: {
+    model: 'goblin-spearguard', name: 'Varkh the Moon-Pike', scale: 1.45, radius: .9, hp: 2600, ki: 360, poise: 70, walk: 1.7, run: 4.8, glimmer: 5200, voice: 'growl', pitch: .7, elite: true, track: 3.6, aggro: .9,
+    attacks: [
+      A('Pike Chain', 4, [S('thrust', .6, .14, .1, 72, { reach: 4, arc: 45, lunge: 1.4 }), S('thrust', .35, .14, .1, 72, { reach: 4, arc: 45, lunge: 1.4 }), S('swing', .45, .16, .9, 88, { reach: 4, arc: 160, lunge: 1 })]),
+      A('Moon Sweep', 4, [S('spin', .7, .4, .9, 90, { reach: 4.2, arc: 360 })], { cd: 5, w: .8 }),
+      A('Impaling Leap', 10, [S('leap', .7, .65, 1.1, 120, { reach: 0, aoe: 2.4, burst: true, hyper: true, shake: .8 })], { minRange: 5, cd: 7, w: .9 }),
+      A('Shield Rush', 7, [S('thrust', .7, .45, 1, 96, { reach: 2.8, arc: 90, lunge: 8, burst: true, hyper: true })], { minRange: 4, cd: 6, w: .8 }),
+    ],
+  },
+  silkclaw: {
+    model: 'ratman-assassin', name: 'Silkclaw, the Moonless Blade', scale: 1.45, radius: .7, hp: 3600, ki: 380, poise: 60, walk: 2.4, run: 6.2, glimmer: 16000, voice: 'squeal', pitch: .6, boss: true, track: 6, aggro: .95, evasive: .45,
+    attacks: [
+      A('Rending Flurry', 3, [
+        S('swing', .45, .1, .06, 52, { reach: 3, arc: 140, lunge: 1.2 }),
+        S('backswing', .24, .1, .06, 52, { reach: 3, arc: 140, lunge: 1.2 }),
+        S('swing', .24, .1, .06, 52, { reach: 3, arc: 140, lunge: 1.2 }),
+        S('thrust', .38, .14, .9, 70, { reach: 3.2, arc: 60, lunge: 2 }),
+      ]),
+      A('Shadow Step', 14, [S('cast', .3, .08, .05, 0, { blink: true, behind: true }), S('backswing', .3, .12, .8, 80, { reach: 3, arc: 150, lunge: 1 })], { minRange: 3, cd: 5, w: 1.1 }),
+      A('Crescent Lunge', 10, [S('thrust', .8, .3, 1, 120, { reach: 3, arc: 70, lunge: 9, burst: true, hyper: true })], { minRange: 4, cd: 6, w: .9 }),
+      A('Moon Fangs', 16, [S('throw', .55, .1, .6, 36, { proj: { kind: 'knife', speed: 20, count: 5 } })], { minRange: 5, cd: 5, w: .8 }),
+      A('Veil Step', 4, [S('cast', .4, .1, .4, 0, { blink: true })], { cond: 'close', cd: 9, w: .6 }),
+    ],
+    phase2: [
+      A('Split Shadow', 30, [S('roar', 1.1, .5, .5, 0, { hyper: true })], { once: true }),
+      A('Moonless Waltz', 3.2, [
+        S('swing', .3, .1, .05, 50, { reach: 3.1, arc: 150, lunge: 1.4 }),
+        S('backswing', .2, .1, .05, 50, { reach: 3.1, arc: 150, lunge: 1.4 }),
+        S('spin', .25, .3, .05, 56, { reach: 3.3, arc: 360 }),
+        S('swing', .2, .1, .05, 50, { reach: 3.1, arc: 150, lunge: 1.4 }),
+        S('thrust', .45, .16, 1, 110, { reach: 3.3, arc: 60, lunge: 3, burst: true, hyper: true }),
+      ], { w: 1.1 }),
+    ],
+  },
+  // Silkclaw's shadows: quick, fragile, gone at a touch.
+  'shadow-clone': {
+    model: 'ratman-assassin', name: 'Moonless Shadow', scale: 1.1, radius: .45, hp: 90, ki: 40, poise: 99, walk: 2.4, run: 6, glimmer: 0, voice: 'squeal', pitch: .9, shade: true, aggro: 1,
+    attacks: [
+      A('Shadow Rake', 2.6, [S('swing', .4, .1, .06, 40, { reach: 2.6, lunge: 1 }), S('backswing', .24, .1, .7, 40, { reach: 2.6, lunge: 1 })]),
+      A('Shadow Step', 12, [S('cast', .35, .08, .05, 0, { blink: true, behind: true }), S('swing', .3, .12, .8, 50, { reach: 2.6, arc: 140, lunge: .8 })], { minRange: 3, cd: 6 }),
+    ],
+  },
+});
+
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 
 // Pose channels, all driven by springs. Whole body: pitch/twist/roll/sq/hop/fwd/spin on the lean group.
@@ -268,6 +341,7 @@ export class Projectiles {
       bomb: new M.SphereGeometry(.16, 10, 8),
       vial: new M.CapsuleGeometry(.06, .1, 4, 8),
       snare: new M.TorusGeometry(.2, .03, 5, 12),
+      knife: new M.ConeGeometry(.04, .42, 4).rotateX(Math.PI / 2),
       rock: new M.DodecahedronGeometry(.32, 0),
     };
     this.mat = {
@@ -276,6 +350,7 @@ export class Projectiles {
       bomb: new M.MeshStandardMaterial({ color: 0x1c1c1c, roughness: .5, metalness: .3 }),
       vial: new M.MeshStandardMaterial({ color: 0x8fe040, emissive: 0x4a8a10, emissiveIntensity: 1.2, transparent: true, opacity: .9 }),
       snare: new M.MeshStandardMaterial({ color: 0x8a6a3c, roughness: .9 }),
+      knife: new M.MeshStandardMaterial({ color: 0xc8d0e0, metalness: .9, roughness: .25, emissive: 0x3a3a60, emissiveIntensity: .6 }),
       rock: new M.MeshStandardMaterial({ color: 0x4f4a55, roughness: 1, flatShading: true }),
     };
   }
@@ -305,6 +380,17 @@ export class Projectiles {
       if (kind !== 'arrow') v.y += 9.8 * .5 * tflight * .5;
       make(kind, v, { gravity: kind === 'arrow' ? 0 : 4.9, snare: kind === 'snare' ? 2.2 : 0 });
       G.audio.sfx(kind === 'arrow' ? 'arrow' : 'throw', { x: from.x, z: from.z });
+    } else if (kind === 'knife') {
+      // A spread of thrown blades, the middle one aimed where the knight is heading.
+      const n = step.proj.count || 1, tflight = origin.distanceTo(aim) / step.proj.speed;
+      aim.x += p.vel.x * tflight * .5; aim.z += p.vel.z * tflight * .5;
+      const base = Math.atan2(aim.x - origin.x, aim.z - origin.z);
+      for (let i = 0; i < n; i++) {
+        const ang = base + (i - (n - 1) / 2) * .16;
+        const v = new THREE.Vector3(Math.sin(ang), (aim.y - origin.y) / Math.max(1, origin.distanceTo(aim)), Math.cos(ang)).normalize().multiplyScalar(step.proj.speed);
+        make('knife', v, { gravity: 0 });
+      }
+      G.audio.sfx('arrow', { x: from.x, z: from.z });
     } else if (kind === 'bomb' || kind === 'vial' || kind === 'rock') {
       // A volley scatters extra shots around the first, cutting off the easy dodge. Rocks fall from the roof.
       const T = step.proj.flight, n = step.proj.count || 1, spread = step.proj.spread;
@@ -356,7 +442,7 @@ export class Projectiles {
       _v.copy(pr.vel).normalize();
       const wall = pr.kind === 'rock' ? step : G.world.raycast(o.position, _v, step);   // rocks fall past the cliff tops
       o.position.addScaledVector(pr.vel, Math.min(1, wall / Math.max(step, 1e-6)) * dt);
-      if (pr.kind === 'arrow') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
+      if (pr.kind === 'arrow' || pr.kind === 'knife') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
       else if (pr.kind === 'snare') o.rotation.y += dt * 22;
       else if (pr.kind !== 'orb') { o.rotation.x += dt * 8; o.rotation.z += dt * 5; }
       if (pr.kind === 'orb') fx.motes(o.position, pr.reflected ? 0xbff8ff : 0xb060ff, 1, .1, .2, .12, .5);
@@ -514,7 +600,8 @@ export class Enemy {
     this.mat.transparent = false; this.mat.opacity = 1; this.mat.emissive.setHex(0xffffff); this.mat.emissiveIntensity = this.G.level?.enemyGlow ?? .08;
     this.outer.rotation.y = this.yaw;
     this.lean.rotation.set(0, 0, 0); this.lean.position.y = .45 * this.height;
-    this.fadeT = 0; this.grappleK = 0; this.hop = null; this.plan = null; this.air = null; this.deadVy = 0;
+    this.fadeT = 0; this.grappleK = 0; this.hop = null; this.plan = null; this.air = null; this.deadVy = 0; this.chantT = 0;
+    if (T.shade) { this.mat.transparent = true; this.mat.opacity = .72; this.mat.color.setHex(0x5a4a90); }   // a shadow, not a rat
   }
 
   kill() { this.active = false; this.state = 'dead'; this.outer.visible = false; }
@@ -554,6 +641,21 @@ export class Enemy {
   takeHit(hit) {
     if (!this.alive || this.state === 'intro' || this.burrowed) return null;
     const G = this.G;
+    // Shield wall: a guarded front turns blows aside (heavies wear the guard down faster).
+    if (this.T.shield && ['engage', 'idle', 'patrol', 'alert'].includes(this.state) && !hit.crit && !hit.flash) {
+      const from = yawTo(this.pos.x, this.pos.z, G.player.pos.x, G.player.pos.z);
+      if (Math.abs(angleDiff(this.yaw, from)) < 1.05) {
+        this.ki -= (hit.ki || 0) * (hit.heavy ? 1.6 : .9); this.kiT = 1.4; this.barT = 6;
+        this.hp -= hit.dmg * .12; this.dmgShown += hit.dmg * .12; this.dmgShowT = 2.5;
+        this.pulseAnim('deflected', .6);
+        G.fx.spark(new THREE.Vector3(this.pos.x + Math.sin(this.yaw) * .5, this.height * .55, this.pos.z + Math.cos(this.yaw) * .5), { x: Math.sin(from), z: Math.cos(from) }, 14, 0xdfe6ff, 6);
+        G.audio.sfx('block', { x: this.pos.x, z: this.pos.z });
+        if (this.hp <= 0) { this.die(hit); return 'kill'; }
+        if (this.ki <= 0) { this.breakKi(); return 'broken'; }
+        if (Math.random() < .5 && this.think > .2) this.think = .2;   // a guarded foe answers quickly
+        return 'blocked';
+      }
+    }
     let dmg = hit.dmg * (this.state === 'down' ? 1.2 : 1);   // a floored foe takes more
     this.hp -= dmg;
     this.dmgShown += dmg; this.dmgShowT = 2.5; this.barT = 6;
@@ -578,7 +680,7 @@ export class Enemy {
     }
     if (this.state === 'down') return 'hit';
     if (this.ki <= 0 && this.state !== 'broken') { this.breakKi(); return 'broken'; }
-    const armored = this.step && this.phase === 'active' && this.step.hyper || (this.step && this.step.hyper && this.phase === 'windup' && this.pt > this.step.windup * .4);
+    const armored = this.chantT > G.time || this.step && this.phase === 'active' && this.step.hyper || (this.step && this.step.hyper && this.phase === 'windup' && this.pt > this.step.windup * .4);
     if (this.poiseDmg >= this.T.poise && !armored && this.state !== 'broken') {
       this.poiseDmg = 0;
       this.hurt(hit.heavy ? .55 : .36);
@@ -658,7 +760,7 @@ export class Enemy {
 
   endAttack() {
     if (this.atk) this.G.attackTokens = Math.max(0, (this.G.attackTokens || 0) - 1);
-    if (this.step?.blink && this.state !== 'dead') { this.mat.opacity = 1; this.mat.transparent = false; }
+    if (this.step?.blink && this.state !== 'dead') { this.mat.opacity = this.T.shade ? .72 : 1; this.mat.transparent = !!this.T.shade; }
     this.burrowed = false;
     this.atk = null; this.step = null; this.phase = null; this.burstGlow = 0;
   }
@@ -675,6 +777,7 @@ export class Enemy {
       if ((this.cd[a.name] || 0) > G.time) return false;
       if (a.cond === 'behind' && !behind) return false;
       if (a.cond === 'close' && d > 3.8) return false;
+      if (a.cond === 'alliesNear' && !G.enemies.some(o => o !== this && o.alive && o.aware && !(o.chantT > G.time) && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 10)) return false;
       if (a.cond === 'alliesHurt' && !G.enemies.some(o => o !== this && o.alive && o.aware && o.hp < o.maxHp * .7 && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 9)) return false;
       return d <= a.range && d >= a.minRange;
     });
@@ -728,7 +831,7 @@ export class Enemy {
       if (s.burrow && Math.random() < dt * 30) G.fx.dust(this.pos, 1);
       if (this.pt >= D.windup) {
         this.phase = 'active'; this.pt = 0;
-        if (s.blink) this.blinkAway();
+        if (s.blink) this.blinkAway(s.behind);
         if (s.burrow) {
           // Underground: untouchable, a furrow of dust racing to where the knight stood.
           this.burrowed = true; this.leap.x0 = this.pos.x; this.leap.z0 = this.pos.z;
@@ -749,6 +852,11 @@ export class Enemy {
             G.fx.ring(o.pos, 0x7dff8a, 1.6, .5); G.fx.motes({ x: o.pos.x, y: .4, z: o.pos.z }, 0x7dff8a, 10, .4, 2, .1, .9);
           }
           G.audio.sfx('heal', { x: this.pos.x, z: this.pos.z });
+        } else if (s.chant) {
+          // War chant: allies nearby are emboldened, harder-hitting and unshakeable.
+          G.fx.ring(this.pos, 0xff5030, 10, .7);
+          for (const o of G.enemies) if (o.alive && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 10) { o.chantT = G.time + s.chant; G.fx.ring(o.pos, 0xff5030, 1.4, .4); }
+          G.audio.sfx('roar', { x: this.pos.x, z: this.pos.z, pitch: 1.4, vol: .7 });
         } else if (s.howl) {
           // A rallying howl wakes every ratman in earshot.
           G.fx.ring(this.pos, 0xffd070, 6, .6);
@@ -783,7 +891,7 @@ export class Enemy {
         if (this.stepI < this.atk.steps.length) this.beginStep();
         else {
           this.endAttack();
-          if (s.blink) { this.mat.opacity = 1; this.mat.transparent = false; }
+          if (s.blink) { this.mat.opacity = this.T.shade ? .72 : 1; this.mat.transparent = !!this.T.shade; }
           this.state = 'engage'; this.st = 0;
           this.think = rand(.35, 1.1) * (1.4 - (this.T.aggro || .7));
         }
@@ -832,7 +940,7 @@ export class Enemy {
   deliver(s, from) {
     const p = this.G.player;
     const res = p.receiveHit({
-      dmg: s.dmg * this.dmgMul, from: this, burst: !!s.burst, poison: s.poison || 0, heavy: s.dmg >= 60,
+      dmg: s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1), from: this, burst: !!s.burst, poison: s.poison || 0, heavy: s.dmg >= 60,
       dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe,
     });
     this.hitDone = true;
@@ -840,13 +948,15 @@ export class Enemy {
   }
 
   // Vanish and reappear 7–11 m from the knight, somewhere open, in the same area and in sight.
-  blinkAway() {
+  blinkAway(behind = false) {
     const G = this.G, p = G.player, W = G.world, here = W.areaAt(this.pos.x, this.pos.z);
     G.fx.motes({ x: this.pos.x, y: this.height * .5, z: this.pos.z }, 0xc9b4ff, 26, this.radius + .3, 2.5, .12, .7);
     G.fx.ring(this.pos, 0xc9b4ff, 2, .3);
     for (let i = 0; i < 20; i++) {
-      const a = rand(0, TAU), r = rand(7, 11), q = { x: p.pos.x + Math.sin(a) * r, z: p.pos.z + Math.cos(a) * r };
-      if (W.areaAt(q.x, q.z) !== here) continue;
+      // Behind: just past the knight's back (their facing, give or take). Otherwise well away.
+      const a = behind ? p.yaw + Math.PI + rand(-.7, .7) : rand(0, TAU), r = behind ? 1.2 + this.radius + rand(0, .6) : rand(7, 11);
+      const q = { x: p.pos.x + Math.sin(a) * r, z: p.pos.z + Math.cos(a) * r };
+      if (!behind && W.areaAt(q.x, q.z) !== here) continue;
       const tx = q.x, tz = q.z;
       W.collide(q, this.radius + .4);
       if (Math.hypot(q.x - tx, q.z - tz) > .05 || !W.los(p.pos, q, 1.2)) continue;
@@ -1247,6 +1357,10 @@ export class Enemy {
     const burst = this.burstGlow > 0 ? .7 + Math.sin(t * 30) * .3 : 0;
     if (burst > 0) { this.mat.emissive.setRGB(1, .12, .08); this.mat.emissiveIntensity = .5 + burst * .6; }
     else if (this.state === 'broken') { this.mat.emissive.setRGB(1, .85, .4); this.mat.emissiveIntensity = .15 + Math.sin(t * 8) * .08; }
+    else if (this.chantT > this.G.time) {   // war-chanted: an ember glow
+      this.mat.emissive.setRGB(1, .3, .15); this.mat.emissiveIntensity = .22 + Math.sin(t * 6 + this.pos.x) * .08 + this.flash * 1.4;
+      if (Math.random() < dt * 10) this.G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xff5030, 1, this.radius, 1, .1, .6);
+    } else if (this.T.shade) { this.mat.emissive.setRGB(.5, .38, 1); this.mat.emissiveIntensity = .45 + this.flash * 1.4; }
     else { this.mat.emissive.setRGB(1, 1, 1); this.mat.emissiveIntensity = (this.G.level?.enemyGlow ?? .08) + this.flash * 1.4; }
   }
 }

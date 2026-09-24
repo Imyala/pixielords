@@ -459,12 +459,12 @@ export class Player {
     this.sprintArmed = true;
     this.moonstepped = false;
     if (this.inputYaw === null) {
-      this.spendKi(HOP.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1));
+      this.spendKi(HOP.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1));
       this.setState('hop'); this.anim.play('hop', 1, .03);
       this.dashYaw = this.yaw + Math.PI;
       this.dash = { dur: HOP.dur, dist: HOP.dist * S.dash.dist, iframes: HOP.iframes };
     } else {
-      this.spendKi(DASH.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1));
+      this.spendKi(DASH.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1));
       this.setState('dash');
       this.dashYaw = this.inputYaw;
       const dur = DASH.dur * S.dash.dur;
@@ -482,8 +482,8 @@ export class Player {
   // One short dash per jump, hanging in the air.
   startAirDash() {
     const G = this.G;
-    if (this.airDashed) return false;
-    this.airDashed = true;
+    if ((this.airDashed || 0) >= (this.has('windstep') ? 2 : 1)) return false;
+    this.airDashed = (this.airDashed || 0) + 1;
     this.spendKi(DASH.cost * .8 * (this.has('quickstep') ? .67 : 1));
     this.setState('airdash'); this.anim.play('dash', 1.3, .03);
     this.dashYaw = this.inputYaw ?? this.yaw;
@@ -674,7 +674,8 @@ export class Player {
   moonstep() {
     const G = this.G;
     this.moonstepped = true;
-    G.warp = 1.1;
+    G.warp = this.has('shadowsilk') ? 1.7 : 1.1;
+    if (this.has('moonveil')) this.veilT = G.time + 3;
     this.ki = Math.min(this.maxKi, this.ki + 15);
     this.gainAnima(10);
     G.fx.ring(this.pos, 0x9fb8ff, 3.5, .5);
@@ -1051,6 +1052,7 @@ export class Player {
     this.gainAnima(12);
     this.ki = Math.min(this.maxKi, this.ki + 25);
     G.hud.toast(this.chain > 1 ? `Flashcut ×${this.chain}` : 'Flashcut', 'flash');
+    if (this.has('lanternheart')) this.heal(this.maxHp * .08);
     return res;
   }
 
@@ -1068,6 +1070,7 @@ export class Player {
     this.gainAnima(10);
     this.ki = Math.min(this.maxKi, this.ki + 20);
     G.hud.toast('Moonstep Riposte', 'flash');
+    if (this.has('lanternheart')) this.heal(this.maxHp * .08);
     return res;
   }
 
@@ -1105,7 +1108,7 @@ export class Player {
       G.projectiles.cut(pr);
       this.gainAnima(2);
     }
-    const reach = a.reach * (a.air || a.launch ? this.W.airReach : 1), high = this.pos.y > .6 || a.air;
+    const reach = a.reach * (a.air || a.launch ? this.W.airReach : 1) * (this.has('pikeband') ? 1.1 : 1), high = this.pos.y > .6 || a.air;
     for (const e of G.enemies) {
       if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
       // In the air, only foes near the knight's height; from the ground, not foes juggled high overhead.
@@ -1124,7 +1127,7 @@ export class Player {
     const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.max(.01, Math.hypot(dx, dz));
     const cm = this.chargeMul || 1;
     const charm = (a.heavy && this.has('tusk') ? 1.15 : 1) * (a.air && this.has('skyward') ? 1.25 : 1) * (a.air || a.launch ? this.W.airDmg : 1);
-    const fz = this.weapon === 'fangs' ? 1 + this.frenzy.n * FRENZY.dmg : 1;
+    const fz = (this.weapon === 'fangs' ? 1 + this.frenzy.n * FRENZY.dmg : 1) * (G.time < (this.veilT || 0) ? 1.25 : 1);
     const mul = this.dmgMul * S.dmg * cm * charm * fz * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
@@ -1138,8 +1141,9 @@ export class Player {
     G.hitstop = Math.max(G.hitstop, a.multi ? .02 : a.heavy ? .08 : .045);
     if (this.weapon === 'fangs') {
       const f = this.frenzy, before = f.n;
-      f.n = Math.min(FRENZY.max, (G.time - f.t <= FRENZY.keep ? f.n : 0) + 1); f.t = G.time;
-      if (f.n === FRENZY.max && before < FRENZY.max) { G.hud.toast('Frenzy', 'anima'); G.fx.ring(this.pos, 0xffb4c8, 2, .3); }
+      const wild = this.has('wildfang'), max = wild ? 8 : FRENZY.max;
+      f.n = Math.min(max, (G.time - f.t <= FRENZY.keep * (wild ? 1.8 : 1) ? f.n : 0) + 1); f.t = G.time;
+      if (f.n === max && before < max) { G.hud.toast('Frenzy', 'anima'); G.fx.ring(this.pos, 0xffb4c8, 2, .3); }
     }
     G.cam.shake(a.heavy ? .22 : .08);
     this.gainAnima(a.heavy ? 7 : 4);
@@ -1169,7 +1173,7 @@ export class Player {
       if (this.anima <= 0) this.endShift();
     }
     if (this.state !== 'attack') this.aoeDone = false;
-    if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep) this.frenzy.n = 0;
+    if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep * (this.has('wildfang') ? 1.8 : 1)) this.frenzy.n = 0;
   }
 
   updateVisuals(dt) {

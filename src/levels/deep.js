@@ -31,9 +31,7 @@ export default {
   light: { sky: 0x8a7ac8, ground: 0x221a2c, hemi: 1.55, moonColor: 0xa89cff, moon: 1.5 },
   enemyGlow: .2,   // foes catch a little crystal light so they read against the dark
   intro: 'The warren was only ever a mouth.\nGo down into the Deep, and silence the Seer.',
-  outro: 'Mother Skritch falls among her crystals.',
-  endingTitle: 'THE DEEP IS STILL',
-  ending: 'Mother Skritch falls among her crystals, and one by one they go dark. Without their seer the warren scatters into the tunnels, the goblin fires die, and the roots of the fae realm drink moonlight again.\nThe paths are still, for now. Walk them again and every foe will remember you.',
+  outro: 'Mother Skritch falls among her crystals, and one by one they go dark. With her last breath she laughs: she only read the future. The one who wrote it waits atop the Moonspire, drinking the moon itself.',
   exitToast: 'The crystals dim. A Pixie Gate rises from the dark',
   motes: { base: 0x9fe8ff, warren: 0x9cff5a, hollow: 0xc9b4ff },
   titleShrine: 'mouth',

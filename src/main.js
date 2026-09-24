@@ -632,7 +632,7 @@ function step(dt, rdt) {
 
   // Ambient particles: embers, fireflies, falling leaves.
   if (Math.random() < rdt * 10) G.fx.motes({ x: p.pos.x + rand(-12, 12), y: rand(.2, 3), z: p.pos.z + rand(-12, 12) }, L.motes?.[area?.id] ?? L.motes?.base ?? 0xffb070, 1, .1, .25, .07, 4);
-  if (L.leaves && Math.random() < rdt * 6) G.fx.leaf({ x: p.pos.x + rand(-10, 10), y: rand(5, 8), z: p.pos.z + rand(-10, 10) });
+  if (L.leaves && Math.random() < rdt * 6) G.fx.leaf({ x: p.pos.x + rand(-10, 10), y: rand(5, 8), z: p.pos.z + rand(-10, 10) }, L.leafColors);
   for (const s of Object.values(L.shrines)) if (Math.random() < rdt * 6) G.fx.motes({ x: s.x, y: 1.4, z: s.z }, 0x9ff3ff, 1, .4, .6, .08, 1.6);
 
   G.world.update(dt, G.time, p.pos);

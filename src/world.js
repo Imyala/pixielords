@@ -234,7 +234,15 @@ export class World {
       this.mats.rock.color.setHex(0x9a92b0);   // cave stone runs cold and violet
       this.crystalMats = {};
     }
-    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves']) if (this.mats[k]) cutout(this.mats[k]);
+    // The Moonspire: pale marble, white stone, moon-bleached trees and still moonwater.
+    if (this.level.spire) {
+      const M = this.mats;
+      M.marble = M.floor.clone(); M.marble.color.setHex(0xd0d8ea); M.marble.emissive = new THREE.Color(0x121828);
+      M.whitestone = M.pillar.clone(); M.whitestone.color.setHex(0xf0f2fa); M.whitestone.emissive = new THREE.Color(0x1c2438);
+      M.palebark = new THREE.MeshStandardMaterial({ color: 0xd4d8e6, roughness: .8 });
+      M.moonwater = new THREE.MeshStandardMaterial({ color: 0x4a7ad0, emissive: 0x3a66d0, emissiveIntensity: .55, roughness: .08, metalness: .5, transparent: true, opacity: .82 });
+    }
+    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves', 'whitestone', 'palebark']) if (this.mats[k]) cutout(this.mats[k]);
     this.cutout = cutout;
     this.glowTex = tex('glow', () => glowTexture());
     this.starTex = tex('star', () => glowTexture('star'));
@@ -259,8 +267,9 @@ export class World {
     this.scene.add(sky); this.sky = sky;
     if (this.level.cave) sky.visible = false;   // underground: nothing overhead but the dark
     const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
-    moon.position.set(-120, 150, 260); moon.scale.set(60, 60, 1);
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 32), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
+    const Mn = this.level.moon || {};   // a level may hang the moon somewhere grander
+    moon.position.set(...(Mn.at || [-120, 150, 260])); moon.scale.setScalar(Mn.glow || 60);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(Mn.size || 7, 48), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
     disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
     sky.add(moon, disc);
   }
@@ -329,16 +338,16 @@ export class World {
     this.prop(this.addCyl(x, z, r + .05, hh));   // the camera passes pillars rather than jamming into the knight
   }
 
-  deadTree(x, z, h, seed, collide = true) {
+  deadTree(x, z, h, seed, collide = true, mat = 'bark') {
     const r = rng(seed);
     const trunk = new THREE.CylinderGeometry(.12, .35, h, 7); trunk.translate(x, h / 2, z);
-    this.batch('bark', trunk);
+    this.batch(mat, trunk);
     for (let i = 0; i < 6; i++) {
       const bl = 1 + r() * 1.8, br = new THREE.CylinderGeometry(.03, .12, bl, 5);
       br.translate(0, bl / 2, 0);
       br.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(.5 + r() * .7, r() * 6.28, 0, 'YXZ')));
       br.translate(x, h * (.45 + r() * .5), z);
-      this.batch('bark', br);
+      this.batch(mat, br);
     }
     if (collide) this.prop(this.addCyl(x, z, .4, h));
   }
@@ -507,6 +516,41 @@ export class World {
   nest(x, z, r = 1.2) {
     const g = new THREE.ConeGeometry(r, r * .45, 9, 1); g.translate(x, r * .2, z); this.batch('thatch', g);
     this.prop(this.addCyl(x, z, r * .7, .5));
+  }
+
+  // ---- Moonspire builders (need level.spire)
+  // A knee-high balustrade: base, rail and posts. It stops the knight, not the camera.
+  balustrade(x0, z0, x1, z1) {
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+    const at = (geo, y, s = .5) => { geo.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition(x0 + dx * s, y, z0 + dz * s)); this.batch('whitestone', geo); };
+    at(boxGeo(L + .3, .22, .5, 1.5), .11); at(boxGeo(L + .3, .14, .42, 1.5), 1.02);
+    for (let d = .4; d < L - .2; d += .55) { const b = new THREE.CylinderGeometry(.07, .09, .8, 6); at(b, .6, d / L); }
+    return this.prop(this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + .15, .3, rot, 1.1));
+  }
+  balustradePath(pts) { for (let i = 0; i < pts.length - 1; i++) this.balustrade(...pts[i], ...pts[i + 1]); }
+
+  // A ruined arch hung with moon-chimes that sway in the wind.
+  arch(x, z, rot = 0, width = 4, h = 5) {
+    const c = Math.cos(rot), s = Math.sin(rot), hw = width / 2;
+    for (const k of [-1, 1]) this.pillar(x + c * hw * k, z - s * hw * k, .35, h, false, 'whitestone');
+    const top = new THREE.TorusGeometry(hw, .22, 8, 20, Math.PI); top.rotateY(rot); top.translate(x, h, z); this.batch('whitestone', top);
+    const chimes = new THREE.Group(); chimes.position.set(x, h + hw * .6, z); chimes.rotation.y = rot; this.group.add(chimes);
+    const mat = this.mats.chime ||= new THREE.MeshStandardMaterial({ color: 0xd0dcff, metalness: .9, roughness: .2, emissive: 0x3050a0, emissiveIntensity: .4 });
+    for (let i = 0; i < 5; i++) {
+      const len = .4 + ((i * 7) % 5) * .12, m = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, len, 6), mat);
+      m.geometry.translate(0, -len / 2, 0); m.position.set((i - 2) * .22, 0, 0); chimes.add(m);
+    }
+    const ph = this.R() * 6;
+    this.anim.push(t => { chimes.children.forEach((m, i) => { m.rotation.z = Math.sin(t * 1.3 + ph + i) * .12; m.rotation.x = Math.sin(t * 1.7 + ph + i * 2) * .08; }); });
+  }
+
+  // A still pool of moonwater in a white stone rim.
+  moonpool(x, z, r) {
+    const d = new THREE.Mesh(new THREE.CircleGeometry(r, 40), this.mats.moonwater);
+    d.rotation.x = -Math.PI / 2; d.position.set(x, .04, z); this.group.add(d);
+    const rim = new THREE.TorusGeometry(r, .16, 6, 40); rim.rotateX(Math.PI / 2); rim.translate(x, .08, z); this.batch('whitestone', rim);
+    this.prop(this.addCyl(x, z, r + .1, .4));
+    this.flames.push({ x, y: .6, z, color: new THREE.Color(0x6a9aff), base: 3 + r, phase: 0, flick: 1 });
   }
 
   // A goblin warning totem: a stake crowned with skulls.

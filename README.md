@@ -2,7 +2,7 @@
 
 A fast, stance-based action game in the browser, inspired by the Nioh series, Onimusha and the swordplay of
 NieR: Automata. You play a fae knight on a run of missions through goblin and ratman country (a ruined keep,
-a burning forest, a crystal mine), each ending with a warlord.
+a burning forest, a crystal mine, a temple above the clouds), each ending with a warlord.
 
 ## Play
 
@@ -41,8 +41,12 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 - **Two weapons.** The Fae Sword is quick and close. The **Moonglaive**, found in the Gnawing Halls, is a
   polearm: long reach, wide sweeps, heavy posture damage, and heavies you can hold to charge (up to 1.8×).
   Its chain runs thrust, sweep, one-handed wheel and a vaulting slam; its heavies are the Crescent (Mid), the
-  Moonfall pole-vault (High) and the Piercing Rush (Low). Switch weapons as a strike ends for a **Switch
-  Strike**, a wheeling cut with the weapon you draw, which also counts as Resonance if the window is open.
+  Moonfall pole-vault (High) and the Piercing Rush (Low). The **Twin Fangs**, found in Grubnest in the
+  Rotwood, are a curved blade in each hand: the quickest and lightest on stamina, with flurries that strike
+  again and again, a Whirlwind (Mid), a Crossfall leap (High) and a Viper Dash that slips straight through a
+  foe (Low). Every hit with the Fangs builds **Frenzy**, up to six stacks, each one 5% faster and 4% harder
+  while you keep cutting. Switch weapons as a strike ends for a **Switch Strike**, a wheeling cut with the
+  weapon you draw, which also counts as Resonance if the window is open.
 - **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
   knight: tap guard then for **Resonance** and the stamina flows back. Change stance in that moment for a
   Resonant Shift.
@@ -60,7 +64,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   is below 40% or broken; gatekeepers and warlords can't be launched at all, but you can still leap and
   strike them. You get one air dash per jump. High in the air, most blows pass beneath you, but big foes can
   still reach up.
-- **Charms** bend the rules: sixteen of them, hidden in the missions or won from every gatekeeper and
+- **Charms** bend the rules: twenty-two of them, hidden in the missions or won from every gatekeeper and
   warlord. Wear up to three and change them at any Moonwell. Among them: Dewdrop (Moondew heals more),
   Thornheart (Deflects restore more), Moonpetal (a wider Moonstep window), Emberwing (fire hurts less),
   Skyward Feather (cheaper launchers, harder air strikes) and the trophies, like the Gatewarden's Seal
@@ -96,10 +100,22 @@ and Moondew carry over.
    and holds the mine gate), the Brood Warren, then the Seer's Hollow and Mother Skritch, the Plague Seer:
    she blinks away when cornered, casts orbs in fans and rings, rains plague vials and bursts in a Dread
    nova. Her crystals block orbs, so use them as cover. New foes: Ratman Delvers, who burrow under you and
-   erupt; and Glowseers, who blink away. Clear it to unlock New Game+.
+   erupt; and Glowseers, who blink away.
+4. **The Moonspire** (level 36+): a ruined fae temple above the clouds. The Moonstair Landing, the Broken
+   Bridge, the Terrace of Chimes, the Pilgrim's Stair, the Moon Gate (Varkh the Moon-Pike holds it), the
+   Garden of Still Water, then the Crown of the Spire and Silkclaw, the Moonless Blade: a fast duelist who
+   steps behind you, throws fans of knives, lunges in Dread and, at half health, splits into shadows. New
+   foes: Goblin Skyguards, whose shields turn aside blows from the front (go round, or break the guard
+   with heavies); Warchanters, whose chant makes nearby allies burn red, hit harder and ignore stagger;
+   and Ratman Shadowblades, who vanish and reappear behind you. Clear it to unlock New Game+.
 
 Later missions field hardier rank-and-file: in the Rotwood regular foes have 1.25× the health, in the Deep
-1.6×, and they hit harder and drop more Glimmer to match.
+1.6×, on the Moonspire 2×, and they hit harder and drop more Glimmer to match.
+
+Enemies are the sculpted TowerLords models. Their five-bone region rig (root, arms, legs) is grown into
+eleven bones when a model loads: a chest and head over the waist, an elbow in each arm and a knee in each
+leg, placed and weighted from the vertex layout. That lets foes stride with bending knees and swinging
+arms, turn their heads to track you, sidestep when strafing, and wind blows up through the torso.
 
 Missions are data. Each file in `src/levels/` describes one: its areas, fog and light, Moonwells, foes,
 items, gate, seal and exit, plus a `build()` that dresses the world with the engine's builders.
@@ -110,12 +126,12 @@ items, gate, seal and exit, plus a `build()` that dresses the world with the eng
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, the boss fight, saving
-src/player.js     the knight's controller: weapons and stances, chains, charge, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
+src/player.js     the knight's controller: weapons and stances, chains, charge, Frenzy, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
 src/charms.js     the charms: names, descriptions and slot count
-src/knight.js     the knight and both weapons, built from primitives, with pose blending and two-bone IK for the arms
+src/knight.js     the knight and all three weapons, built from primitives, with pose blending and two-bone IK for both arms and blades
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings), AI, procedural animation on the five-bone rigs, projectiles
-src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails), Moonwells, gates, Briar Seal, wall cutout shader
-src/levels/       one file per mission (keep.js, rotwood.js, deep.js); shape.js has ring and path helpers; index.js sets the unlock order
+src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater), Moonwells, gates, Briar Seal, wall cutout shader
+src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
@@ -123,7 +139,7 @@ src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
 src/menu.js       title, pause, Moonwell, charms, mission map, controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, thatch and sky textures
-src/models3d.js   loads the sculpted models into three.js
+src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs
 ```
 
 Add `?manual` to the URL to stop the render loop; `window.__pl.tick(frames)` then steps the game, which is

@@ -14,6 +14,10 @@ export const CHARMS = {
   rootbound: { name: 'Rootbound Knot', desc: 'Poison builds half as fast and drains you more slowly.', color: '#9cff5a' },
   glimmerseed: { name: 'Glimmerseed', desc: 'Fallen foes give a fifth more Glimmer.', color: '#ffe07a' },
   skyward: { name: 'Skyward Feather', desc: 'Launchers cost less stamina, and air strikes hit a quarter harder.', color: '#dff4ff' },
+  moonveil: { name: 'Moonveil', desc: 'For three seconds after a Moonstep, strikes hit a quarter harder.', color: '#aebcff' },
+  wildfang: { name: 'Wildfang Tassel', desc: 'Frenzy lasts longer and stacks to eight.', color: '#ffb4c8' },
+  windstep: { name: 'Windstep Sash', desc: 'Two air dashes per jump.', color: '#c8f4ff' },
+  lanternheart: { name: 'Lanternheart', desc: 'Flashcuts and Moonstep Ripostes mend a little health.', color: '#ffe8a8' },
   // Trophies from gatekeepers and warlords.
   gateseal: { name: "Gatewarden's Seal", desc: 'Ten percent more health.', color: '#d6ac52', trophy: true },
   gnawtooth: { name: "Gnawfang's Tooth", desc: 'Executions and Ambushes strike a third harder.', color: '#e8e0c8', trophy: true },
@@ -21,4 +25,6 @@ export const CHARMS = {
   tusk: { name: "Warlord's Tusk", desc: 'Heavy strikes hit fifteen percent harder.', color: '#ffc080', trophy: true },
   knuckle: { name: "Breaker's Knuckle", desc: 'Strikes break stamina a fifth faster.', color: '#9a92b0', trophy: true },
   seereye: { name: "Seer's Eye", desc: 'Faelight fills a quarter faster.', color: '#c9b4ff', trophy: true },
+  pikeband: { name: "Moon-Pike's Band", desc: 'Strikes reach a tenth further.', color: '#dfe4f2', trophy: true },
+  shadowsilk: { name: 'Shadowsilk', desc: 'Dashing costs half the stamina, and Moonstep slows the world for longer.', color: '#8a78c8', trophy: true },
 };

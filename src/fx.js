@@ -196,8 +196,8 @@ export class FX {
   }
 
   // A leaf spiralling down through the canopy light.
-  leaf(p) {
-    this.norm.emit({ x: p.x, y: p.y, z: p.z, vx: rand(-.6, .6), vy: -rand(.5, .9), vz: rand(-.6, .6), life: rand(5, 8), size: rand(.08, .13), color: this.col(Math.random() < .5 ? 0x6b5a2a : 0x8a4a22), alpha: .9, drag: .05 });
+  leaf(p, colors = [0x6b5a2a, 0x8a4a22]) {
+    this.norm.emit({ x: p.x, y: p.y, z: p.z, vx: rand(-.6, .6), vy: -rand(.5, .9), vz: rand(-.6, .6), life: rand(5, 8), size: rand(.08, .13), color: this.col(colors[Math.floor(Math.random() * colors.length)]), alpha: .9, drag: .05 });
   }
 
   // Expanding flat ring on the ground (or at height y).
