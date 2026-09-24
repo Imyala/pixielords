@@ -17,6 +17,7 @@ export default {
   name: 'The Moonspire',
   blurb: 'A ruined fae temple above the clouds, where the moon comes close enough to touch. Something has been drinking from it.',
   level: 36,
+  map: { x: 9, z: 17 },   // where it sits on the Fae Crossroads
   seed: 8642,
   spire: true,
   tier: 2,
@@ -27,10 +28,8 @@ export default {
   moon: { at: [0, 60, 420], glow: 280, size: 34 },
   enemyGlow: .16,
   intro: 'The Moonspire rises above the clouds.\nClimb to its crown, and end the Moonless Blade.',
-  outro: 'Silkclaw falls from the Crown of the Spire.',
-  endingTitle: 'THE MOON IS CLEAR',
-  ending: 'Silkclaw falls from the Crown of the Spire, and for the first time in an age the moon shines clean. Far below, the Rotwood grows green, the Deep goes quiet, and the old keep warms in the light.\nThe paths are still. Walk them again, and every foe will remember you.',
-  exitToast: 'The moon is clear. A Pixie Gate opens at the crown',
+  outro: 'Silkclaw falls from the Crown of the Spire, but the moon stays pale. The light he drank was never his to keep: it runs north in a river of frost, to the Frostmere, where a court of winter waits upon the ice.',
+  exitToast: 'The Moonless Blade is gone. A Pixie Gate opens at the crown',
   motes: { base: 0xdfe8ff, garden: 0xffd8ec, crown: 0xc9b4ff },
   titleShrine: 'landing',
 

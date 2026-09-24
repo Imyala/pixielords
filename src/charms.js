@@ -18,6 +18,9 @@ export const CHARMS = {
   wildfang: { name: 'Wildfang Tassel', desc: 'Frenzy lasts longer and stacks to eight.', color: '#ffb4c8' },
   windstep: { name: 'Windstep Sash', desc: 'Two air dashes per jump.', color: '#c8f4ff' },
   lanternheart: { name: 'Lanternheart', desc: 'Flashcuts and Moonstep Ripostes mend a little health.', color: '#ffe8a8' },
+  hearthstone: { name: 'Hearthstone', desc: 'Chill builds half as fast.', color: '#ffb070' },
+  winterbloom: { name: 'Winterbloom', desc: 'Moondew also restores all your stamina and a little Faelight.', color: '#e8f4ff' },
+  iceheart: { name: 'Icicle Heart', desc: 'Strikes against Shattered foes hit harder still.', color: '#9fd8ff' },
   // Trophies from gatekeepers and warlords.
   gateseal: { name: "Gatewarden's Seal", desc: 'Ten percent more health.', color: '#d6ac52', trophy: true },
   gnawtooth: { name: "Gnawfang's Tooth", desc: 'Executions and Ambushes strike a third harder.', color: '#e8e0c8', trophy: true },
@@ -27,4 +30,6 @@ export const CHARMS = {
   seereye: { name: "Seer's Eye", desc: 'Faelight fills a quarter faster.', color: '#c9b4ff', trophy: true },
   pikeband: { name: "Moon-Pike's Band", desc: 'Strikes reach a tenth further.', color: '#dfe4f2', trophy: true },
   shadowsilk: { name: 'Shadowsilk', desc: 'Dashing costs half the stamina, and Moonstep slows the world for longer.', color: '#8a78c8', trophy: true },
+  mirrorguard: { name: 'Mirror Guard', desc: 'The Deflect window is wider.', color: '#bfe0ff', trophy: true },
+  wintercrown: { name: 'Winter Crown', desc: 'Fae Shift lasts a third longer.', color: '#dff0ff', trophy: true },
 };

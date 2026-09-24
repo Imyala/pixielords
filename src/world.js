@@ -2,7 +2,7 @@
 // lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
-import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, runeCircle, glowTexture, skyTexture } from './textures.js';
+import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
 
 // ---------------------------------------------------------------- geometry helpers
@@ -44,6 +44,21 @@ export function merge(geos) {
   m.computeBoundingSphere();
   return m;
 }
+
+// Aurora curtains: ribbons of light that ripple across the northern sky.
+const AURORA_VERT = `uniform float uTime; varying vec2 vUv;
+void main(){ vUv = uv; vec3 p = position; p.z += sin(uv.x * 9. + uTime * .12) * 18. + sin(uv.x * 23. - uTime * .2) * 6.; p.y += sin(uv.x * 5. + uTime * .08) * 10.;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); }`;
+const AURORA_FRAG = `uniform float uTime; uniform vec3 uA; uniform vec3 uB; uniform float uK; varying vec2 vUv;
+void main(){
+  float x = vUv.x, v = vUv.y;
+  float w = sin(x * 17. + uTime * .35) * .5 + sin(x * 41. - uTime * .6) * .25;
+  float rays = pow(abs(sin(x * 70. + w * 3. + uTime * .15)), 2.) * .45 + .55;
+  float fold = .6 + .4 * sin(x * 9. - uTime * .25 + w * 2.);
+  float fade = smoothstep(0., .05, v) * pow(1. - v, 1.8) * fold * smoothstep(0., .12, x) * smoothstep(1., .88, x);
+  vec3 col = mix(uA, uB, smoothstep(.15, .95, v));
+  gl_FragColor = vec4(col * rays * fade * uK, 1.);
+}`;
 
 const FOG_VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`;
 const FOG_FRAG = `
@@ -100,6 +115,7 @@ export class World {
     this.anim = [];        // per-frame callbacks
     this.interactables = [];
     this.batches = {};     // material key -> geometries merged at the end of the build
+    this.breaks = [];      // ice that gives way mid-fight (hidden until then)
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.build();
@@ -218,7 +234,7 @@ export class World {
       stone: new THREE.MeshStandardMaterial({ color: 0x5a5a5e, roughness: .95 }),
     };
     // Forest and cave materials are only painted for levels that ask for them.
-    if (this.level.forest || this.level.cave) {
+    if (this.level.forest || this.level.cave || this.level.frost) {
       const earth = lazy('earth', () => forestFloor(8))(), rock = lazy('rock', () => rockFace(13))(), th = lazy('thatch', () => thatch(9))();
       Object.assign(this.mats, {
         earth: new THREE.MeshStandardMaterial({ ...earth, roughness: 1 }),
@@ -242,7 +258,19 @@ export class World {
       M.palebark = new THREE.MeshStandardMaterial({ color: 0xd4d8e6, roughness: .8 });
       M.moonwater = new THREE.MeshStandardMaterial({ color: 0x4a7ad0, emissive: 0x3a66d0, emissiveIntensity: .55, roughness: .08, metalness: .5, transparent: true, opacity: .82 });
     }
-    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves', 'whitestone', 'palebark']) if (this.mats[k]) cutout(this.mats[k]);
+    // The Frostmere: snowfields, lake ice, clear blue ice and cold grey stone under snow.
+    if (this.level.frost) {
+      const M = this.mats, sn = lazy('snow', () => snowField(23))(), li = lazy('lakeice', () => lakeIce(29))();
+      M.snow = new THREE.MeshStandardMaterial({ ...sn, color: 0xc4d0e6, roughness: .82, emissive: 0x0e1626 });
+      M.snowcap = new THREE.MeshStandardMaterial({ color: 0xeef4ff, roughness: .9, emissive: 0x18223a, flatShading: true });
+      M.lake = new THREE.MeshStandardMaterial({ ...li, color: 0xb4c2d8, roughness: .14, metalness: .3, emissive: 0x08162a });
+      M.ice = new THREE.MeshStandardMaterial({ color: 0xa8d4f4, emissive: 0x1a4a7a, emissiveIntensity: .55, roughness: .08, metalness: .25, transparent: true, opacity: .86, flatShading: true });
+      M.water = new THREE.MeshStandardMaterial({ color: 0x050d18, roughness: .04, metalness: .7, emissive: 0x03101e });
+      M.rock.color.setHex(0x9aa4b8);
+      M.leaves.color.setHex(0x1a2e2c);
+      M.bark.color.setHex(0x2a2524);
+    }
+    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves', 'whitestone', 'palebark', 'snowcap', 'ice']) if (this.mats[k]) cutout(this.mats[k]);
     this.cutout = cutout;
     this.glowTex = tex('glow', () => glowTexture());
     this.starTex = tex('star', () => glowTexture('star'));
@@ -272,6 +300,19 @@ export class World {
     const disc = new THREE.Mesh(new THREE.CircleGeometry(Mn.size || 7, 48), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
     disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
     sky.add(moon, disc);
+    if (this.level.aurora) this.buildAurora(this.level.aurora);
+  }
+
+  // Curtains of green and violet light hung in the sky beyond the level.
+  buildAurora(o) {
+    for (const [i, [x, y, z, w, ry, k]] of (o.bands || [[0, 125, 360, 560, 0, 1], [-190, 140, 290, 380, .55, .75], [200, 115, 290, 360, -.6, .85]]).entries()) {
+      const mat = new THREE.ShaderMaterial({ vertexShader: AURORA_VERT, fragmentShader: AURORA_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+        uniforms: { uTime: { value: i * 7 }, uA: { value: new THREE.Color(o.a ?? 0x3cff9a) }, uB: { value: new THREE.Color(o.b ?? 0x9a5aff) }, uK: { value: .55 * k } } });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 110, 96, 1), mat);
+      m.position.set(x, y, z); m.rotation.y = Math.PI + ry; m.renderOrder = -9;
+      this.sky.add(m);
+      this.anim.push(t => { mat.uniforms.uTime.value = t + i * 7; });
+    }
   }
 
   // Queue geometry to be merged into one mesh per material when the build finishes.
@@ -413,6 +454,11 @@ export class World {
       g.scale(1.3, hh * .62 / rad, .55); g.rotateY(rot + (r() - .5) * .3);
       g.translate(px, hh * .42, pz);
       this.batch('rock', g);
+      if (this.level.frost) {   // snow lies along the top
+        const c = this.rock(rad * .95, Math.floor(r() * 1000), .15);
+        c.scale(.85, .3, .45); c.rotateY(rot + (r() - .5) * .3); c.translate(px, hh * 1.01, pz);
+        this.batch('snowcap', c);
+      }
     }
     return b;
   }
@@ -431,11 +477,11 @@ export class World {
     return this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + .2, .3, rot, h);
   }
 
-  // A round goblin hut: stake walls, thatch cone, a dark doorway facing `ry`.
-  hut(x, z, r, ry = 0) {
+  // A round goblin hut: stake walls, thatch cone (or one heaped with snow), a dark doorway facing `ry`.
+  hut(x, z, r, ry = 0, roofMat = 'thatch') {
     const wh = 2.3;
     const wall = scaleUV(new THREE.CylinderGeometry(r, r * 1.04, wh, 14, 1, true), r * 2, 1); wall.translate(x, wh / 2, z); this.batch('stake', wall);
-    const roof = scaleUV(new THREE.ConeGeometry(r * 1.38, r * 1.25, 14, 1, true), r * 2, 1.4); roof.translate(x, wh + r * .55, z); this.batch('thatch', roof);
+    const roof = scaleUV(new THREE.ConeGeometry(r * 1.38, r * 1.25, 14, 1, true), r * 2, 1.4); roof.translate(x, wh + r * .55, z); this.batch(roofMat, roof);
     const door = boxGeo(1.1, 1.7, .2, 2); door.translate(0, .85, r - .02); door.rotateY(ry); door.translate(x, 0, z);
     (this.mats.shadowMat ||= new THREE.MeshBasicMaterial({ color: 0x050403 }));
     this.batch('shadowMat', door);
@@ -460,6 +506,7 @@ export class World {
   // A cluster of glowing crystals that also lights the cave around it.
   crystal(x, z, h, color = 0x7fe8ff, seed = 1, light = true, collide = true) {
     const r = rng(seed * 11 + 5);
+    this.crystalMats ||= {};
     const mat = this.crystalMats[color] ||= this.cutout(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .9, roughness: .2, metalness: .1, flatShading: true }));
     const key = 'crystal' + color; this.mats[key] = mat;
     const n = 3 + Math.floor(r() * 4);
@@ -516,6 +563,53 @@ export class World {
   nest(x, z, r = 1.2) {
     const g = new THREE.ConeGeometry(r, r * .45, 9, 1); g.translate(x, r * .2, z); this.batch('thatch', g);
     this.prop(this.addCyl(x, z, r * .7, .5));
+  }
+
+  // ---- Frostmere builders (need level.frost)
+  // A fir under snow: dark tiers, each capped white.
+  snowPine(x, z, h, seed, collide = false) {
+    const r = rng(seed * 5 + 3);
+    const trunk = new THREE.CylinderGeometry(.1, .22, h * .4, 6); trunk.translate(x, h * .2, z); this.batch('bark', trunk);
+    for (let i = 0; i < 3; i++) {
+      const k = 1 - i * .26, ry = r() * 6, y = h * (.36 + i * .2) + h * .21;
+      const c = new THREE.ConeGeometry(h * .23 * k, h * .42, 7); c.rotateY(ry); c.translate(x, y, z); this.batch('leaves', c);
+      const cap = new THREE.ConeGeometry(h * .19 * k, h * .28, 7); cap.rotateY(ry); cap.translate(x, y + h * .08, z); this.batch('snowcap', cap);
+    }
+    if (collide) this.prop(this.addCyl(x, z, .4, h));
+  }
+  // A low drift of snow (no collider: it is only knee-deep).
+  drift(x, z, r, seed) { const g = this.rock(r, seed, .15); g.scale(1, .3, 1); g.rotateY(seed); g.translate(x, -r * .04, z); this.batch('snowcap', g); }
+  // A boulder with snow on its back.
+  snowBoulder(x, z, r, seed, collide = true) {
+    this.boulder(x, z, r, seed, collide);
+    const cap = this.rock(r * .92, seed + 1, .12); cap.scale(1, .36, 1); cap.rotateY(seed); cap.translate(x, r * .62, z); this.batch('snowcap', cap);
+  }
+  // A frozen waterfall: a curtain of ice columns down a cliff face.
+  icefall(x0, z0, x1, z1, h = 8) {
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx), r = rng(Math.round(x0 * 13 + z1 * 7) + 3);
+    for (let s = .3; s < L; s += .45) {
+      const hh = h * (.6 + r() * .45), g = new THREE.OctahedronGeometry(1, 0);
+      g.scale(.28 + r() * .22, hh / 2, .3 + r() * .2); g.rotateY(rot + (r() - .5) * .4); g.translate(x0 + dx * s / L + (r() - .5) * .2, hh / 2 + r() * .5, z0 + dz * s / L + (r() - .5) * .3);
+      this.batch('ice', g);
+    }
+    return this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2, .7, rot, h);
+  }
+  // Ice that breaks open into black water when an arena gives way. Hidden until setBreaks(true).
+  iceBreak(x, z, r) {
+    const grp = new THREE.Group(); grp.position.set(x, 0, z); grp.visible = false;
+    const R = rng(Math.round(x * 17 + z * 5) + 11), n = 11, pts = [];
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, rr = r * (.8 + R() * .35); pts.push(new THREE.Vector2(Math.sin(a) * rr, Math.cos(a) * rr)); }
+    const water = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(pts)), this.mats.water);
+    water.rotation.x = -Math.PI / 2; water.position.y = .03; grp.add(water);
+    for (let i = 0; i < n; i++) {   // floes tipped up round the rim
+      const a = (i + .5) / n * Math.PI * 2, f = new THREE.Mesh(boxGeo(.9 + R() * .9, .18, .6 + R() * .5, 1), this.mats.ice);
+      f.position.set(Math.sin(a) * r * 1.02, .08, Math.cos(a) * r * 1.02); f.rotation.set((R() - .5) * .5, -a, (R() - .5) * .6); f.castShadow = true; grp.add(f);
+    }
+    this.group.add(grp); this.breaks.push(grp);
+  }
+  setBreaks(on) {
+    if (on && !this.breaksOn) for (const b of this.breaks) { this.G.fx?.shatter({ x: b.position.x, y: .3, z: b.position.z }, 40, 0xdff4ff, 5); this.G.fx?.spikes(b.position, 1.4, 0xbfe6ff, 6, 1.2); }
+    this.breaksOn = on; for (const b of this.breaks) b.visible = on;
   }
 
   // ---- Moonspire builders (need level.spire)
@@ -679,7 +773,17 @@ export class World {
     // A gate held shut until its guardian falls: an iron portcullis or a wooden palisade gate.
     if (L.gate) {
       const G = L.gate, w = G.width || 6, port = new THREE.Group();
-      if (G.style === 'palisade') {
+      if (G.style === 'ice') {
+        // A wall of ice grown across the way; it shatters when its keeper falls.
+        const R = rng(99);
+        for (let i = 0; i < 16; i++) {
+          const x = -w / 2 + (i + .5) * w / 16, hh = 3.8 + R() * 3.2, m = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), this.mats.ice || this.mats.iron);
+          m.scale.set(.32 + R() * .25, hh / 2, .35 + R() * .25); m.position.set(x + (R() - .5) * .3, hh / 2 - .3, (R() - .5) * .6); m.rotation.set((R() - .5) * .25, R() * 3, (R() - .5) * .25);
+          m.castShadow = true; port.add(m);
+        }
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0x6fc8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .45 }));
+        glow.position.y = 2.5; glow.scale.set(w * 1.3, 6, 1); port.add(glow);
+      } else if (G.style === 'palisade') {
         for (let i = 0; i < 9; i++) {
           const x = -w / 2 + (i + .5) * w / 9, st = new THREE.Mesh(new THREE.CylinderGeometry(.16, .18, 5, 7), this.mats.stake || this.mats.wood);
           st.position.set(x, 2.5, 0); st.castShadow = true; port.add(st);
@@ -692,7 +796,7 @@ export class World {
       }
       port.position.set(G.x, 0, G.z); port.rotation.y = G.rot || 0;
       this.group.add(port);
-      this.portcullis = { mesh: port, col: this.prop(this.addBox(G.x, G.z, w / 2, .3, G.rot || 0, 6)), open: 0, opening: false, lift: G.style === 'palisade' ? 0 : 5.6, style: G.style };
+      this.portcullis = { mesh: port, col: this.prop(this.addBox(G.x, G.z, w / 2, .3, G.rot || 0, 6)), open: 0, opening: false, lift: G.style === 'palisade' ? 0 : 5.6, style: G.style, w, x: G.x, z: G.z, rot: G.rot || 0 };
     }
 
     // The Briar Seal in front of the arena: a violet veil and thorned vines.
@@ -747,12 +851,19 @@ export class World {
     if (!p) return;
     p.col.on = false;
     if (instant) { p.open = 1; this.poseGate(); return; }
+    if (p.style === 'ice') {   // no lifting: the ice bursts apart
+      p.open = 1; this.poseGate();
+      for (let i = 0; i < 7; i++) { const u = (i / 6 - .5) * p.w; this.G.fx.shatter({ x: p.x + Math.cos(p.rot) * u, y: 1 + Math.random() * 3, z: p.z - Math.sin(p.rot) * u }, 40, 0xdff4ff, 7); }
+      this.G.audio.sfx('shatter', { x: p.x, z: p.z });
+      return;
+    }
     p.opening = true;
   }
   closePortcullis() { const p = this.portcullis; if (!p) return; p.col.on = true; p.open = 0; p.opening = false; this.poseGate(); }
   poseGate() {
     const p = this.portcullis;
-    if (p.style === 'palisade') { p.mesh.position.y = -p.open * 5.4; }   // stakes sink into the earth
+    if (p.style === 'ice') p.mesh.visible = p.open < 1;
+    else if (p.style === 'palisade') { p.mesh.position.y = -p.open * 5.4; }   // stakes sink into the earth
     else p.mesh.position.y = p.open * p.lift;
   }
 

@@ -18,13 +18,13 @@ export class HUD {
         <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
         <div class="weapon"><b>Fae Sword</b><small></small></div>
         <div class="charmrow"></div>
-        <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="pbuild"><i></i></span></div>
+        <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="frozen" hidden>❄ Frostbitten</span><span class="pbuild"><i></i></span><span class="pbuild cbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
       <div class="lock"></div>
       <div class="ebars"></div>
-      <div class="boss" hidden><div class="bname"></div><div class="bbar"><i class="trail"></i><i class="fill"></i></div><div class="bki"><i class="fill"></i></div></div>
+      <div class="boss" hidden></div>
       <div class="prompt" hidden></div>
       <div class="toasts"></div>
       <div class="banner"><span></span></div>
@@ -39,17 +39,19 @@ export class HUD {
       kiBar: $('.bar.ki', el), ki: $('.bar.ki .fill', el), pool: $('.bar.ki .pool', el),
       anima: $('.bar.anima .fill', el), animaBar: $('.bar.anima', el),
       poison: $('.poison', el), snared: $('.snared', el), burning: $('.burning', el), pbuild: $('.pbuild', el), pbuildI: $('.pbuild i', el),
+      frozen: $('.frozen', el), cbuild: $('.cbuild', el), cbuildI: $('.cbuild i', el),
       flask: $('.elixir', el), flaskN: $('.elixir b', el), flaskKey: $('.elixir .key', el),
       glimmer: $('.glimmer b', el), gain: $('.glimmer .gain', el),
       lock: $('.lock', el), ebars: $('.ebars', el),
-      boss: $('.boss', el), bname: $('.bname', el), bfill: $('.bbar .fill', el), btrail: $('.bbar .trail', el), bki: $('.bki .fill', el),
+      boss: $('.boss', el),
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), fade: $('.fade', el),
     };
     this.bars = new Map();
     this.v = new THREE.Vector3();
-    this.hpTrail = 1; this.bossTrail = 1; this.glimmerShown = 0; this.gainAmt = 0; this.gainT = 0;
+    this.hpTrail = 1; this.glimmerShown = 0; this.gainAmt = 0; this.gainT = 0;
+    this.bossList = []; this.bossRows = [];
   }
 
   show(on) { this.el.classList.toggle('on', on); }
@@ -141,7 +143,15 @@ export class HUD {
 
   addGlimmer(n) { this.gainAmt += n; this.gainT = 2.5; }
 
-  setBoss(e) { this.bossE = e; this.q.boss.hidden = !e; if (e) { this.q.bname.textContent = e.name; this.bossTrail = e.hp / e.maxHp; } }
+  // One bar per warlord in the fight (a pair stack), or null to hide.
+  setBoss(e) {
+    const list = !e ? [] : Array.isArray(e) ? e : [e], q = this.q;
+    this.bossList = list; this.bossE = list[0] || null;
+    q.boss.hidden = !list.length;
+    q.boss.classList.toggle('duo', list.length > 1);
+    q.boss.innerHTML = list.map(b => `<div class="brow"><div class="bname">${esc(b.name)}</div><div class="bbar"><i class="trail"></i><i class="fill"></i></div><div class="bki"><i class="fill"></i></div></div>`).join('');
+    this.bossRows = [...q.boss.children].map((row, i) => ({ row, e: list[i], fill: $('.bbar .fill', row), trail: $('.bbar .trail', row), ki: $('.bki .fill', row), tr: list[i].hp / list[i].maxHp }));
+  }
 
   bar(e) {
     let b = this.bars.get(e);
@@ -184,6 +194,9 @@ export class HUD {
     q.burning.hidden = !(this.G.time - (p.burnedT ?? -9) < .6);
     q.pbuild.style.display = p.poison > 1 && !(p.poisoned > 0) ? '' : 'none';
     q.pbuildI.style.transform = `scaleX(${p.poison / 100})`;
+    q.frozen.hidden = !(p.frozen > 0);
+    q.cbuild.style.display = p.chill > 1 && !(p.frozen > 0) ? '' : 'none';
+    q.cbuildI.style.transform = `scaleX(${p.chill / 100})`;
     q.flaskN.textContent = p.elixirs;
     q.flask.classList.toggle('empty', p.elixirs <= 0);
     q.flaskKey.textContent = this.key('heal');
@@ -213,7 +226,7 @@ export class HUD {
 
     // Enemy bars above heads.
     for (const e of G.enemies) {
-      const want = e.alive && !e.boss && !(e.elite && this.bossE === e) && (e.barT > 0 || e === L) && e.hp < e.maxHp + (e === L ? 1 : 0);
+      const want = e.alive && !e.boss && !this.bossList.includes(e) && (e.barT > 0 || e === L) && e.hp < e.maxHp + (e === L ? 1 : 0);
       let b = this.bars.get(e);
       if (!want) { if (b) b.style.display = 'none'; continue; }
       b = this.bar(e);
@@ -229,14 +242,15 @@ export class HUD {
       b._dmg.textContent = e.dmgShown > 0 ? Math.round(e.dmgShown) : '';
     }
 
-    // Boss bar.
-    const B = this.bossE;
-    if (B) {
-      const f = Math.max(0, B.hp / B.maxHp);
-      this.bossTrail = this.bossTrail > f ? Math.max(f, this.bossTrail - dt * .25) : f;
-      q.bfill.style.transform = `scaleX(${f})`; q.btrail.style.transform = `scaleX(${this.bossTrail})`;
-      q.bki.style.transform = `scaleX(${Math.max(0, B.ki / B.maxKi)})`;
-      q.boss.classList.toggle('broken', B.state === 'broken');
+    // Boss bars.
+    for (const r of this.bossRows) {
+      const B = r.e, f = Math.max(0, B.hp / B.maxHp);
+      r.tr = r.tr > f ? Math.max(f, r.tr - dt * .25) : f;
+      r.fill.style.transform = `scaleX(${f})`; r.trail.style.transform = `scaleX(${r.tr})`;
+      r.ki.style.transform = `scaleX(${Math.max(0, B.ki / B.maxKi)})`;
+      r.row.classList.toggle('broken', B.state === 'broken');
+      r.row.classList.toggle('armored', !!B.armored);
+      r.row.classList.toggle('fallen', B.hp <= 0);
     }
   }
 }

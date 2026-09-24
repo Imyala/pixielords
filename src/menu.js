@@ -1,8 +1,10 @@
-// Full-screen menus: title, pause, shrine (rest, level up, travel), controls, settings, ending.
+// Full-screen menus: title, pause, shrine (rest, level up, travel), charms, the Fae Crossroads map overlay,
+// controls, settings and the cleared / ending screens.
 // Mouse, keyboard (arrows + Enter/Esc) and gamepad (d-pad + A/B) all work.
 import { derive } from './player.js';
 import { levelCost } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
+import { roman } from './overworld.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -40,6 +42,8 @@ export class Menu {
     this.focus = 0;
     this.el.addEventListener('click', e => {
       const b = e.target.closest('[data-act]');
+      // On the map, a click anywhere else picks the landmark under the pointer.
+      if (!b && this.top?.screen === 'map' && !e.target.closest('.panel')) { this.G.overworld.pick(e.clientX, e.clientY); return; }
       if (!b || b.disabled) return;
       this.G.audio.init();
       this.G.audio.sfx('uiOk');
@@ -68,11 +72,19 @@ export class Menu {
   show(screen, data) { this.stack = [{ screen, data }]; this.G.hud?.clearOverlays(); this.render(); }
   push(screen, data) { this.stack.push({ screen, data }); this.render(); }
   pop() { this.stack.pop(); if (this.stack.length) this.render(); else this.close(); }
-  close() { this.stack = []; this.el.className = ''; this.el.innerHTML = ''; this.G.onMenuClosed?.(); }
+  close() { this.stack = []; this.el.className = ''; this.el.innerHTML = ''; this.G.overworld?.setActive(false); this.G.onMenuClosed?.(); }
 
   // Keyboard / gamepad navigation.
   nav(inp) {
     if (!this.open) return;
+    // The map: directions travel between landmarks, confirm sets out, back returns (unless the map is all there is).
+    if (this.top.screen === 'map') {
+      const O = this.G.overworld;
+      if (!O.entering) for (const d of ['left', 'right', 'up', 'down']) if (inp.hit(d)) O.step(d);
+      if (inp.hit('confirm')) this.el.querySelector('.owpanel [data-act=setout]:not([disabled])')?.click();
+      if (inp.hit('back') && ['shrine', 'title'].includes(this.top.data?.from) && !O.entering) { this.G.audio.sfx('ui'); this.pop(); }
+      return;
+    }
     const list = this.items();
     if (list.length <= 1) {   // a page of reading with a lone Back button: up and down scroll it
       const panel = this.el.querySelector('.panel');
@@ -89,7 +101,7 @@ export class Menu {
       if (inp.hit('right')) { cur.value = +cur.value + step; cur.dispatchEvent(new Event('input', { bubbles: true })); }
     }
     if (inp.hit('confirm') && cur) { cur.click(); }
-    const fixed = ['title', 'ending', 'cleared'].includes(this.top?.screen) || (this.top?.screen === 'missions' && this.stack.length === 1);
+    const fixed = ['title', 'ending', 'cleared'].includes(this.top?.screen);
     if (inp.hit('back') && !fixed) {
       this.G.audio.sfx('ui');
       if (this.top.screen === 'shrine') this.run('leave'); else this.pop();
@@ -112,9 +124,12 @@ export class Menu {
       case 'leave': G.leaveShrine(); break;
       case 'ngplus': G.newGamePlus(); break;
       case 'title': G.quitToTitle(); break;
-      case 'missions': this.show('missions'); break;
-      case 'journey': this.push('missions', { from: 'shrine' }); break;
+      case 'missions': G.openMap('cleared', G.level.id); break;
+      case 'journey': G.openMap('shrine'); break;
+      case 'map': G.openMap('title'); break;
       case 'mission': G.startMission(b.dataset.id); break;
+      case 'node': G.overworld.select(b.dataset.id); break;
+      case 'setout': G.overworld.enter(b.dataset.id); break;
       case 'charms': this.push('charms'); break;
       case 'charm': { const f = this.focus; if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); const y = this.el.querySelector('.map')?.scrollTop || 0; this.render(); this.focus = f; this.paint(); const m = this.el.querySelector('.map'); if (m) m.scrollTop = y; break; }
     }
@@ -123,6 +138,7 @@ export class Menu {
   render() {
     const { screen, data } = this.top, G = this.G;
     this.el.className = 'on ' + screen;
+    G.overworld?.setActive(screen === 'map');
     let h = '';
     if (screen === 'title') {
       const has = G.save.exists, ready = G.ready;
@@ -132,6 +148,7 @@ export class Menu {
         ${ready ? '' : `<div class="loading"><i style="transform:scaleX(${G.loadProgress || 0})"></i><span>Summoning the warren… ${Math.round((G.loadProgress || 0) * 100)}%</span></div>`}
         <div class="btns">
           ${has ? `<button class="btn" data-act="continue" ${ready ? '' : 'disabled'}>Continue <small>${esc(G.save.summary(G.LEVELS))}</small></button>` : ''}
+          ${has && G.save.data.unlocked.length > 1 ? `<button class="btn" data-act="map" ${ready ? '' : 'disabled'}>The Fae Crossroads <small>Choose where the path leads</small></button>` : ''}
           <button class="btn" data-act="new" ${ready ? '' : 'disabled'}>New Game</button>
           <button class="btn" data-act="controls">Controls</button>
           <button class="btn" data-act="settings">Settings</button>
@@ -203,18 +220,30 @@ export class Menu {
         <p>${esc(L.outro || '')}</p>
         <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div></div>
         <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>`;
-    } else if (screen === 'missions') {
-      const sv = G.save;
-      const rows = G.ORDER.map((id, i) => {
-        const L = G.LEVELS[id], open = sv.data.unlocked.includes(id), st = sv.data.missions[id];
-        const tag = !open ? 'Sealed' : st?.cleared ? 'Cleared' : st?.shrine ? 'In progress' : 'New';
-        return `<button class="btn mission ${open ? '' : 'locked'}" data-act="mission" data-id="${id}" ${open ? '' : 'disabled'}>
-          <span class="node">${i + 1}</span><span class="mtext"><b>${esc(L.name)}</b><small>${esc(open ? L.blurb : 'The path here is not yet open.')}</small></span>
-          <span class="mtag ${tag.replace(' ', '').toLowerCase()}">${tag}<small>Lv ${L.level}+</small></span></button>`;
+    } else if (screen === 'map') {
+      // The overworld draws itself; this is its overlay: floating labels and the chosen mission's panel.
+      const O = G.overworld, sv = G.save, d = sv.data, id = O.selected, L = G.LEVELS[id], i = G.ORDER.indexOf(id), st = O.status(id);
+      const opening = O.revealing?.n.id === id, shown = st !== 'sealed' && (d.seen?.includes(id) || opening), m = d.missions[id] || { kindled: [], items: [] };
+      const charms = (L.items || []).filter(it => it.kind === 'charm').map(it => it.id), trophies = [L.gate?.charm, L.bossCharm].filter(Boolean);
+      const found = charms.filter(c => m.items.includes(c)).length + trophies.filter(c => d.charms.includes(c)).length;
+      const prev = G.LEVELS[G.ORDER[i - 1]];
+      const labels = O.nodes.map(n => {
+        const s = O.status(n.id), vis = s !== 'sealed' && d.seen?.includes(n.id);
+        return `<button class="owl ${vis ? s : 'sealed'} ${n.id === id ? 'sel' : ''}" data-act="node" data-id="${n.id}"><span class="n">${roman(n.i + 1)}</span>${vis ? esc(n.L.name) : 'Sealed'}</button>`;
       }).join('');
-      h = `<div class="panel wide missions"><div class="kicker">The Fae Crossroads</div><h2>Where does the path lead?</h2>
-        <div class="map">${rows}</div>
-        <div class="btns">${data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : '<button class="btn" data-act="title">Return to title</button>'}</div></div>`;
+      const back = data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : data?.from === 'title' ? '<button class="btn" data-act="back">Back</button>' : '<button class="btn" data-act="title">Return to title</button>';
+      const keys = G.input.usingPad ? 'D-pad or stick to travel · A to set out' + (data?.from === 'cleared' ? '' : ' · B to go back') : 'Arrows or WASD to travel · Enter to set out' + (data?.from === 'cleared' ? '' : ' · Esc to go back') + ' · or click a landmark';
+      h = `<div class="owlabels">${labels}</div>
+        <div class="panel owpanel">
+          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level}+</div>
+          <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
+          ${opening ? '<div class="kicker">A new path opens</div>' : ''}
+          <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
+          ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span></div>` : ''}
+          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${back}</div>
+          <div class="foot">${keys}</div>
+        </div>
+        <div class="owfade"></div>`;
     } else if (screen === 'charms') {
       const d = G.save.data, worn = d.equipped;
       const rows = d.charms.map(id => {
@@ -232,9 +261,10 @@ export class Menu {
       h = `<div class="panel ending"><h1>${esc(G.level.endingTitle || 'THE PATHS ARE STILL')}</h1>
         <p>${esc(G.level.ending || G.level.outro || '')}</p>
         <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Cycle</small><b>${sv.ng + 1}</b></div></div>
-        <div class="btns"><button class="btn" data-act="ngplus">Journey again · New Game+</button><button class="btn" data-act="title">Return to title</button></div></div>`;
+        <div class="btns"><button class="btn" data-act="ngplus">Journey again · New Game+</button><button class="btn" data-act="missions">Walk the Fae Crossroads</button><button class="btn" data-act="title">Return to title</button></div></div>`;
     }
     this.el.innerHTML = h;
+    if (screen === 'map') G.overworld.bindLabels(this.el);
     this.focus = 0;
     this.paint();
   }

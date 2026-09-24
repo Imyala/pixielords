@@ -162,6 +162,46 @@ export function caveFloor(seed = 17) {
   return surface(n, (x, y) => { const i = y * n + x; return [col[i * 3], col[i * 3 + 1], col[i * 3 + 2], H[i]]; }, 2.5);
 }
 
+// Snowfield: wind-rippled drifts, blue in the hollows, with a sparkle of frost on the crests.
+export function snowField(seed = 23) {
+  const n = 512, N = makeNoise(seed), R = rng(seed);
+  const col = new Float32Array(n * n * 3), H = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const a = N.fbm(x * .01, y * .01, 4), rip = Math.sin((x + N.fbm(x * .02, y * .02, 3) * 90) * .09) * .5 + .5, f = N.n2(x * .8, y * .8), i = y * n + x;
+    const h = a * .7 + rip * .18 + f * .05, v = 170 + h * 70;
+    col[i * 3] = v * .9; col[i * 3 + 1] = v * .95; col[i * 3 + 2] = Math.min(255, v * 1.06);
+    H[i] = h;
+  }
+  for (let k = 0; k < 1400; k++) {   // frost glints
+    const x = Math.floor(R() * n), y = Math.floor(R() * n), i = y * n + x;
+    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = 255;
+  }
+  for (let k = 0; k < 160; k++) {   // bootprints and scuffs: faint blue dents
+    const px = R() * n, py = R() * n, sz = 2 + R() * 4;
+    for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+      if (dx * dx + dy * dy > sz * sz) continue;
+      const x = ((Math.round(px) + dx) % n + n) % n, y = ((Math.round(py) + dy) % n + n) % n, i = y * n + x;
+      col[i * 3] *= .86; col[i * 3 + 1] *= .9; H[i] -= .06;
+    }
+  }
+  return surface(n, (x, y) => { const i = y * n + x; return [col[i * 3], col[i * 3 + 1], col[i * 3 + 2], H[i]]; }, 1.6);
+}
+
+// Lake ice: deep blue-green depths under a clear sheet, white fracture lines and trapped bubbles.
+export function lakeIce(seed = 29) {
+  const n = 512, N = makeNoise(seed), R = rng(seed);
+  const bubbles = []; for (let i = 0; i < 90; i++) bubbles.push([R() * n, R() * n, 1 + R() * 2.5]);
+  return surface(n, (x, y) => {
+    const deep = N.fbm(x * .008, y * .008, 4), f = N.n2(x * .3, y * .3);
+    const c1 = clamp(1 - Math.abs(N.fbm(x * .012 + 3, y * .012, 4) - .5) / .012, 0, 1);
+    const c2 = clamp(1 - Math.abs(N.fbm(x * .03 + 11, y * .03 + 2, 3) - .5) / .012, 0, 1) * .35;
+    const crack = Math.max(c1, c2);
+    let b = 0; for (const [bx, by, br] of bubbles) { const d = Math.hypot(x - bx, y - by); if (d < br) b = Math.max(b, 1 - d / br); }
+    const r = 52 + deep * 38 + crack * 110 + b * 70 + f * 6, g = 70 + deep * 50 + crack * 112 + b * 70 + f * 6, bl = 88 + deep * 58 + crack * 100 + b * 60;
+    return [r, g, bl, .5 - crack * .4 + deep * .1];
+  }, 1.4);
+}
+
 // Straw thatch for goblin huts.
 export function thatch(seed = 9) {
   const n = 256, N = makeNoise(seed);

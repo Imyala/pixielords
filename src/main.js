@@ -11,6 +11,7 @@ import { Enemy, Projectiles } from './enemies.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
 import { Menu } from './menu.js';
+import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
 import { Save, levelCost, loadSettings, saveSettings } from './save.js';
 import { loadModel } from './models3d.js';
@@ -18,7 +19,7 @@ import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { clamp, damp, rand } from './util.js';
 
-const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
+const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -86,6 +87,7 @@ G.world = new World(G, G.level);
 G.cam = new CameraRig(camera, G.world);
 G.hud = new HUD(G);
 G.menu = new Menu(G);
+G.overworld = new Overworld(G);
 G.projectiles = new Projectiles(G);
 G.player = new Player(G);
 const envTex = makeEnv();
@@ -135,15 +137,19 @@ function applyLevelLook() {
 
 async function loadEnemies() {
   const L = G.level, all = [...L.spawns, ...(L.adds || [])];
-  const types = [...new Set(all.map(s => Enemy.modelFor(s.type)))];
+  const types = [...new Set(all.map(s => Enemy.modelFor(s.type)).filter(Boolean))];
   let done = 0;
   G.loadProgress = 0;
   await Promise.all(types.map(t => loadModel(t).then(() => { done++; G.loadProgress = done / types.length; if (G.menu.top?.screen === 'title') G.menu.render(); })));
   G.enemies = await Promise.all(all.map(s => Enemy.create(G, s)));
   for (const e of G.enemies) if (e.spawn.add) e.kill();
-  G.boss = G.enemies.find(e => e.id === L.boss);
+  // A mission's warlord may be one foe or a pair fought together.
+  G.bosses = bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
+  G.boss = G.bosses[0];
   G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
 }
+
+const bossIds = L => [].concat(L.boss);
 
 // Swap in another mission's world and foes.
 async function setLevel(id) {
@@ -182,7 +188,8 @@ function applyWorldState() {
     if (e.spawn.add || m.dead.includes(e.id)) e.kill();
   }
   if (L.gate) { if (m.dead.includes(L.gate.guardian)) G.world.openPortcullis(true); else G.world.closePortcullis(); }
-  const bossDead = m.dead.includes(L.boss);
+  const bossDead = bossIds(L).every(id => m.dead.includes(id));
+  G.world.setBreaks(false);
   G.world.setFogGate(!bossDead);
   G.world.setExit(bossDead);
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, m.items.includes(it.id));
@@ -213,8 +220,16 @@ function placeAtShrine(id) {
   G.cam.snap(p);
 }
 
+// A mission cleared before a later one existed still opens the way on.
+function syncUnlocks() {
+  const d = G.save.data;
+  ORDER.forEach((id, i) => { const next = ORDER[i + 1]; if (next && d.missions[id]?.cleared && !d.unlocked.includes(next)) d.unlocked.push(next); });
+}
+syncUnlocks();
+
 async function startRun() {
   G.audio.init();
+  syncUnlocks();
   G.traveling = false;
   timers.length = 0;
   if (G.level.id !== G.save.data.mission || !G.enemies.length) {
@@ -242,6 +257,14 @@ async function startRun() {
 function missionIntro() { if (G.level.intro) G.after(1.2, () => G.hud.big(G.level.intro, 'intro', 5.5)); }
 G.newGame = async () => { G.save.reset(); G.save.write(); await startRun(); missionIntro(); };
 G.continueGame = () => startRun();
+// The Fae Crossroads, the overworld map: from the title, a Moonwell, or a cleared mission (focused there, so any
+// newly opened path is revealed from it).
+G.openMap = (from = 'title', focus) => {
+  syncUnlocks();
+  G.input.wantLock = false; G.input.releaseLock();
+  G.overworld.prepare(focus);
+  if (from === 'cleared') G.menu.show('map', { from }); else G.menu.push('map', { from });
+};
 G.startMission = async id => {
   const d = G.save.data, fresh = !G.save.mission(id).shrine;
   d.mission = id; G.save.write();
@@ -294,7 +317,7 @@ G.onEnemyKilled = (e, hit = {}) => {
   const life = big ? 4 * big : (Math.random() < .6 ? 1 : 0) + (hit.flash ? 1 : 0), fae = big ? 3 * big : Math.random() < .5 ? 1 : 0;
   G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
-  if (e === G.boss) bossDefeated();
+  if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else bossDefeated(); }
   else if (e === G.gatekeeper) gatekeeperDefeated();
 };
 
@@ -314,7 +337,7 @@ function grantTrophies() {
   for (const L of Object.values(LEVELS)) {
     const dead = G.save.mission(L.id).dead;
     if (L.gate?.charm && dead.includes(L.gate.guardian)) grantCharm(L.gate.charm, true);
-    if (L.bossCharm && dead.includes(L.boss)) grantCharm(L.bossCharm, true);
+    if (L.bossCharm && bossIds(L).every(id => dead.includes(id))) grantCharm(L.bossCharm, true);
   }
 }
 G.equipCharm = id => {
@@ -341,15 +364,30 @@ function gatekeeperDefeated() {
   G.after(2.6, () => { G.world.openPortcullis(); G.audio.sfx('gate', { x: gt.x, z: gt.z }); G.hud.toast(gt.toast || 'The way opens'); });
 }
 
+// One of a pair falls: the other grieves. It mends, rages into its second phase and takes up new arts.
+function partnerFell(e, rest) {
+  G.slowmo = .7;
+  G.hud.toast(`${e.name.split(',')[0]} falls`, 'warn');
+  G.audio.sfx('felled', { vol: .6 });
+  G.after(1, () => {
+    for (const b of rest) {
+      if (!b.alive || b.phase2) continue;
+      b.phase2 = true; b.hp = Math.min(b.maxHp, b.hp + b.maxHp * .3); b.barT = 4;
+      if (b.state !== 'attack') { b.endAttack(); b.state = 'engage'; b.st = 0; b.think = .1; }
+      G.fx.ring(b.pos, 0x7dff8a, 3, .5);
+    }
+  });
+}
+
 function bossDefeated() {
-  G.save.m.dead.push(G.level.boss);
+  for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
   G.save.write();
   G.slowmo = 1.6;
   G.audio.music('none');
   for (const e of G.enemies) if (e.spawn.add && e.alive) e.die({});
   G.after(1.4, () => {
-    G.hud.big('WARLORD VANQUISHED', 'gold felled', 6);
+    G.hud.big(G.bosses.length > 1 ? 'WARLORDS VANQUISHED' : 'WARLORD VANQUISHED', 'gold felled', 6);
     G.audio.sfx('felled');
     G.hud.setBoss(null);
     G.bossFight = false;
@@ -358,7 +396,15 @@ function bossDefeated() {
 }
 
 G.onBossPhase2 = (boss) => {
-  G.hud.toast(G.level.phase2Line || 'The warlord rages', 'warn');
+  G.hud.toast(boss.T.phase2Line || G.level.phase2Line || 'The warlord rages', 'warn');
+  if (!G.bosses.includes(boss)) return;   // a gatekeeper's second wind brings no one with it
+  // Some arenas give way: the ice breaks into open, freezing water.
+  if (G.level.breaks && !G.world.breaksOn) {
+    G.world.setBreaks(true);
+    for (const h of G.level.breaks) G.projectiles.hazard(h.x, h.z, h.r, Infinity, h.chill ?? 34, 'frost', true);
+    G.cam.shake(.7); G.audio.sfx('shatter');
+    G.hud.toast('The ice breaks', 'frost');
+  }
   let i = 0;
   for (const e of G.enemies) {
     if (!e.spawn.add) continue;
@@ -368,15 +414,14 @@ G.onBossPhase2 = (boss) => {
 };
 
 G.onFogCrossed = () => {
-  if (G.boss && G.boss.alive && !G.bossFight) startBossFight();
+  if (G.bosses.some(b => b.alive) && !G.bossFight) startBossFight();
 };
 
 function startBossFight() {
   const b = G.boss;
   G.bossFight = true;
-  b.reset();
-  b.state = 'intro'; b.st = 0;
-  G.hud.setBoss(b);
+  for (const e of G.bosses) { e.reset(); e.state = 'intro'; e.st = 0; e.partner = G.bosses.find(o => o !== e) || null; }
+  G.hud.setBoss(G.bosses.length > 1 ? G.bosses : b);
   G.player.lock = b;
   G.audio.sfx('roar', { x: b.pos.x, z: b.pos.z });
   G.audio.music('boss');
@@ -417,14 +462,14 @@ function rest(shrine) {
   if (first) m.kindled.push(shrine.id);
   m.shrine = shrine.id;
   p.setState('rest'); p.anim.play('rest');
-  p.vel.set(0, 0, 0); p.poisoned = 0; p.poison = 0;
+  p.vel.set(0, 0, 0); p.poisoned = 0; p.poison = 0; p.thaw();
   G.controlsOn = false;
   G.hud.big(first ? 'MOONWELL AWAKENED' : 'MOONWELL', 'shrine', 2.5);
   G.audio.sfx('rest');
   G.after(0.9, () => {
     if (G.state !== 'play') return;
     applyWorldState();
-    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0;
+    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw();
     G.save.write();
     G.input.wantLock = false; G.input.releaseLock();
     G.menu.show('shrine', shrine);
@@ -478,7 +523,7 @@ function findInteractable() {
   let best = null, bd = Infinity;
   for (const it of w.interactables) {
     if (it.kind === 'item' && it.taken) continue;
-    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.boss?.alive)) continue;
+    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.bosses.some(b => b.alive))) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
@@ -519,7 +564,7 @@ function interact(it) {
       break;
     case 'exit': {
       G.state = 'ending'; G.controlsOn = false;
-      p.poisoned = 0; p.poison = 0; p.iframesT = 99;
+      p.poisoned = 0; p.poison = 0; p.thaw(); p.iframesT = 99;
       // Mission cleared: unlock the next one.
       m.cleared = true;
       const next = ORDER[ORDER.indexOf(G.level.id) + 1];
@@ -547,7 +592,7 @@ function frame(fixed, draw = true) {
 
   // Menus eat input first.
   const menuWasOpen = G.menu.open;
-  if (menuWasOpen) { G.menu.nav(inp); inp.pressed.clear(); }   // a button that closes a menu shouldn't also act in game
+  if (menuWasOpen) { G.menu.nav(inp); if (G.overworld.active) G.overworld.update(rdt, inp); inp.pressed.clear(); }   // a button that closes a menu shouldn't also act in game
 
   if (G.state === 'play') {
     if (!menuWasOpen && G.player.state !== 'rest') {
@@ -578,7 +623,7 @@ function frame(fixed, draw = true) {
     titleFrame(rdt);
   }
   inp.endFrame();
-  if (draw) renderer.render(scene, camera);
+  if (draw) { if (G.overworld.active) G.overworld.render(renderer); else renderer.render(scene, camera); }
 }
 G.tick = (n = 1, dt = 1 / 60, draw = false) => { for (let i = 0; i < n; i++) frame(dt, draw && i === n - 1); };
 
@@ -600,11 +645,12 @@ function step(dt, rdt) {
     G.projectiles.update(edt);
   }
   // Boss phases and the gatekeeper's bar.
-  const b = G.boss;
-  if (b && b.alive && G.bossFight && !b.phase2 && b.hp < b.maxHp * .5) b.phase2 = true;
+  // A pair's second phase comes when one of them falls, not from wounds.
+  for (const b of G.bosses) if (b.alive && G.bossFight && !b.phase2 && !b.T.duo && b.hp < b.maxHp * (b.T.phase2At ?? .5)) b.phase2 = true;
   const w = G.gatekeeper;
   if (w && w.alive) {
     const engaged = w.aware && w.state !== 'return' && w.distToPlayer() < 22;
+    if (engaged && w.T.phase2 && !w.phase2 && w.hp < w.maxHp * (w.T.phase2At ?? .5)) w.phase2 = true;
     if (engaged && G.hud.bossE !== w) G.hud.setBoss(w);
     if (!engaged && G.hud.bossE === w) G.hud.setBoss(null);
   }
@@ -633,6 +679,7 @@ function step(dt, rdt) {
   // Ambient particles: embers, fireflies, falling leaves.
   if (Math.random() < rdt * 10) G.fx.motes({ x: p.pos.x + rand(-12, 12), y: rand(.2, 3), z: p.pos.z + rand(-12, 12) }, L.motes?.[area?.id] ?? L.motes?.base ?? 0xffb070, 1, .1, .25, .07, 4);
   if (L.leaves && Math.random() < rdt * 6) G.fx.leaf({ x: p.pos.x + rand(-10, 10), y: rand(5, 8), z: p.pos.z + rand(-10, 10) }, L.leafColors);
+  if (L.snow) for (let i = 0; i < 2; i++) if (Math.random() < rdt * 22) G.fx.leaf({ x: p.pos.x + rand(-14, 14), y: rand(4, 10), z: p.pos.z + rand(-14, 14) }, L.leafColors);
   for (const s of Object.values(L.shrines)) if (Math.random() < rdt * 6) G.fx.motes({ x: s.x, y: 1.4, z: s.z }, 0x9ff3ff, 1, .4, .6, .08, 1.6);
 
   G.world.update(dt, G.time, p.pos);

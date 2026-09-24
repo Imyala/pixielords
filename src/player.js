@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { buildKnight, KnightAnimator } from './knight.js';
 import { Trail } from './fx.js';
-import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, smooth } from './util.js';
+import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, smooth, rand } from './util.js';
 
 export const STANCES = {
   high: { key: 'high', name: 'High', speed: 1.12, dmg: 1.32, cost: 1.25, ki: 1.4, guard: .9, dash: { dist: .88, dur: 1.1, cost: 1.15 }, color: 0xffb060 },
@@ -164,6 +164,7 @@ export class Player {
     Object.assign(this, derive(this.stats));
     if (this.has('gateseal')) this.maxHp = Math.round(this.maxHp * 1.1);
     if (this.has('seereye')) this.animaGain *= 1.25;
+    if (this.has('wintercrown')) this.shiftDur *= 1.33;
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
@@ -173,7 +174,7 @@ export class Player {
     this.pos.set(x, 0, z); this.yaw = yaw; this.vel.set(0, 0, 0);
     this.hp = this.maxHp; this.ki = this.maxKi; this.anima = this.anima ?? 0;
     this.state = 'free'; this.st = 0; this.alive = true;
-    this.poison = 0; this.poisoned = 0; this.snared = 0; this.vy = 0; this.airCount = 0; this.airDashed = false;
+    this.poison = 0; this.poisoned = 0; this.snared = 0; this.chill = 0; this.frozen = 0; this.vy = 0; this.airCount = 0; this.airDashed = false;
     this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.riposte = null; this.chain = 0; this.chargeMul = 1;
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
     this.exhaustPending = false; this.kiSpentT = -9; this.guardPressT = -9;
@@ -272,6 +273,31 @@ export class Player {
     if (this.poisoned > 0 || !this.alive) return;
     this.poison += n * (this.has('rootbound') ? .5 : 1);
     if (this.poison >= 100) { this.poison = 0; this.poisoned = 12; this.G.hud.toast('Blighted', 'poison'); this.G.audio.sfx('poison'); }
+  }
+
+  // Frost: icy blows and freezing ground build chill; at full the knight is Frostbitten for a while,
+  // slow on the feet and slow to catch breath. Moondew or a Moonwell thaws it.
+  addChill(n) {
+    if (this.frozen > 0 || !this.alive || this.shifted) return;
+    this.chill += n * (this.has('hearthstone') ? .5 : 1);
+    this.chillT = this.G.time;
+    if (this.chill >= 100) {
+      this.chill = 0; this.frozen = 6;
+      this.G.hud.toast('Frostbitten', 'frost'); this.G.audio.sfx('chill');
+      this.G.fx.shatter({ x: this.pos.x, y: 1.1, z: this.pos.z }, 18, 0xcfeaff, 3);
+    }
+  }
+  thaw() { this.chill = 0; this.frozen = 0; }
+
+  // A foe turned the blade aside: the arm jars back and the guard opens for a moment.
+  recoil(from) {
+    const G = this.G;
+    if (!this.alive || this.state === 'flashcut' || this.state === 'grapple') return;
+    this.setState('hurt'); this.hurtDur = .55;
+    this.anim.play('hurt', 1.1, .02);
+    if (from) this.knock = { yaw: yawTo(from.pos.x, from.pos.z, this.pos.x, this.pos.z), v: 3.5 };
+    this.pulse = null; this.chain = 0;
+    G.hitstop = Math.max(G.hitstop, .08); G.cam.shake(.25);
   }
 
   // Bolas and nets: legs bound, no sprinting until they fall away or are shaken off with dashes.
@@ -468,7 +494,7 @@ export class Player {
       this.setState('dash');
       this.dashYaw = this.inputYaw;
       const dur = DASH.dur * S.dash.dur;
-      this.dash = { dur, dist: DASH.dist * S.dash.dist, iframes: [0, DASH.iframes[1] * S.dash.dur + (this.stance === 'low' ? .04 : 0)] };
+      this.dash = { dur, dist: DASH.dist * S.dash.dist * (this.frozen > 0 ? .8 : 1), iframes: [0, DASH.iframes[1] * S.dash.dur + (this.stance === 'low' ? .04 : 0)] };
       this.anim.play('dash', DASH.dur / dur, .02);
       if (!this.lock) this.yaw = this.inputYaw;
       G.fx.dust(this.pos, 5);
@@ -579,7 +605,7 @@ export class Player {
     // Moonstep: a dash that starts just before the blow slows the world.
     if ((this.state === 'dash' || this.state === 'hop') && this.st <= DASH.perfect + (this.has('moonpetal') ? .07 : 0) && !this.moonstepped) {
       this.moonstep();
-      if (h.from?.alive && !h.projectile) this.riposte = { e: h.from, until: G.time + RIPOSTE_WINDOW };
+      if (h.from?.alive && !h.projectile && !h.ranged) this.riposte = { e: h.from, until: G.time + RIPOSTE_WINDOW };
       return 'miss';
     }
     if (this.iframes) return 'miss';
@@ -608,10 +634,11 @@ export class Player {
     // Guard and Deflect (Dread attacks can't be guarded).
     const facing = Math.abs(angleDiff(this.yaw, h.dirYaw)) < 1.4;
     const recovering = this.state === 'attack' && this.st * this.aspeed >= this.atk.hit[1];
-    const justPressed = G.time - this.guardPressT <= DEFLECT && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
+    const justPressed = G.time - this.guardPressT <= DEFLECT + (this.has('mirrorguard') ? .06 : 0) && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
     if ((this.guarding || justPressed) && facing && !h.burst) {
       if (justPressed && !h.aoe) return this.deflect(h);
       const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1);
+      if (h.chill) this.addChill(h.chill * .35);   // the cold seeps through a guard
       this.ki -= kiDmg; this.kiSpentT = G.time;
       const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .5, 1.25, this.pos.z + Math.cos(this.yaw) * .5);
       G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 16, 0xffe0a0, 6);
@@ -637,6 +664,7 @@ export class Player {
     this.chain = 0;
     if (h.poison) this.addPoison(h.poison);
     if (h.snare) this.snare(h.snare);
+    if (h.chill) this.addChill(h.chill);
     G.hitstop = .06;
     G.cam.shake(h.heavy ? .45 : .28);
     G.audio.sfx('playerHurt');
@@ -773,7 +801,7 @@ export class Player {
         this.guarding = G.controlsOn && inp.down('guard');
         this.sprinting = !!this.sprintArmed && inp.down('dodge') && mag > .3 && !this.guarding && !(this.snared > 0);
         const speed = this.guarding ? 3 : this.sprinting ? 8.2 : this.lock ? 5 : 6.2;
-        const s = speed * mag * (this.snared > 0 ? .45 : 1);
+        const s = speed * mag * (this.snared > 0 ? .45 : 1) * (this.frozen > 0 ? .62 : 1);
         if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
         if (this.lock && !this.sprinting) turn = yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z);
         else if (moveInput()) turn = this.inputYaw;
@@ -903,7 +931,8 @@ export class Player {
         if (!this.healed && this.st >= .48) {
           this.healed = true;
           this.heal((this.maxHp * .42 + 40) * (this.has('dewdrop') ? 1.33 : 1));
-          this.poisoned = 0; this.poison = 0;
+          this.poisoned = 0; this.poison = 0; this.thaw();
+          if (this.has('winterbloom')) { this.ki = this.maxKi; this.gainAnima(10); }
           G.audio.sfx('heal');
           G.fx.motes({ x: this.pos.x, y: .4, z: this.pos.z }, 0xff9cd0, 24, .5, 2, .12, 1);
         }
@@ -1128,7 +1157,7 @@ export class Player {
     const cm = this.chargeMul || 1;
     const charm = (a.heavy && this.has('tusk') ? 1.15 : 1) * (a.air && this.has('skyward') ? 1.25 : 1) * (a.air || a.launch ? this.W.airDmg : 1);
     const fz = (this.weapon === 'fangs' ? 1 + this.frenzy.n * FRENZY.dmg : 1) * (G.time < (this.veilT || 0) ? 1.25 : 1);
-    const mul = this.dmgMul * S.dmg * cm * charm * fz * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? 1.25 : 1);
+    const mul = this.dmgMul * S.dmg * cm * charm * fz * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * (this.stance === 'high' ? 1.3 : 1), dir: this.yaw, heavy: !!a.heavy, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
     if (a.launch && res !== 'kill' && e.launch(a.launch)) G.hud.toast('Launch', 'pulse');
@@ -1153,7 +1182,7 @@ export class Player {
     const G = this.G;
     const busy = ['attack', 'dash', 'hop', 'thorn'].includes(this.state);
     if (!busy && G.time - this.kiSpentT > .35 && this.ki < this.maxKi) {
-      const rate = 52 * (this.guarding ? .45 : 1) * (this.state === 'exhausted' || this.state === 'stagger' ? 1.5 : 1) * (this.sprinting ? .6 : 1);
+      const rate = 52 * (this.guarding ? .45 : 1) * (this.state === 'exhausted' || this.state === 'stagger' ? 1.5 : 1) * (this.sprinting ? .6 : 1) * (this.frozen > 0 ? .5 : 1);
       this.ki = Math.min(this.maxKi, this.ki + rate * dt);
     }
     if (this.poisoned > 0 && this.alive && G.state === 'play' && this.state !== 'rest') {
@@ -1162,6 +1191,10 @@ export class Player {
       if (Math.random() < dt * 6) G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0x8fe040, 1, .3, .8, .1, .8);
       if (this.hp <= 0) this.die();
     } else this.poison = Math.max(0, this.poison - 8 * dt);
+    if (this.frozen > 0) {
+      this.frozen -= dt;
+      if (Math.random() < dt * 10) G.fx.motes({ x: this.pos.x, y: rand(.3, 1.8), z: this.pos.z }, 0xcfeaff, 1, .4, .3, .08, .8);
+    } else if (G.time - (this.chillT ?? -9) > 1.5) this.chill = Math.max(0, this.chill - 10 * dt);
     if (this.snared > 0) {
       this.snared -= dt;
       if (this.snared <= 0) this.snareFree = G.time + 3;   // a moment's grace before the next bola can bind
@@ -1187,6 +1220,9 @@ export class Player {
     A.update(dt, { speed: ['free', 'drink', 'fog'].includes(this.state) ? sp : 0, forward: sp > .1 ? lf / sp : 1, side: sp > .1 ? ls / sp : 0, guard: this.guarding, sprint: this.sprinting, shifted: this.shifted, stance: this.stance, weapon: this.weapon });
     if (Math.floor(A.gait / Math.PI) !== prevStep && sp > .8) G.audio.sfx('step');
     this.ghosts.update(dt);
+    // Rime creeps over the armour as chill builds; frostbite glazes it outright.
+    const fz = this.frozen > 0 ? .5 + Math.sin(G.time * 5) * .08 : this.chill / 260;
+    k.mats.steel.emissive.setRGB(fz * .3, fz * .55, fz * .9);
 
     // Sword trail while swinging.
     const swinging = ['attack', 'counter', 'grapple', 'flashcut', 'deflect', 'land'].includes(this.state) || (this.state === 'thorn' && this.st < .1);

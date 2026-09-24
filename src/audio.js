@@ -237,6 +237,19 @@ export class Audio {
         this.tone(g, t, .8, { type: 'triangle', f0: 450, f1: 1350, a: .2, peak: .12, detune: 7 }); break;
       }
       case 'poison': this.noiseBurst(d(.4, .5), t, .6, { f0: 300, f1: 900, q: 8, a: .1, peak: .6 }); break;
+      case 'ice': {   // spikes cracking up through frozen ground
+        const g = d(.7, .8);
+        this.noiseBurst(g, t, .18, { type: 'highpass', f0: 2500, f1: 6000, a: .002, peak: .9 });
+        this.noiseBurst(g, t, .35, { type: 'lowpass', f0: 800, f1: 120, a: .004, peak: .6 });
+        for (let i = 0; i < 3; i++) this.tone(g, t + i * .03, .25, { type: 'sine', f0: 2200 + R() * 1800, peak: .08, a: .002 }); break;
+      }
+      case 'shatter': {   // rime armour or an ice wall giving way
+        const g = d(1.1, 1);
+        this.noiseBurst(g, t, .7, { type: 'highpass', f0: 1800, f1: 7000, a: .002, peak: 1 });
+        this.tone(g, t, .5, { type: 'sine', f0: 90, f1: 35, peak: 1 });
+        for (let i = 0; i < 8; i++) this.tone(g, t + i * .045 + R() * .02, .5, { type: 'sine', f0: 1800 + R() * 3200, peak: .1, a: .002 }); break;
+      }
+      case 'chill': this.noiseBurst(d(.4, .6), t, .7, { type: 'bandpass', f0: 3000, f1: 900, q: 3, a: .08, peak: .5 }); break;
       case 'gate': {
         const g = d(1, .8);
         this.noiseBurst(g, t, 2.2, { type: 'lowpass', f0: 300, f1: 90, a: .3, peak: 1 });

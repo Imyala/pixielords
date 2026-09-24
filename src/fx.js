@@ -190,6 +190,43 @@ export class FX {
     }
   }
 
+  // Freezing mist over open water or rime: pale drifting cloud with the odd glint of ice.
+  frost(p, r = 1.5) {
+    const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r;
+    this.norm.emit({ x: p.x + Math.cos(a) * d, y: rand(.1, .7), z: p.z + Math.sin(a) * d, vx: rand(-.2, .2), vy: rand(.05, .25), vz: rand(-.2, .2), life: rand(1, 2), size: rand(.6, 1.1), grow: .35, color: this.col(0xcfe6ff), alpha: .18, drag: 1 });
+    if (Math.random() < .4) this.add.emit({ x: p.x + Math.cos(a) * d, y: rand(.1, 1), z: p.z + Math.sin(a) * d, vy: rand(.1, .4), life: rand(.4, .9), size: rand(.04, .08), color: this.col(0xdff4ff), drag: .5 });
+  }
+
+  // Ice bursting apart: glittering shards and a puff of rime.
+  shatter(p, n = 30, color = 0xcfeaff, speed = 6) {
+    const c = this.col(color);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.28, s = speed * rand(.3, 1.1);
+      this.add.emit({ x: p.x + rand(-.3, .3), y: p.y + rand(-.3, .3), z: p.z + rand(-.3, .3), vx: Math.cos(a) * s, vy: rand(1, 6), vz: Math.sin(a) * s, life: rand(.4, .9), size: rand(.05, .12), color: c, gravity: 12, drag: 1.2 });
+    }
+    for (let i = 0; i < 6; i++) this.norm.emit({ x: p.x + rand(-.5, .5), y: p.y, z: p.z + rand(-.5, .5), vx: rand(-1, 1), vy: rand(.3, 1), vz: rand(-1, 1), life: rand(.8, 1.4), size: rand(.6, 1.2), grow: .8, color: this.col(0xe8f4ff), alpha: .3, drag: 2 });
+  }
+
+  // A cluster of ice spikes that bursts up out of the ground, hangs a moment and sinks away.
+  spikes(p, h = 1.6, color = 0xbfe6ff, n = 4, dur = 1.1) {
+    this.spikeGeo ||= new THREE.ConeGeometry(.2, 1, 5).translate(0, .5, 0);
+    const mat = (this.spikeMats ||= {})[color] ||= new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .35, roughness: .15, metalness: .2, flatShading: true, transparent: true, opacity: .92 });
+    const g = new THREE.Group(); g.position.set(p.x, 0, p.z);
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.spikeGeo, mat), a = Math.random() * 6.28, r = i ? rand(.2, .55) : 0, hh = h * (i ? rand(.45, .8) : 1);
+      m.position.set(Math.cos(a) * r, -.1, Math.sin(a) * r);
+      m.rotation.set(Math.sin(a) * r * .9, 0, -Math.cos(a) * r * .9);
+      m.scale.set(1 + (i ? 0 : .4), .01, 1 + (i ? 0 : .4)); m.userData.h = hh; m.castShadow = true;
+      g.add(m); parts.push(m);
+    }
+    this.scene.add(g);
+    this.items.push({ obj: g, t: 0, dur, keep: true, update: k => {
+      const up = Math.min(1, k / .07), down = k > .55 ? (k - .55) / .45 : 0;
+      for (const m of parts) m.scale.y = Math.max(.01, m.userData.h * (up * (1 - down * down)));
+    } });
+  }
+
   fire(p, r = 1.5) {
     const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r;
     this.add.emit({ x: p.x + Math.cos(a) * d, y: .1, z: p.z + Math.sin(a) * d, vx: rand(-.3, .3), vy: rand(1.5, 3.5), vz: rand(-.3, .3), life: rand(.35, .8), size: rand(.25, .5), color: this.col(Math.random() < .3 ? 0xffd070 : 0xff5a1a), drag: 1.5, grow: -.3 });
@@ -272,7 +309,7 @@ export class FX {
       it.update(k);
       if (k >= 1 || it.dead) {
         this.scene.remove(it.obj);
-        it.obj.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+        if (!it.keep) it.obj.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });   // keep: shared geometry and materials
         this.items.splice(i, 1);
       }
     }

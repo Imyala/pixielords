@@ -10,6 +10,7 @@ export default {
   name: 'The Grubhold',
   blurb: 'A ruined keep where goblins hold the gate and ratmen gnaw the halls below. Its warlord sits on a throne of bones.',
   level: 1,
+  map: { x: -17, z: -19 },   // where it sits on the Fae Crossroads
   seed: 1234,
   fog: { color: 0x0d1122, byArea: { grove: .028, yard: .024, halls: .03, throne: .014 }, base: .026 },
   intro: 'The warren gnaws at the roots of the fae realm.\nClimb the keep. Fell its lord.',

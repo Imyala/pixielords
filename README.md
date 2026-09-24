@@ -2,7 +2,7 @@
 
 A fast, stance-based action game in the browser, inspired by the Nioh series, Onimusha and the swordplay of
 NieR: Automata. You play a fae knight on a run of missions through goblin and ratman country (a ruined keep,
-a burning forest, a crystal mine, a temple above the clouds), each ending with a warlord.
+a burning forest, a crystal mine, a temple above the clouds, a frozen mere), each ending with a warlord.
 
 ## Play
 
@@ -64,7 +64,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   is below 40% or broken; gatekeepers and warlords can't be launched at all, but you can still leap and
   strike them. You get one air dash per jump. High in the air, most blows pass beneath you, but big foes can
   still reach up.
-- **Charms** bend the rules: twenty-two of them, hidden in the missions or won from every gatekeeper and
+- **Charms** bend the rules: twenty-seven of them, hidden in the missions or won from every gatekeeper and
   warlord. Wear up to three and change them at any Moonwell. Among them: Dewdrop (Moondew heals more),
   Thornheart (Deflects restore more), Moonpetal (a wider Moonstep window), Emberwing (fire hurts less),
   Skyward Feather (cheaper launchers, harder air strikes) and the trophies, like the Gatewarden's Seal
@@ -82,12 +82,25 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 - **Snares and fire.** Goblin Trappers hurl bolas: while snared you move slowly and can't sprint, so
   dash to shake them loose. Firebombs and Grimtusk's blows leave burning ground that hurts every
   half-second.
+- **Chill.** On the Frostmere, icy blows, frost shards and freezing ground build chill (a pale gauge in
+  the status row). When it fills you are **Frostbitten** for six seconds: slower on your feet, shorter dashes
+  and slower to catch your breath. A guard lets a little of the cold through. Moondew or a Moonwell thaws
+  you, and the Hearthstone charm halves the build-up.
+- **Ice waves.** Some foes send a line of ice spikes racing along the ground. Step off the line, leap it,
+  dash through as it reaches you, or take it on your guard. Walls stop them.
 
 ## Missions
 
-Clear a mission to open the next on the map at the Fae Crossroads. From any Moonwell, "Journey elsewhere…"
-returns you to the map. Each mission keeps its own Moonwells, fallen warlords and items. Level, Glimmer
-and Moondew carry over.
+Missions are chosen on **the Fae Crossroads**, an overworld: the whole realm laid out as a small diorama, with
+a landmark for each mission (the keep on its hill, the Rotwood's pyre smoking in the trees, the mine mouth
+under the mountains, the Moonspire in its ring of cloud, the frozen mere under the aurora) and a road of
+glowing stones between them. Your knight walks the road: arrows, WASD, the d-pad or the stick travel from
+landmark to landmark, clicking a landmark walks there, and Enter (A) sets out, stepping into the Pixie Gate
+ring. Sealed missions lie under fae mist; clear the one before and, the next time the map opens, the road
+lights up stone by stone to the new one and the mist lifts. The panel shows each mission's state, Moonwells
+awakened and charms found. Open the map from the title ("The Fae Crossroads"), from any Moonwell ("Journey
+elsewhere…"), or by going onward from a cleared mission. Each mission keeps its own Moonwells, fallen
+warlords and items. Level, Glimmer and Moondew carry over.
 
 1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
    portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren.
@@ -107,38 +120,69 @@ and Moondew carry over.
    steps behind you, throws fans of knives, lunges in Dread and, at half health, splits into shadows. New
    foes: Goblin Skyguards, whose shields turn aside blows from the front (go round, or break the guard
    with heavies); Warchanters, whose chant makes nearby allies burn red, hit harder and ignore stagger;
-   and Ratman Shadowblades, who vanish and reappear behind you. Clear it to unlock New Game+.
+   and Ratman Shadowblades, who vanish and reappear behind you.
+5. **The Frostmere** (level 48+): a frozen mere under the aurora, where the stolen moonlight ran. The
+   Shivering Pass, the Rimefall Stair with its frozen waterfall, the Icefisher's Hamlet on its iced-over
+   pond, the Causeway across the mere, the Knight's Vigil, the Frozen Court (a ruined winter palace), then
+   the Mirror of the Mere. New foes, all rimed and carrying chill: Goblin Rimecallers (frost shards and ice
+   waves), Ratman Frostfangs (quick pack biters), Goblin Hailslingers (hail pots that leave the ground
+   freezing), Goblin Rimebreakers (hammer slams that fan out ice waves), and rimed Rimeguards, Snowdelvers
+   and Rimebrutes. Clear it to unlock New Game+.
 
 Later missions field hardier rank-and-file: in the Rotwood regular foes have 1.25× the health, in the Deep
-1.6×, on the Moonspire 2×, and they hit harder and drop more Glimmer to match.
+1.6×, on the Moonspire 2×, on the Frostmere 2.4×, and they hit harder and drop more Glimmer to match.
+
+### Warlords and gatekeepers
+
+Every warlord fights its own way, and each wears something of its own: Gnawfang a crown of bone, Mother
+Skritch orbiting seer-crystals, Silkclaw a crescent moon, the Rat King a silver crown, the Frost-Hexer a crown
+of ice. The Frostmere brings two new kinds of fight:
+
+- **The Rime Knight** holds the Knight's Vigil and its wall of ice: a fae knight who came to the mere before
+  you and froze there. It is built from your own knight and fights with your own moves: four-cut chains, a
+  Dread needle thrust, a leaping Skyfall, a Flashcut of its own that blinks behind you, and a crescent that
+  sends ice racing along the floor. It **parries** quick cuts and answers at once, so break through with
+  heavies, catch it as its own blows end, or Deflect it and Flashcut. At half health its light turns to
+  frost (Rime Shift): its wings flare, its slams throw rings of ice, and it chains faster.
+- **The Winter Court** waits on the Mirror of the Mere: **Morrowgnaw, the Rat King** and **Hrimwen, the
+  Frost-Hexer**, fought together with a bar each. The King is all weight (cleaves, a tail whirl, a royal
+  charge and a throne-breaking leap); the Hexer keeps her distance (fans of frost shards, triple ice waves,
+  icicle rain, a Dread frost nova, and a blink when you close in). They mostly take turns. When one falls,
+  the other **grieves**: it mends, roars into its second phase and the ice of the mere breaks into freezing
+  water. A grieving King grows **rime armour**: blows glance off until his stamina is Shattered, which breaks
+  the armour for good, and his slams send ice waves out in a fan. A grieving Hexer calls down the winter:
+  starbursts of ice in every direction and rings of shards.
 
 Enemies are the sculpted TowerLords models. Their five-bone region rig (root, arms, legs) is grown into
 eleven bones when a model loads: a chest and head over the waist, an elbow in each arm and a knee in each
 leg, placed and weighted from the vertex layout. That lets foes stride with bending knees and swinging
 arms, turn their heads to track you, sidestep when strafing, and wind blows up through the torso.
 
-Missions are data. Each file in `src/levels/` describes one: its areas, fog and light, Moonwells, foes,
-items, gate, seal and exit, plus a `build()` that dresses the world with the engine's builders.
+Missions are data. Each file in `src/levels/` describes one: where it sits on the Fae Crossroads, its areas,
+fog and light, Moonwells, foes, items, gate, seal and exit (and, for a fight whose arena gives way, where
+the ice breaks), plus a `build()` that dresses the world with the engine's builders. A mission's `boss` can
+name one warlord or a pair.
 
 ## Code
 
 ```
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
-src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, the boss fight, saving
+src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), saving
 src/player.js     the knight's controller: weapons and stances, chains, charge, Frenzy, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
 src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and all three weapons, built from primitives, with pose blending and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings), AI, procedural animation on the five-bone rigs, projectiles
-src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater), Moonwells, gates, Briar Seal, wall cutout shader
-src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js); shape.js has ring and path helpers; index.js sets the unlock order
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI, procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, projectiles and hazards
+src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
+src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
+src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
 src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
-src/menu.js       title, pause, Moonwell, charms, mission map, controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, the map's overlay (labels and mission panel), controls, settings and ending screens
 src/save.js       localStorage save and settings
-src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, thatch and sky textures
+src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs
 ```
 

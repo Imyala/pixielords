@@ -17,8 +17,8 @@ const BIND = {
   swap:     ['KeyV', 'Pad14'],
   up:    ['KeyW', 'ArrowUp', 'Pad12'],
   down:  ['KeyS', 'ArrowDown', 'Pad13'],
-  left:  ['KeyA', 'ArrowLeft'],
-  right: ['KeyD', 'ArrowRight'],
+  left:  ['KeyA', 'ArrowLeft', 'Pad14'],   // menus only (in play the d-pad's left and right are swap and next target)
+  right: ['KeyD', 'ArrowRight', 'Pad15'],
   stanceHigh: ['Digit1'],
   stanceMid:  ['Digit2'],
   stanceLow:  ['Digit3'],
