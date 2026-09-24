@@ -1,8 +1,8 @@
 # PixieLords
 
-A fast, stance-based action game in the browser, inspired by the Nioh series and Onimusha. You play a fae
-knight on a run of missions through goblin and ratman country: a ruined keep, then a burning forest, each
-ending with a warlord.
+A fast, stance-based action game in the browser, inspired by the Nioh series, Onimusha and the swordplay of
+NieR: Automata. You play a fae knight on a run of missions through goblin and ratman country (a ruined keep,
+a burning forest, a crystal mine), each ending with a warlord.
 
 ## Play
 
@@ -23,8 +23,10 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Guard (tap as a blow lands to Deflect) | Shift | LB |
 | Dash (hold to sprint) | Space | B |
 | Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
+| Switch weapon (as a strike ends: Switch Strike) | V | D-pad left |
+| Charge a heavy (Moonglaive) | Hold right click | Hold RT |
 | Thorn Counter | F | LT |
-| Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick |
+| Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick / D-pad right |
 | Drink Moondew | R | X |
 | Interact | E | A |
 | Fae Shift (Faelight full) | G | Y |
@@ -34,6 +36,11 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 
 - **Stances.** High hits hardest and its heavy is a leaping slam. Mid is balanced. Low is quick, dashes
   further, and its heavy is a dashing thrust. Four strikes chain into a spinning cut.
+- **Two weapons.** The Fae Sword is quick and close. The **Moonglaive**, found in the Gnawing Halls, is a
+  polearm: long reach, wide sweeps, heavy posture damage, and heavies you can hold to charge (up to 1.8×).
+  Its chain runs thrust, sweep, one-handed wheel and a vaulting slam; its heavies are the Crescent (Mid), the
+  Moonfall pole-vault (High) and the Piercing Rush (Low). Switch weapons as a strike ends for a **Switch
+  Strike**, a wheeling cut with the weapon you draw, which also counts as Resonance if the window is open.
 - **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
   knight: tap guard then for **Resonance** and the stamina flows back. Change stance in that moment for a
   Resonant Shift.
@@ -41,7 +48,9 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   **Flashcut**: one draw-cut that fells ordinary foes outright, bites deep into elites and warlords, and
   chains from foe to foe.
 - **The fae dash** can't be touched mid-dash. Dash at the last instant to **Moonstep**, and the world slows
-  for a moment while you don't.
+  for a moment while you don't. Strike straight after for a **Moonstep Riposte**: you blink behind the
+  attacker and cut.
+- **Hex orbs** can be cut out of the air with any strike. Deflect one and it flies back at its caster.
 - **Dread strikes** glow red and can't be guarded. Dash through them or **Thorn Counter** them into a
   Flashcut.
 - Drain a foe's stamina to **Shatter** it, then strike to **Execute**. Catch sleeping foes from behind for
@@ -67,7 +76,16 @@ and Moondew carry over.
 2. **The Rotwood Hollow** (level 12+): a winding cliff trail, the goblin village of Grubnest (Brakka the
    Skullsplitter holds its palisade gate), the Rotting Glade with its poison pools and ratman pack, then
    the Pyre of Grimtusk, Warlord of the Pyre. New foes: Goblin Hexers, whose chant heals nearby allies;
-   Goblin Trappers; and the Ratman Packleader, whose howl wakes the glade. Clear it to unlock New Game+.
+   Goblin Trappers; and the Ratman Packleader, whose howl wakes the glade.
+3. **The Gnawed Deep** (level 24+): a ratman mine lit by moon-crystals. The Upper Drift, the Crystal
+   Gallery, the Lower Drift, the Breaker's Pit (Grinder the Tunnel-Breaker brings the roof down on you
+   and holds the mine gate), the Brood Warren, then the Seer's Hollow and Mother Skritch, the Plague Seer:
+   she blinks away when cornered, casts orbs in fans and rings, rains plague vials and bursts in a Dread
+   nova. Her crystals block orbs, so use them as cover. New foes: Ratman Delvers, who burrow under you and
+   erupt; and Glowseers, who blink away. Clear it to unlock New Game+.
+
+Later missions field hardier rank-and-file: in the Rotwood regular foes have 1.25× the health, in the Deep
+1.6×, and they hit harder and drop more Glimmer to match.
 
 Missions are data. Each file in `src/levels/` describes one: its areas, fog and light, Moonwells, foes,
 items, gate, seal and exit, plus a `build()` that dresses the world with the engine's builders.
@@ -78,18 +96,18 @@ items, gate, seal and exit, plus a `build()` that dresses the world with the eng
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, the boss fight, saving
-src/player.js     the knight's controller: stances, chains, dash and Moonstep, Deflect and Flashcut, Resonance, Fae Shift
-src/knight.js     the knight's model, built from primitives, with pose blending and two-bone IK for the sword arm
-src/enemies.js    enemy stats and attack chains, AI, procedural animation on the five-bone rigs, projectiles
-src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires), Moonwells, gates, Briar Seal, wall cutout shader
-src/levels/       one file per mission (keep.js, rotwood.js); index.js sets the unlock order
+src/player.js     the knight's controller: weapons and stances, chains, charge, Switch Strike, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift
+src/knight.js     the knight and both weapons, built from primitives, with pose blending and two-bone IK for the arms
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings), AI, procedural animation on the five-bone rigs, projectiles
+src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails), Moonwells, gates, Briar Seal, wall cutout shader
+src/levels/       one file per mission (keep.js, rotwood.js, deep.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
 src/menu.js       title, pause, Moonwell, mission map, controls, settings and ending screens
 src/save.js       localStorage save and settings
-src/textures.js   procedural stone, brick, moss, forest floor, rock, thatch and sky textures
+src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js
 ```
 

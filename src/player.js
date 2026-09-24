@@ -706,7 +706,7 @@ export class Player {
         const until = a.fixedMove ? a.hit[1] : a.hit[0] + .04;
         if (t < until) {
           const k = smooth(clamp(t / until, 0, 1)), dist = this.lungeDist * k - this.lunged;
-          const blocker = G.enemies.some(e => e.alive && e.distToPlayer() < e.radius + this.radius + .45 && Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z))) < .9);
+          const blocker = G.enemies.some(e => e.alive && !e.burrowed && e.distToPlayer() < e.radius + this.radius + .45 && Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z))) < .9);
           if (!blocker) { this.pos.x += Math.sin(this.yaw) * dist; this.pos.z += Math.cos(this.yaw) * dist; }
           this.lunged += dist;
           lean.x = .12;
@@ -872,7 +872,7 @@ export class Player {
     // Collisions: walls, then bodies.
     if (this.state !== 'fog') G.world.collide(this.pos, this.radius);
     for (const e of G.enemies) {
-      if (!e.alive || (this.state === 'grapple' && this.grapple.e === e) || (this.state === 'flashcut' && this.fc.e === e)) continue;
+      if (!e.alive || e.burrowed || (this.state === 'grapple' && this.grapple.e === e) || (this.state === 'flashcut' && this.fc.e === e)) continue;
       const dx = this.pos.x - e.pos.x, dz = this.pos.z - e.pos.z, d = Math.hypot(dx, dz), m = this.radius + e.radius;
       if (d < m && d > 1e-4) {
         const push = m - d, share = e.boss || e.elite || e.state === 'attack' ? 1 : .6;

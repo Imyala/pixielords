@@ -282,7 +282,7 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
-  const amt = Math.round(e.T.glimmer * G.ngMul * (hit.flash ? 1.5 : 1));
+  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1));
   G.save.glimmer += amt;
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });

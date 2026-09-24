@@ -3,33 +3,13 @@
 //   → the Rotting Glade (second Moonwell) → Briar Seal → the Pyre of Grimtusk.
 import * as THREE from 'three';
 import { boxGeo } from '../world.js';
+import { ring, pathSides, distToPath } from './shape.js';
 
 // The trail winds between cliffs: centreline and half-width at each bend.
 const TRAIL = [[0, 11, 3.55], [1, 20, 3.8], [6, 30, 4.2], [11, 40, 5.5], [9, 50, 4.5], [3, 57, 4], [0, 63, 4]];
 const VILLAGE = { x: 0, z: 84, r: 19 }, ARENA = { x: 0, z: 160, r: 17 }, EDGE_R = 11.5;
 const EDGE_LAMPS = [[-5, -8.2], [2.5, -9]];
-const ring = (c, r, a) => [c.x + Math.sin(a) * r, c.z - Math.cos(a) * r];   // a = 0 is due south
-
-function trailSides() {
-  const L = [], Rt = [];
-  for (let i = 0; i < TRAIL.length; i++) {
-    const [x, z, w] = TRAIL[i], a = TRAIL[Math.max(0, i - 1)], b = TRAIL[Math.min(TRAIL.length - 1, i + 1)];
-    let nx = b[1] - a[1], nz = -(b[0] - a[0]);
-    const n = Math.hypot(nx, nz); nx /= n; nz /= n;
-    Rt.push([x + nx * w, z + nz * w]); L.push([x - nx * w, z - nz * w]);
-  }
-  return { L, R: Rt };
-}
-
-function distToTrail(x, z) {
-  let best = Infinity;
-  for (let i = 0; i < TRAIL.length - 1; i++) {
-    const [ax, az] = TRAIL[i], [bx, bz] = TRAIL[i + 1], dx = bx - ax, dz = bz - az;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
-    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
-  }
-  return best;
-}
+const distToTrail = (x, z) => distToPath(TRAIL, x, z);
 
 // Anywhere the knight can walk, plus a margin for the cliffs: kept clear of backdrop trees.
 function playable(x, z, m = 0) {
@@ -45,12 +25,11 @@ export default {
   seed: 4321,
   forest: true,
   leaves: true,
+  tier: 1.25,
   fog: { color: 0x0b1512, byArea: { edge: .03, trail: .034, village: .026, glade: .04, pyre: .016 }, base: .032 },
   light: { sky: 0x7f9fb0, ground: 0x24301c, hemi: 1.5, moonColor: 0xb8d0ff, moon: 1.9 },
   intro: 'Smoke rises over the Rotwood.\nFollow it to the pyre. Put out the fire.',
-  outro: 'Grimtusk falls into his own fire.',
-  endingTitle: 'THE PYRE IS ASH',
-  ending: 'Grimtusk falls into his own fire and the Rotwood breathes again. The goblin warbands scatter into the dark, the warren is broken, and the roots of the fae realm drink moonlight once more.\nThe paths are still, for now. Walk them again and every foe will remember you.',
+  outro: 'Grimtusk falls into his own fire and the Rotwood breathes again. In the ashes lies a tribute-map scratched on hide: every goblin fire burned to feed something below the mountains. The ratmen call it the Gnawed Deep.',
   exitToast: 'The pyre gutters. A Pixie Gate glows in the ashes',
   motes: { base: 0xc8ff8a, village: 0xffb070, glade: 0x9cff5a, pyre: 0xff6a3a },
   titleShrine: 'edge',
@@ -146,7 +125,7 @@ export default {
     }
 
     // The Thornback Trail: cliffs on both sides.
-    const T = trailSides();
+    const T = pathSides(TRAIL);
     for (const side of [T.L, T.R]) for (let i = 0; i < side.length - 1; i++) w.cliff(...side[i], ...side[i + 1], { h: 7 + R() * 2.5 });
     // Tie the cliffs into the palisade at the village mouth.
     const s0 = ring(VILLAGE, VILLAGE.r, .1745), s1 = ring(VILLAGE, VILLAGE.r, -.1745);

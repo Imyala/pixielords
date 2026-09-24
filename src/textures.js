@@ -139,6 +139,29 @@ export function rockFace(seed = 13) {
   }, 3.5);
 }
 
+// Cave floor: dark trampled grit, pebbles and a few glints of crystal dust.
+export function caveFloor(seed = 17) {
+  const n = 512, N = makeNoise(seed), R = rng(seed);
+  const col = new Float32Array(n * n * 3), H = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const a = N.fbm(x * .012, y * .012, 4), b = N.fbm(x * .06, y * .06, 3), f = N.n2(x * .9, y * .9), i = y * n + x;
+    const damp = clamp((N.fbm(x * .008 + 9, y * .008, 3) - .5) * 4, 0, 1);
+    const v = 30 + a * 34 + b * 14 + f * 10;
+    col[i * 3] = v * (1 - damp * .3); col[i * 3 + 1] = v * .92 * (1 - damp * .25); col[i * 3 + 2] = v * 1.08;
+    H[i] = a * .6 + f * .15;
+  }
+  for (let k = 0; k < 900; k++) {
+    const px = Math.floor(R() * n), py = Math.floor(R() * n), sz = 1 + R() * 3.5, glint = R() < .08, tone = 40 + R() * 40;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+      if (dx * dx + dy * dy > sz * sz) continue;
+      const x = (px + dx + n) % n, y = (py + dy + n) % n, i = y * n + x, sh = 1 - (dx * dx + dy * dy) / (sz * sz) * .4;
+      if (glint) { col[i * 3] = 120 * sh; col[i * 3 + 1] = 150 * sh; col[i * 3 + 2] = 210 * sh; }
+      else { col[i * 3] = tone * sh; col[i * 3 + 1] = tone * .95 * sh; col[i * 3 + 2] = tone * 1.05 * sh; H[i] += .25 * sh; }
+    }
+  }
+  return surface(n, (x, y) => { const i = y * n + x; return [col[i * 3], col[i * 3 + 1], col[i * 3 + 2], H[i]]; }, 2.5);
+}
+
 // Straw thatch for goblin huts.
 export function thatch(seed = 9) {
   const n = 256, N = makeNoise(seed);

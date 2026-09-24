@@ -2,7 +2,7 @@
 // lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
-import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, runeCircle, glowTexture, skyTexture } from './textures.js';
+import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, runeCircle, glowTexture, skyTexture } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
 
 // ---------------------------------------------------------------- geometry helpers
@@ -217,8 +217,8 @@ export class World {
       bone: new THREE.MeshStandardMaterial({ color: 0xc9bfa6, roughness: .7 }),
       stone: new THREE.MeshStandardMaterial({ color: 0x5a5a5e, roughness: .95 }),
     };
-    // Forest materials are only painted for levels that ask for them.
-    if (this.level.forest) {
+    // Forest and cave materials are only painted for levels that ask for them.
+    if (this.level.forest || this.level.cave) {
       const earth = lazy('earth', () => forestFloor(8))(), rock = lazy('rock', () => rockFace(13))(), th = lazy('thatch', () => thatch(9))();
       Object.assign(this.mats, {
         earth: new THREE.MeshStandardMaterial({ ...earth, roughness: 1 }),
@@ -228,7 +228,14 @@ export class World {
         stake: new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: .9 }),
       });
     }
+    if (this.level.cave) {
+      const cf = lazy('cavefloor', () => caveFloor(17))();
+      this.mats.cavefloor = new THREE.MeshStandardMaterial({ ...cf, roughness: .95 });
+      this.mats.rock.color.setHex(0x9a92b0);   // cave stone runs cold and violet
+      this.crystalMats = {};
+    }
     for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves']) if (this.mats[k]) cutout(this.mats[k]);
+    this.cutout = cutout;
     this.glowTex = tex('glow', () => glowTexture());
     this.starTex = tex('star', () => glowTexture('star'));
 
@@ -250,6 +257,7 @@ export class World {
     const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.MeshBasicMaterial({ map: tex('sky', () => skyTexture()), side: THREE.BackSide, fog: false, depthWrite: false }));
     sky.renderOrder = -10;
     this.scene.add(sky); this.sky = sky;
+    if (this.level.cave) sky.visible = false;   // underground: nothing overhead but the dark
     const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
     moon.position.set(-120, 150, 260); moon.scale.set(60, 60, 1);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(7, 32), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
@@ -437,6 +445,68 @@ export class World {
     }
     this.prop(this.addCyl(x, z, .85 * size, .6));
     return this.brazier(x, z, color, false, size);
+  }
+
+  // ---- cave builders (need level.cave)
+  // A cluster of glowing crystals that also lights the cave around it.
+  crystal(x, z, h, color = 0x7fe8ff, seed = 1, light = true, collide = true) {
+    const r = rng(seed * 11 + 5);
+    const mat = this.crystalMats[color] ||= this.cutout(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .9, roughness: .2, metalness: .1, flatShading: true }));
+    const key = 'crystal' + color; this.mats[key] = mat;
+    const n = 3 + Math.floor(r() * 4);
+    for (let i = 0; i < n; i++) {
+      const hh = h * (i ? .35 + r() * .5 : 1), rr = hh * (.14 + r() * .06), g = new THREE.OctahedronGeometry(1, 0);
+      g.scale(rr, hh * .5, rr);
+      g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler((r() - .5) * .9 * (i ? 1 : .3), r() * 6.28, (r() - .5) * .9 * (i ? 1 : .3))));
+      g.translate(x + (i ? (r() - .5) * h * .5 : 0), hh * .38, z + (i ? (r() - .5) * h * .5 : 0));
+      this.batch(key, g);
+    }
+    if (collide) this.prop(this.addCyl(x, z, h * .22 + .2, h));
+    if (!light) return;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .45 }));
+    glow.position.set(x, h * .5, z); glow.scale.setScalar(h * 1.4); this.group.add(glow);
+    const src = { x, y: h * .7, z, color: new THREE.Color(color), base: 4 + h * .8, phase: r() * 10 };
+    this.flames.push(src);
+    this.anim.push(t => { src.flick = .85 + Math.sin(t * 1.3 + src.phase) * .15; });
+  }
+
+  // Mine props: timber frames across a tunnel, rails, a cart, stalagmites and rat nests.
+  timber(x0, z0, x1, z1, h = 4.4) {
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+    for (const [px, pz] of [[x0, z0], [x1, z1]]) {
+      const post = boxGeo(.3, h, .3, 1.5); post.translate(px, h / 2, pz); this.batch('wood', post);
+      this.prop(this.addCyl(px, pz, .22, h));
+    }
+    const beam = boxGeo(L + .5, .34, .34, 1.5); beam.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition((x0 + x1) / 2, h, (z0 + z1) / 2)); this.batch('wood', beam);
+  }
+  rails(pts) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+      const nx = -dz / L, nz = dx / L;
+      for (const s of [-.45, .45]) {
+        const rail = boxGeo(L + .1, .06, .07, 1); rail.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition((x0 + x1) / 2 + nx * s, .1, (z0 + z1) / 2 + nz * s)); this.batch('iron', rail);
+      }
+      for (let d = .3; d < L; d += .7) {
+        const sl = boxGeo(.18, .06, 1.25, 1); sl.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition(x0 + dx * d / L, .04, z0 + dz * d / L)); this.batch('wood', sl);
+      }
+    }
+  }
+  cart(x, z, ry = 0, tipped = false) {
+    const c = new THREE.Group(), M = this.mats;
+    const bin = new THREE.Mesh(boxGeo(1.5, .8, 1.0, 1), M.wood); bin.position.y = .75; c.add(bin);
+    const ore = new THREE.Mesh(this.rock(.45, 3, .3), this.crystalMats[0x7fe8ff] || M.stone); ore.position.y = 1.15; ore.scale.set(1.3, .6, 1); c.add(ore);
+    for (const [wx, wz] of [[-.5, .52], [.5, .52], [-.5, -.52], [.5, -.52]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .08, 10), M.iron); wh.rotation.x = Math.PI / 2; wh.position.set(wx, .25, wz); c.add(wh); }
+    c.position.set(x, 0, z); c.rotation.y = ry; if (tipped) { c.rotation.z = 1.2; c.position.y = .35; }
+    c.traverse(o => { o.castShadow = true; }); this.group.add(c);
+    this.prop(this.addBox(x, z, .8, .55, ry, 1.2));
+  }
+  stalagmite(x, z, h, seed, collide = false) {
+    const g = this.rock(1, seed, .3); g.scale(h * .22, h * .55, h * .22); g.translate(x, h * .35, z); this.batch('rock', g);
+    if (collide) this.prop(this.addCyl(x, z, h * .18, h));
+  }
+  nest(x, z, r = 1.2) {
+    const g = new THREE.ConeGeometry(r, r * .45, 9, 1); g.translate(x, r * .2, z); this.batch('thatch', g);
+    this.prop(this.addCyl(x, z, r * .7, .5));
   }
 
   // A goblin warning totem: a stake crowned with skulls.

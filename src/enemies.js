@@ -202,6 +202,52 @@ Object.assign(TYPES, {
   },
 });
 
+// ---- The Gnawed Deep
+Object.assign(TYPES, {
+  'ratman-delver': {
+    model: 'ratman-skirmisher', name: 'Ratman Delver', scale: .95, radius: .42, hp: 170, ki: 110, poise: 18, walk: 1.7, run: 4.6, glimmer: 150, voice: 'squeal', pitch: 1.05, aggro: .8,
+    attacks: [
+      A('Pick Swing', 2.4, [S('swing', .5, .12, .12, 34, { reach: 2.4, lunge: .9 }), S('overhead', .45, .14, .7, 44, { reach: 2.3, arc: 60, lunge: .8 })]),
+      A('Burrow', 13, [S('burrow', .75, .9, .75, 58, { reach: 0, aoe: 1.9, burrow: true, shake: .45 })], { minRange: 4, cd: 6, w: 1.2 }),
+    ],
+  },
+  'ratman-glowseer': {
+    model: 'ratman-shaman', name: 'Ratman Glowseer', scale: .95, radius: .4, hp: 140, ki: 70, poise: 10, walk: 1.5, run: 3.9, glimmer: 160, voice: 'squeal', pitch: 1.2, style: 'ranged', prefer: [7, 13],
+    attacks: [
+      A('Crystal Orbs', 16, [S('cast', 1.0, .15, .8, 30, { proj: { kind: 'orb', count: 3, speed: 7.5 } })], { minRange: 3 }),
+      A('Blink', 4, [S('cast', .45, .1, .45, 0, { blink: true })], { cond: 'close', cd: 5, w: 3 }),
+      A('Staff Swipe', 2.2, [S('swing', .5, .12, .6, 28, { reach: 2.2, lunge: .6 })], { w: .5 }),
+    ],
+  },
+  grinder: {
+    model: 'ratman-brute', name: 'Grinder the Tunnel-Breaker', scale: 1.25, radius: 1.0, hp: 1400, ki: 320, poise: 70, walk: 1.6, run: 4.4, glimmer: 3200, voice: 'growl', pitch: .55, elite: true, track: 3.2, aggro: .9,
+    attacks: [
+      A('Maul Swing', 3.4, [S('swing', .7, .16, .15, 80, { reach: 3.4, arc: 150, lunge: 1.2 }), S('backswing', .5, .16, .9, 80, { reach: 3.4, arc: 150, lunge: 1.2 })]),
+      A('Breaker Slam', 3.2, [S('overhead', .9, .2, 1.1, 110, { reach: 3.1, arc: 70, lunge: 1.4, aoe: 2.2, shake: .7 })], { w: .8 }),
+      A('Rolling Charge', 11, [S('thrust', .8, .5, 1.1, 100, { reach: 2.6, arc: 90, lunge: 9, burst: true, hyper: true })], { minRange: 5, cd: 6, w: .9 }),
+      A('Cave-in', 16, [S('roar', 1.0, .3, .8, 70, { proj: { kind: 'rock', flight: 1.2, count: 5, spread: 5 }, hyper: true })], { minRange: 3, cd: 9, w: .7 }),
+    ],
+  },
+  skritch: {
+    model: 'ratman-shaman', name: 'Mother Skritch, the Plague Seer', scale: 1.9, radius: .85, hp: 3200, ki: 380, poise: 70, walk: 1.8, run: 4.4, glimmer: 12000, voice: 'squeal', pitch: .55, boss: true, track: 4, aggro: .9, style: 'ranged', prefer: [4, 9],
+    attacks: [
+      A('Plague Orbs', 18, [S('cast', .9, .15, .7, 44, { proj: { kind: 'orb', count: 5, speed: 7.5 } })], { minRange: 3.5, w: 1.2 }),
+      A('Staff Flurry', 3.6, [
+        S('swing', .55, .14, .1, 60, { reach: 3.6, arc: 140, lunge: 1.2 }),
+        S('backswing', .35, .14, .1, 60, { reach: 3.6, arc: 140, lunge: 1.2 }),
+        S('thrust', .4, .16, .9, 70, { reach: 3.8, arc: 60, lunge: 2 }),
+      ]),
+      A('Blink', 5, [S('cast', .5, .1, .5, 0, { blink: true })], { cond: 'close', cd: 7, w: 1.4 }),
+      A('Plague Nova', 5.5, [S('cast', 1.2, .3, 1.0, 95, { reach: 0, aoe: 5, burst: true, hyper: true, shake: .8, pool: 3.5 })], { cd: 8 }),
+      A('Rot Rain', 18, [S('throw', .9, .15, .8, 30, { proj: { kind: 'vial', flight: 1.2, count: 4, spread: 4.5 } })], { minRange: 5, cd: 7, w: .9 }),
+    ],
+    phase2: [
+      A('Swarm Call', 30, [S('roar', 1.3, .6, .6, 0, { hyper: true })], { once: true }),
+      A('Orb Nova', 18, [S('cast', 1.0, .2, .9, 40, { proj: { kind: 'orb', count: 14, speed: 5.5, ring: true } })], { cd: 6, w: 1.2 }),
+    ],
+  },
+});
+
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 
 // ---------------------------------------------------------------- projectiles & hazards
@@ -217,6 +263,7 @@ export class Projectiles {
       bomb: new M.SphereGeometry(.16, 10, 8),
       vial: new M.CapsuleGeometry(.06, .1, 4, 8),
       snare: new M.TorusGeometry(.2, .03, 5, 12),
+      rock: new M.DodecahedronGeometry(.32, 0),
     };
     this.mat = {
       arrow: new M.MeshStandardMaterial({ color: 0x6b5238, roughness: .8 }),
@@ -224,6 +271,7 @@ export class Projectiles {
       bomb: new M.MeshStandardMaterial({ color: 0x1c1c1c, roughness: .5, metalness: .3 }),
       vial: new M.MeshStandardMaterial({ color: 0x8fe040, emissive: 0x4a8a10, emissiveIntensity: 1.2, transparent: true, opacity: .9 }),
       snare: new M.MeshStandardMaterial({ color: 0x8a6a3c, roughness: .9 }),
+      rock: new M.MeshStandardMaterial({ color: 0x4f4a55, roughness: 1, flatShading: true }),
     };
   }
 
@@ -252,25 +300,28 @@ export class Projectiles {
       if (kind !== 'arrow') v.y += 9.8 * .5 * tflight * .5;
       make(kind, v, { gravity: kind === 'arrow' ? 0 : 4.9, snare: kind === 'snare' ? 2.2 : 0 });
       G.audio.sfx(kind === 'arrow' ? 'arrow' : 'throw', { x: from.x, z: from.z });
-    } else if (kind === 'bomb' || kind === 'vial') {
-      // A volley scatters extra bombs around the first, cutting off the easy dodge.
-      const T = step.proj.flight, n = step.proj.count || 1;
+    } else if (kind === 'bomb' || kind === 'vial' || kind === 'rock') {
+      // A volley scatters extra shots around the first, cutting off the easy dodge. Rocks fall from the roof.
+      const T = step.proj.flight, n = step.proj.count || 1, spread = step.proj.spread;
       const cx = p.pos.x + p.vel.x * T * .5, cz = p.pos.z + p.vel.z * T * .5;
       for (let i = 0; i < n; i++) {
-        const a = e.yaw + Math.PI / 2 + (i - 1) * 2.1 + rand(-.3, .3), r = i ? rand(2.6, 3.6) : 0;
+        let a = e.yaw + Math.PI / 2 + (i - 1) * 2.1 + rand(-.3, .3), r = i ? rand(2.6, 3.6) : 0;
+        if (spread) { a = rand(0, TAU); r = i ? rand(1.6, spread) : 0; }
         const tx = cx + Math.sin(a) * r, tz = cz + Math.cos(a) * r, Ti = T * (1 + i * .12);
+        if (kind === 'rock') origin.set(tx + rand(-.5, .5), 11, tz + rand(-.5, .5));
         const v = new THREE.Vector3((tx - origin.x) / Ti, 0, (tz - origin.z) / Ti);
         v.y = (0 - origin.y + .5 * 9.8 * Ti * Ti) / Ti;
         const pr = make(kind, v, { gravity: 9.8, target: { x: tx, z: tz }, fire: step.proj.fire || 0 });
-        pr.warn = fx.telegraph({ x: tx, z: tz }, kind === 'bomb' ? 2.4 : 2, Ti, kind === 'bomb' ? 0xff5020 : 0x8fe040);
+        pr.warn = fx.telegraph({ x: tx, z: tz }, kind === 'bomb' ? 2.4 : kind === 'rock' ? 1.7 : 2, Ti, kind === 'bomb' ? 0xff5020 : kind === 'rock' ? 0xc8b090 : 0x8fe040);
       }
-      G.audio.sfx('throw', { x: from.x, z: from.z });
+      G.audio.sfx(kind === 'rock' ? 'slam' : 'throw', { x: kind === 'rock' ? p.pos.x : from.x, z: kind === 'rock' ? p.pos.z : from.z, vol: kind === 'rock' ? .5 : 1 });
     } else if (kind === 'orb') {
       const n = step.proj.count || 1;
+      const ring = step.proj.ring;
       for (let i = 0; i < n; i++) {
-        const ang = e.yaw + (i - (n - 1) / 2) * .45;
-        const v = new THREE.Vector3(Math.sin(ang), .1, Math.cos(ang)).multiplyScalar(step.proj.speed);
-        make('orb', v, { homing: 1.6, life: 4.5 });
+        const ang = ring ? e.yaw + i / n * TAU : e.yaw + (i - (n - 1) / 2) * .45;
+        const v = new THREE.Vector3(Math.sin(ang), ring ? 0 : .1, Math.cos(ang)).multiplyScalar(step.proj.speed);
+        make('orb', v, { homing: ring ? .25 : 1.6, life: ring ? 5.5 : 4.5 });
       }
       G.audio.sfx('magic', { x: from.x, z: from.z });
     }
@@ -298,7 +349,7 @@ export class Projectiles {
       if (pr.gravity) pr.vel.y -= pr.gravity * dt;
       const step = pr.vel.length() * dt;
       _v.copy(pr.vel).normalize();
-      const wall = G.world.raycast(o.position, _v, step);
+      const wall = pr.kind === 'rock' ? step : G.world.raycast(o.position, _v, step);   // rocks fall past the cliff tops
       o.position.addScaledVector(pr.vel, Math.min(1, wall / Math.max(step, 1e-6)) * dt);
       if (pr.kind === 'arrow') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
       else if (pr.kind === 'snare') o.rotation.y += dt * 22;
@@ -309,10 +360,14 @@ export class Projectiles {
 
       const hitWall = wall < step - 1e-4;
       if (hitWall) dead = true;
-      if (pr.kind === 'bomb' || pr.kind === 'vial') {
-        if ((o.position.y <= .1 && pr.vel.y < 0) || hitWall) {
+      if (pr.kind === 'bomb' || pr.kind === 'vial' || pr.kind === 'rock') {
+        if ((o.position.y <= .1 && pr.vel.y < 0) || (hitWall && pr.kind !== 'rock')) {
           dead = true;
-          if (pr.kind === 'bomb') {
+          if (pr.kind === 'rock') {
+            fx.dust(o.position, 14); fx.ring(o.position, 0xc8b090, 1.9, .3);
+            G.audio.sfx('slam', { x: o.position.x, z: o.position.z, vol: .7 }); G.cam.shake(.25, o.position);
+            if (Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z) < 1.7 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true });
+          } else if (pr.kind === 'bomb') {
             fx.explosion(o.position, 2.4); G.audio.sfx('explode', { x: o.position.x, z: o.position.z }); G.cam.shake(.35, o.position);
             const d = Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z);
             if (d < 2.4 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true });
@@ -432,9 +487,12 @@ export class Enemy {
     this.active = true; this.outer.visible = true;
     this.pos.set(s.x, 0, s.z); this.yaw = s.yaw || 0;
     this.home = { x: s.x, z: s.z, yaw: s.yaw || 0 };
-    this.maxHp = Math.round(T.hp * ng); this.hp = this.maxHp;
-    this.maxKi = T.ki; this.ki = this.maxKi;
-    this.dmgMul = 1 + (ng - 1) * .6;
+    // Later missions field hardier rank-and-file (their own elites and warlords are tuned as written).
+    const tier = this.boss || this.elite ? 1 : (this.G.level?.tier || 1);
+    this.tier = tier;
+    this.maxHp = Math.round(T.hp * ng * tier); this.hp = this.maxHp;
+    this.maxKi = Math.round(T.ki * (1 + (tier - 1) * .5)); this.ki = this.maxKi;
+    this.dmgMul = (1 + (ng - 1) * .6) * (1 + (tier - 1) * .55);
     this.poiseDmg = 0; this.poiseT = 0; this.kiT = 0;
     this.state = s.idle === 'sleep' ? 'sleep' : s.patrol ? 'patrol' : 'idle';
     this.st = 0; this.atk = null; this.step = null;
@@ -447,7 +505,7 @@ export class Enemy {
     this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0;
     this.hitList = null; this.alertT = 0; this.stuck = 0;
     this.cd = {};
-    this.mat.transparent = false; this.mat.opacity = 1; this.mat.emissive.setHex(0xffffff); this.mat.emissiveIntensity = .08;
+    this.mat.transparent = false; this.mat.opacity = 1; this.mat.emissive.setHex(0xffffff); this.mat.emissiveIntensity = this.G.level?.enemyGlow ?? .08;
     this.outer.rotation.y = this.yaw;
     this.lean.rotation.set(0, 0, 0); this.lean.position.y = .45 * this.height;
     this.fadeT = 0; this.grappleK = 0; this.hop = null; this.plan = null;
@@ -488,7 +546,7 @@ export class Enemy {
   // ------------------------------------------------ taking damage
   // hit: {dmg, ki, poise, dir: yaw from attacker, heavy, crit}
   takeHit(hit) {
-    if (!this.alive || this.state === 'intro') return null;
+    if (!this.alive || this.state === 'intro' || this.burrowed) return null;
     const G = this.G;
     let dmg = hit.dmg;
     this.hp -= dmg;
@@ -567,6 +625,8 @@ export class Enemy {
 
   endAttack() {
     if (this.atk) this.G.attackTokens = Math.max(0, (this.G.attackTokens || 0) - 1);
+    if (this.step?.blink && this.state !== 'dead') { this.mat.opacity = 1; this.mat.transparent = false; }
+    this.burrowed = false;
     this.atk = null; this.step = null; this.phase = null; this.burstGlow = 0;
   }
 
@@ -581,6 +641,7 @@ export class Enemy {
       if (a.once && this.phase2) return true;
       if ((this.cd[a.name] || 0) > G.time) return false;
       if (a.cond === 'behind' && !behind) return false;
+      if (a.cond === 'close' && d > 3.8) return false;
       if (a.cond === 'alliesHurt' && !G.enemies.some(o => o !== this && o.alive && o.aware && o.hp < o.maxHp * .7 && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 9)) return false;
       return d <= a.range && d >= a.minRange;
     });
@@ -610,11 +671,11 @@ export class Enemy {
       G.audio.sfx('burstWarn', { x: this.pos.x, z: this.pos.z });
       G.fx.flash(head, 0xff2020, 2.8 * Math.max(1, this.size * .7), .6, true);
       G.hud?.burstWarn();
-    } else if (this.stepI === 0 && !s.proj && !s.heal && s.anim !== 'roar') {
+    } else if (this.stepI === 0 && !s.proj && !s.heal && !s.blink && s.anim !== 'roar') {
       G.fx.flash(head.add(new THREE.Vector3(Math.sin(this.yaw) * .4, 0, Math.cos(this.yaw) * .4)), 0xfff2c0, 1.2 * Math.max(1, this.size * .6), .35, true);
       G.audio.sfx('glint', { x: this.pos.x, z: this.pos.z, vol: .5 });
     }
-    if (s.anim === 'leap') {
+    if (s.anim === 'leap' || s.burrow) {
       const p = G.player.pos;
       this.leap = { x0: this.pos.x, z0: this.pos.z, x1: p.x, z1: p.z };
     }
@@ -629,9 +690,18 @@ export class Enemy {
     if (this.phase === 'windup') {
       this.faceYaw = toP; this.turnRate = s.anim === 'leap' ? 6 : (this.T.track || 6);
       if (s.burst) G.fx.burstAura(this.pos, 0xff2020, 2, this.height, this.radius);
-      if (s.anim === 'leap') { this.leap.x1 = p.pos.x; this.leap.z1 = p.pos.z; }
+      if (s.anim === 'leap' || s.burrow) { this.leap.x1 = p.pos.x; this.leap.z1 = p.pos.z; }
+      if (s.blink) { this.mat.transparent = true; this.mat.opacity = 1 - clamp(this.pt / D.windup, 0, 1) * .95; }
+      if (s.burrow && Math.random() < dt * 30) G.fx.dust(this.pos, 1);
       if (this.pt >= D.windup) {
         this.phase = 'active'; this.pt = 0;
+        if (s.blink) this.blinkAway();
+        if (s.burrow) {
+          // Underground: untouchable, a furrow of dust racing to where the knight stood.
+          this.burrowed = true; this.leap.x0 = this.pos.x; this.leap.z0 = this.pos.z;
+          G.fx.telegraph({ x: this.leap.x1, z: this.leap.z1 }, s.aoe, D.active, 0xc8a060);
+          G.audio.sfx('slam', { x: this.pos.x, z: this.pos.z, vol: .4 });
+        }
         const want = s.lunge ? Math.min(s.lunge, Math.max(0, d - (s.reach * .55 + p.radius))) : 0;
         this.lungeTotal = s.anim === 'thrust' && s.lunge > 3 ? s.lunge : want;   // charges commit to their full length
         this.lungeDone = 0;
@@ -650,31 +720,37 @@ export class Enemy {
           // A rallying howl wakes every ratman in earshot.
           G.fx.ring(this.pos, 0xffd070, 6, .6);
           for (const o of G.enemies) if (o !== this && o.alive && !o.aware && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 20) o.alert(rand(.1, .5));
-        } else if (s.anim !== 'roar' && s.anim !== 'leap') {
+        } else if (s.anim !== 'roar' && s.anim !== 'leap' && !s.blink && !s.burrow) {
           G.audio.sfx('enemySwing', { x: this.pos.x, z: this.pos.z, vol: Math.min(1.5, this.size) });
         }
-        if (s.anim === 'roar' && !s.howl) this.doRoar();
+        if (s.anim === 'roar' && !s.howl && this.atk.once) this.doRoar();
       }
     } else if (this.phase === 'active') {
       const ad = D.active;
-      if (s.anim === 'leap') {
+      if (s.anim === 'leap' || s.burrow) {
         const k = clamp(this.pt / ad, 0, 1), L = this.leap;
         this.pos.x = lerp(L.x0, L.x1, smooth(k)); this.pos.z = lerp(L.z0, L.z1, smooth(k));
+        if (s.burrow && Math.random() < dt * 40) G.fx.dust(this.pos, 1);
       } else this.advanceLunge(ad, d, s, p);
       this.faceYaw = toP; this.turnRate = s.anim === 'thrust' && s.lunge > 3 ? 1.2 : .8;
-      const hitAt = s.aoeAt ? ad * .5 : s.anim === 'leap' ? ad * .98 : 0;
-      if (!this.hitDone && this.pt >= hitAt && !s.proj && !s.heal && s.anim !== 'roar') this.tryHit(s);
+      const hitAt = s.aoeAt ? ad * .5 : s.anim === 'leap' || s.burrow ? ad * .98 : 0;
+      const hits = !s.proj && !s.heal && !s.blink && s.anim !== 'roar';
+      if (s.burrow && this.burrowed && this.pt >= hitAt) { this.burrowed = false; G.fx.dust(this.pos, 20); }
+      if (!this.hitDone && this.pt >= hitAt && hits) this.tryHit(s);
       if (this.pt >= ad) {
         this.phase = 'recover'; this.pt = 0; this.burstGlow = 0;
-        if (!this.hitDone && !s.proj && !s.heal && s.anim !== 'roar') this.tryHit(s);
+        if (!this.hitDone && hits) this.tryHit(s);
+        this.burrowed = false;
       }
     } else if (this.phase === 'recover') {
+      if (s.blink) this.mat.opacity = .05 + clamp(this.pt / D.recover, 0, 1) * .95;
       this.advanceLunge(D.active, d, s, p, D.active + this.pt);
       if (this.pt >= D.recover) {
         this.stepI++;
         if (this.stepI < this.atk.steps.length) this.beginStep();
         else {
           this.endAttack();
+          if (s.blink) { this.mat.opacity = 1; this.mat.transparent = false; }
           this.state = 'engage'; this.st = 0;
           this.think = rand(.35, 1.1) * (1.4 - (this.T.aggro || .7));
         }
@@ -703,6 +779,7 @@ export class Enemy {
       G.fx.dust({ x: c.x, z: c.z }, 16);
       G.audio.sfx('slam', { x: c.x, z: c.z, vol: Math.min(1.4, this.size * .7) });
       if (s.fire) G.projectiles.hazard(c.x, c.z, s.fire, 3.5, 30, 'fire');
+      if (s.pool) { G.projectiles.hazard(c.x, c.z, s.pool, 5, 45); G.fx.ring({ x: c.x, z: c.z }, 0x8fe040, s.aoe, .5); }
       G.cam.shake(s.shake || .3, c);
       const d = Math.hypot(p.pos.x - c.x, p.pos.z - c.z);
       if (d <= s.aoe + p.radius) { this.hitDone = true; this.deliver(s, c); return; }
@@ -727,6 +804,26 @@ export class Enemy {
     });
     this.hitDone = true;
     return res;
+  }
+
+  // Vanish and reappear 7–11 m from the knight, somewhere open, in the same area and in sight.
+  blinkAway() {
+    const G = this.G, p = G.player, W = G.world, here = W.areaAt(this.pos.x, this.pos.z);
+    G.fx.motes({ x: this.pos.x, y: this.height * .5, z: this.pos.z }, 0xc9b4ff, 26, this.radius + .3, 2.5, .12, .7);
+    G.fx.ring(this.pos, 0xc9b4ff, 2, .3);
+    for (let i = 0; i < 20; i++) {
+      const a = rand(0, TAU), r = rand(7, 11), q = { x: p.pos.x + Math.sin(a) * r, z: p.pos.z + Math.cos(a) * r };
+      if (W.areaAt(q.x, q.z) !== here) continue;
+      const tx = q.x, tz = q.z;
+      W.collide(q, this.radius + .4);
+      if (Math.hypot(q.x - tx, q.z - tz) > .05 || !W.los(p.pos, q, 1.2)) continue;
+      if (G.projectiles.hazards.some(h => Math.hypot(h.x - q.x, h.z - q.z) < h.r + 1)) continue;
+      this.pos.x = q.x; this.pos.z = q.z; this.yaw = yawTo(q.x, q.z, p.pos.x, p.pos.z);
+      this.vel.set(0, 0, 0); this.impulse.set(0, 0, 0);
+      break;
+    }
+    G.fx.ring(this.pos, 0xc9b4ff, 2, .3);
+    G.audio.sfx('magic', { x: this.pos.x, z: this.pos.z });
   }
 
   doRoar() {
@@ -980,6 +1077,8 @@ export class Enemy {
             break;
           case 'roar':
             tg.pitch = -.45 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.4; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08; break;
+          case 'burrow':
+            tg.pitch = this.phase === 'recover' ? -.4 * (1 - r) : .6 * w; tg.aL = tg.aR = this.phase === 'recover' ? -1.4 * (1 - r) : -1.2 * w; tg.sq = this.phase === 'recover' ? 1 + .15 * (1 - r) : 1 - .2 * w; break;
         }
         break;
       }
@@ -1007,6 +1106,13 @@ export class Enemy {
       v[key] = (vel + hoo * (tg[key] - x)) * inv;
     }
     if (this.state === 'attack' && s?.anim === 'leap' && this.phase === 'active') c.hop = Math.sin(clamp(this.pt / this.stepDur.active, 0, 1) * Math.PI) * 4;
+    if (this.state === 'attack' && s?.burrow) {
+      // Sink through the floor, travel unseen, burst back up.
+      const H = this.height * 1.25, D = this.stepDur;
+      c.hop = this.phase === 'windup' ? -H * smooth(clamp(this.pt / D.windup, 0, 1)) : this.phase === 'active' ? -H
+        : -H * Math.max(0, 1 - this.pt / (D.recover * .3)) + Math.sin(clamp(this.pt / (D.recover * .5), 0, 1) * Math.PI) * .4;
+      v.hop = 0;
+    }
 
     this.outer.rotation.y = this.yaw;
     this.lean.rotation.set(c.pitch, c.twist + c.spin, c.roll);
@@ -1022,6 +1128,6 @@ export class Enemy {
     const burst = this.burstGlow > 0 ? .7 + Math.sin(t * 30) * .3 : 0;
     if (burst > 0) { this.mat.emissive.setRGB(1, .12, .08); this.mat.emissiveIntensity = .5 + burst * .6; }
     else if (this.state === 'broken') { this.mat.emissive.setRGB(1, .85, .4); this.mat.emissiveIntensity = .15 + Math.sin(t * 8) * .08; }
-    else { this.mat.emissive.setRGB(1, 1, 1); this.mat.emissiveIntensity = .08 + this.flash * 1.4; }
+    else { this.mat.emissive.setRGB(1, 1, 1); this.mat.emissiveIntensity = (this.G.level?.enemyGlow ?? .08) + this.flash * 1.4; }
   }
 }
