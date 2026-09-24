@@ -15,7 +15,7 @@ export class HUD {
         <div class="bar ki"><i class="pool"></i><i class="fill"></i></div>
         <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
         <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
-        <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="pbuild"><i></i></span></div>
+        <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="pbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
@@ -35,7 +35,7 @@ export class HUD {
       hpBar: $('.bar.hp', el), hp: $('.bar.hp .fill', el), hpTrail: $('.bar.hp .trail', el),
       kiBar: $('.bar.ki', el), ki: $('.bar.ki .fill', el), pool: $('.bar.ki .pool', el),
       anima: $('.bar.anima .fill', el), animaBar: $('.bar.anima', el),
-      poison: $('.poison', el), pbuild: $('.pbuild', el), pbuildI: $('.pbuild i', el),
+      poison: $('.poison', el), snared: $('.snared', el), burning: $('.burning', el), pbuild: $('.pbuild', el), pbuildI: $('.pbuild i', el),
       flask: $('.elixir', el), flaskN: $('.elixir b', el), flaskKey: $('.elixir .key', el),
       glimmer: $('.glimmer b', el), gain: $('.glimmer .gain', el),
       lock: $('.lock', el), ebars: $('.ebars', el),
@@ -169,6 +169,8 @@ export class HUD {
     q.animaBar.classList.toggle('full', p.anima >= 100 && !p.shifted);
     q.animaBar.classList.toggle('shift', p.shifted);
     q.poison.hidden = !(p.poisoned > 0);
+    q.snared.hidden = !(p.snared > 0);
+    q.burning.hidden = !(this.G.time - (p.burnedT ?? -9) < .6);
     q.pbuild.style.display = p.poison > 1 && !(p.poisoned > 0) ? '' : 'none';
     q.pbuildI.style.transform = `scaleX(${p.poison / 100})`;
     q.flaskN.textContent = p.elixirs;

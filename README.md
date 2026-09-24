@@ -1,7 +1,8 @@
 # PixieLords
 
 A fast, stance-based action game in the browser, inspired by the Nioh series and Onimusha. You play a fae
-knight cutting a path through a ruined keep held by goblins and ratmen, up to the warlord on its throne.
+knight on a run of missions through goblin and ratman country: a ruined keep, then a burning forest, each
+ending with a warlord.
 
 ## Play
 
@@ -13,7 +14,7 @@ python3 -m http.server
 ```
 
 Keyboard and mouse or a gamepad. Click the game to capture the mouse. Progress saves to the browser
-every time you rest at a Moonwell or vanquish a warlord.
+every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 
 | Action | Keyboard + mouse | Gamepad |
 |--------|------------------|---------|
@@ -51,26 +52,44 @@ every time you rest at a Moonwell or vanquish a warlord.
   hits drain Faelight instead of health.
 - **Moonwells** heal you, refill Moondew and bring every foe back. Spend Glimmer there to level up, or
   travel between awakened Moonwells. Fall and your Glimmer stays with your **Echo** where you fell.
-- **The keep:** the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the portcullis), the
-  Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Beat him to unlock New Game+.
+- **Snares and fire.** Goblin Trappers hurl bolas: while snared you move slowly and can't sprint, so
+  dash to shake them loose. Firebombs and Grimtusk's blows leave burning ground that hurts every
+  half-second.
+
+## Missions
+
+Clear a mission to open the next on the map at the Fae Crossroads. From any Moonwell, "Journey elsewhere…"
+returns you to the map. Each mission keeps its own Moonwells, fallen warlords and items. Level, Glimmer
+and Moondew carry over.
+
+1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
+   portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren.
+2. **The Rotwood Hollow** (level 12+): a winding cliff trail, the goblin village of Grubnest (Brakka the
+   Skullsplitter holds its palisade gate), the Rotting Glade with its poison pools and ratman pack, then
+   the Pyre of Grimtusk, Warlord of the Pyre. New foes: Goblin Hexers, whose chant heals nearby allies;
+   Goblin Trappers; and the Ratman Packleader, whose howl wakes the glade. Clear it to unlock New Game+.
+
+Missions are data. Each file in `src/levels/` describes one: its areas, fog and light, Moonwells, foes,
+items, gate, seal and exit, plus a `build()` that dresses the world with the engine's builders.
 
 ## Code
 
 ```
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
-src/main.js       boot, game loop, Moonwells, souls and the Echo, the boss fight, saving
+src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, the boss fight, saving
 src/player.js     the knight's controller: stances, chains, dash and Moonstep, Deflect and Flashcut, Resonance, Fae Shift
 src/knight.js     the knight's model, built from primitives, with pose blending and two-bone IK for the sword arm
 src/enemies.js    enemy stats and attack chains, AI, procedural animation on the five-bone rigs, projectiles
-src/world.js      level layout, collision, Moonwells, wisp lanterns, portcullis and Briar Seal, wall cutout shader
+src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires), Moonwells, gates, Briar Seal, wall cutout shader
+src/levels/       one file per mission (keep.js, rotwood.js); index.js sets the unlock order
 src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
-src/menu.js       title, pause, Moonwell, controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, mission map, controls, settings and ending screens
 src/save.js       localStorage save and settings
-src/textures.js   procedural stone, brick, moss and sky textures
+src/textures.js   procedural stone, brick, moss, forest floor, rock, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js
 ```
 

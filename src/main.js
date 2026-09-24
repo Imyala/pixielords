@@ -604,7 +604,8 @@ function step(dt, rdt) {
   G.audio.listener = { x: p.pos.x, z: p.pos.z, yaw: G.cam.yaw };
   moon.position.set(p.pos.x - 18, 40, p.pos.z + 30); moon.target.position.set(p.pos.x, 0, p.pos.z);
   const fg = G.world.fogGate;
-  fg.viewFade = damp(fg.viewFade, G.bossFight && G.world.sealSide(camera.position.x, camera.position.z) < .2 ? .12 : 1, 6, rdt);
+  const camSide = G.world.sealSide(camera.position.x, camera.position.z);
+  fg.viewFade = damp(fg.viewFade, (G.bossFight && camSide < .2) || Math.abs(camSide) < 2.2 ? .12 : 1, 6, rdt);   // never smother the camera
   updateCutout(p);
   G.hud.update(rdt);
 }

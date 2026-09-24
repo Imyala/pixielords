@@ -140,6 +140,68 @@ export const TYPES = {
   },
 };
 
+
+// ---- The Rotwood Hollow
+Object.assign(TYPES, {
+  'goblin-shaman': {
+    name: 'Goblin Hexer', scale: .82, radius: .38, hp: 110, ki: 60, poise: 8, walk: 1.5, run: 3.8, glimmer: 110, voice: 'growl', pitch: 1.7, style: 'ranged', prefer: [7, 13],
+    attacks: [
+      A('Hex Orbs', 15, [S('cast', 1.0, .15, .8, 28, { proj: { kind: 'orb', count: 2, speed: 7 } })], { minRange: 3 }),
+      A('Mending Chant', 20, [S('cast', 1.3, .2, .8, 0, { heal: .3 })], { cd: 9, w: 1.5, cond: 'alliesHurt' }),
+      A('Staff Swipe', 2, [S('swing', .5, .12, .6, 24, { reach: 2, lunge: .6 })]),
+    ],
+  },
+  'goblin-trapper': {
+    name: 'Goblin Trapper', scale: .82, radius: .4, hp: 120, ki: 70, poise: 10, walk: 1.6, run: 4.2, glimmer: 90, voice: 'growl', pitch: 1.4, style: 'ranged', prefer: [5, 11],
+    attacks: [
+      A('Bola', 13, [S('throw', .8, .1, .6, 16, { proj: { kind: 'snare', speed: 14 } })], { minRange: 3, cd: 6 }),
+      A('Gutting Knife', 2, [S('thrust', .42, .12, .55, 30, { reach: 2, arc: 70, lunge: 1 })]),
+    ],
+  },
+  'ratman-packleader': {
+    name: 'Ratman Packleader', scale: .92, radius: .5, hp: 380, ki: 200, poise: 36, walk: 1.8, run: 5, glimmer: 300, voice: 'squeal', pitch: .8, track: 4.5, aggro: .85,
+    attacks: [
+      A('Pack Rend', 2.4, [S('swing', .45, .12, .12, 44, { reach: 2.5, lunge: 1 }), S('backswing', .28, .12, .7, 44, { reach: 2.5, lunge: 1 })]),
+      A('Rallying Howl', 12, [S('roar', 1.1, .5, .5, 0, { hyper: true, howl: true })], { cd: 14, w: .6 }),
+      A('Throat Lunge', 6.5, [S('thrust', .75, .2, .9, 72, { reach: 2.3, arc: 60, lunge: 5.5, burst: true, hyper: true })], { minRange: 3, cd: 6 }),
+    ],
+  },
+  brakka: {
+    model: 'goblin-berserker', name: 'Brakka the Skullsplitter', scale: 1.35, radius: .8, hp: 900, ki: 260, poise: 50, walk: 1.8, run: 4.8, glimmer: 1800, voice: 'growl', pitch: .75, elite: true, track: 4, aggro: .95,
+    attacks: [
+      A('Frenzy', 3, [S('swing', .45, .12, .08, 48, { reach: 3, lunge: 1 }), S('backswing', .22, .12, .08, 48, { reach: 3, lunge: 1 }), S('overhead', .38, .14, .9, 66, { reach: 3, arc: 60, lunge: 1, aoe: 1.4, shake: .4 })]),
+      A('Skull Whirl', 3.2, [S('spin', .7, .45, .9, 62, { reach: 3.3, arc: 360 })], { cd: 5, w: .8 }),
+      A('Mad Leap', 8, [S('leap', .7, .7, 1, 96, { reach: 0, aoe: 3, burst: true, hyper: true, shake: .9 })], { minRange: 4, cd: 7, w: .9 }),
+      A('Headbutt', 2.6, [S('thrust', .5, .14, .7, 58, { reach: 2.7, arc: 70, lunge: 1.4 })], { w: .7 }),
+    ],
+  },
+  grimtusk: {
+    model: 'goblin-commander', name: 'Grimtusk, Warlord of the Pyre', scale: 1.8, radius: .85, hp: 3000, ki: 420, poise: 80, walk: 2, run: 5.4, glimmer: 9000, voice: 'growl', pitch: .5, boss: true, track: 3.4, aggro: .9,
+    roarHazard: 'fire',
+    attacks: [
+      A('Warlord Cleave', 3.9, [S('swing', .7, .16, .85, 92, { reach: 4, arc: 150, lunge: 1.6 })]),
+      A('Shield Rush', 5, [S('thrust', .6, .2, .8, 72, { reach: 2.8, arc: 80, lunge: 4.5 })], { minRange: 2.5, w: .8 }),
+      A('Command Chain', 3.9, [
+        S('swing', .55, .14, .1, 66, { reach: 3.9, arc: 140, lunge: 1.2 }),
+        S('backswing', .34, .14, .1, 66, { reach: 3.9, arc: 140, lunge: 1.2 }),
+        S('overhead', .5, .18, 1.1, 96, { reach: 3.7, arc: 60, lunge: 1.5, aoe: 1.8, shake: .6 }),
+      ], { w: .9 }),
+      A('Firebomb Volley', 16, [S('throw', .9, .15, .9, 52, { proj: { kind: 'bomb', flight: 1.1, count: 3, fire: 1.5 } })], { minRange: 6, cd: 7, w: .9 }),
+      A('Pyre Charge', 12, [S('thrust', .9, .35, 1.1, 125, { reach: 3.2, arc: 80, lunge: 9, burst: true, hyper: true })], { minRange: 5, cd: 6, w: .8 }),
+      A('Skull Splitter', 14, [S('leap', .75, .85, 1.2, 135, { reach: 0, aoe: 3.8, burst: true, hyper: true, shake: 1.1, fire: 2.4 })], { minRange: 6, cd: 9, w: .7 }),
+    ],
+    phase2: [
+      A('Warcry', 30, [S('roar', 1.3, .6, .6, 0, { hyper: true })], { once: true }),
+      A('Inferno Chain', 3.9, [
+        S('swing', .42, .12, .08, 64, { reach: 3.9, arc: 140, lunge: 1.2 }),
+        S('backswing', .3, .12, .08, 64, { reach: 3.9, arc: 140, lunge: 1.2 }),
+        S('swing', .3, .12, .1, 64, { reach: 3.9, arc: 140, lunge: 1.2 }),
+        S('overhead', .7, .18, 1.2, 115, { reach: 3.7, arc: 60, lunge: 2, aoe: 2, burst: true, hyper: true, shake: .8, fire: 2.2 }),
+      ], { w: 1 }),
+    ],
+  },
+});
+
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 
 // ---------------------------------------------------------------- projectiles & hazards
@@ -154,12 +216,14 @@ export class Projectiles {
       stone: new M.IcosahedronGeometry(.1, 0),
       bomb: new M.SphereGeometry(.16, 10, 8),
       vial: new M.CapsuleGeometry(.06, .1, 4, 8),
+      snare: new M.TorusGeometry(.2, .03, 5, 12),
     };
     this.mat = {
       arrow: new M.MeshStandardMaterial({ color: 0x6b5238, roughness: .8 }),
       stone: new M.MeshStandardMaterial({ color: 0x77736c, roughness: 1 }),
       bomb: new M.MeshStandardMaterial({ color: 0x1c1c1c, roughness: .5, metalness: .3 }),
       vial: new M.MeshStandardMaterial({ color: 0x8fe040, emissive: 0x4a8a10, emissiveIntensity: 1.2, transparent: true, opacity: .9 }),
+      snare: new M.MeshStandardMaterial({ color: 0x8a6a3c, roughness: .9 }),
     };
   }
 
@@ -180,21 +244,26 @@ export class Projectiles {
       this.list.push(pr);
       return pr;
     };
-    if (kind === 'arrow' || kind === 'stone') {
+    if (kind === 'arrow' || kind === 'stone' || kind === 'snare') {
       // Lead the target a little.
       const tflight = origin.distanceTo(aim) / step.proj.speed;
       aim.x += p.vel.x * tflight * .6; aim.z += p.vel.z * tflight * .6;
       const v = aim.clone().sub(origin).normalize().multiplyScalar(step.proj.speed);
-      if (kind === 'stone') v.y += 9.8 * .5 * tflight * .5;
-      make(kind, v, { gravity: kind === 'stone' ? 4.9 : 0 });
+      if (kind !== 'arrow') v.y += 9.8 * .5 * tflight * .5;
+      make(kind, v, { gravity: kind === 'arrow' ? 0 : 4.9, snare: kind === 'snare' ? 2.2 : 0 });
       G.audio.sfx(kind === 'arrow' ? 'arrow' : 'throw', { x: from.x, z: from.z });
     } else if (kind === 'bomb' || kind === 'vial') {
-      const T = step.proj.flight;
-      const tx = p.pos.x + p.vel.x * T * .5, tz = p.pos.z + p.vel.z * T * .5;
-      const v = new THREE.Vector3((tx - origin.x) / T, 0, (tz - origin.z) / T);
-      v.y = (0 - origin.y + .5 * 9.8 * T * T) / T;
-      const pr = make(kind, v, { gravity: 9.8, target: { x: tx, z: tz } });
-      pr.warn = fx.telegraph({ x: tx, z: tz }, kind === 'bomb' ? 2.4 : 2, T, kind === 'bomb' ? 0xff5020 : 0x8fe040);
+      // A volley scatters extra bombs around the first, cutting off the easy dodge.
+      const T = step.proj.flight, n = step.proj.count || 1;
+      const cx = p.pos.x + p.vel.x * T * .5, cz = p.pos.z + p.vel.z * T * .5;
+      for (let i = 0; i < n; i++) {
+        const a = e.yaw + Math.PI / 2 + (i - 1) * 2.1 + rand(-.3, .3), r = i ? rand(2.6, 3.6) : 0;
+        const tx = cx + Math.sin(a) * r, tz = cz + Math.cos(a) * r, Ti = T * (1 + i * .12);
+        const v = new THREE.Vector3((tx - origin.x) / Ti, 0, (tz - origin.z) / Ti);
+        v.y = (0 - origin.y + .5 * 9.8 * Ti * Ti) / Ti;
+        const pr = make(kind, v, { gravity: 9.8, target: { x: tx, z: tz }, fire: step.proj.fire || 0 });
+        pr.warn = fx.telegraph({ x: tx, z: tz }, kind === 'bomb' ? 2.4 : 2, Ti, kind === 'bomb' ? 0xff5020 : 0x8fe040);
+      }
       G.audio.sfx('throw', { x: from.x, z: from.z });
     } else if (kind === 'orb') {
       const n = step.proj.count || 1;
@@ -229,6 +298,7 @@ export class Projectiles {
       const wall = G.world.raycast(o.position, _v, step);
       o.position.addScaledVector(pr.vel, Math.min(1, wall / Math.max(step, 1e-6)) * dt);
       if (pr.kind === 'arrow') o.lookAt(o.position.x + pr.vel.x, o.position.y + pr.vel.y, o.position.z + pr.vel.z);
+      else if (pr.kind === 'snare') o.rotation.y += dt * 22;
       else if (pr.kind !== 'orb') { o.rotation.x += dt * 8; o.rotation.z += dt * 5; }
       if (pr.kind === 'orb') fx.motes(o.position, 0xb060ff, 1, .1, .2, .12, .5);
       if (pr.kind === 'arrow' || pr.kind === 'stone') fx.add.emit({ x: o.position.x, y: o.position.y, z: o.position.z, life: .22, size: pr.kind === 'arrow' ? .09 : .12, color: fx.col(0xffe6b0), alpha: .8 });
@@ -243,6 +313,7 @@ export class Projectiles {
             fx.explosion(o.position, 2.4); G.audio.sfx('explode', { x: o.position.x, z: o.position.z }); G.cam.shake(.35, o.position);
             const d = Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z);
             if (d < 2.4 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true });
+            if (pr.fire) this.hazard(o.position.x, o.position.z, pr.fire, 3, 30, 'fire');
           } else {
             this.hazard(o.position.x, o.position.z, 2.1, 5);
             fx.ring(o.position, 0x8fe040, 2.1, .4);
@@ -251,7 +322,7 @@ export class Projectiles {
       } else if (p.alive) {
         const dx = p.pos.x - o.position.x, dz = p.pos.z - o.position.z;
         if (Math.hypot(dx, dz) < p.radius + pr.radius && o.position.y > 0 && o.position.y < 2) {
-          const res = p.receiveHit({ dmg: pr.dmg, from: pr.from, projectile: true, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z) });
+          const res = p.receiveHit({ dmg: pr.dmg, from: pr.from, projectile: true, snare: pr.snare, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z) });
           if (res !== 'miss') dead = true;
         }
       }
@@ -484,6 +555,7 @@ export class Enemy {
       if (a.once && this.phase2) return true;
       if ((this.cd[a.name] || 0) > G.time) return false;
       if (a.cond === 'behind' && !behind) return false;
+      if (a.cond === 'alliesHurt' && !G.enemies.some(o => o !== this && o.alive && o.aware && o.hp < o.maxHp * .7 && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 9)) return false;
       return d <= a.range && d >= a.minRange;
     });
     if (!ok.length) return null;
@@ -512,7 +584,7 @@ export class Enemy {
       G.audio.sfx('burstWarn', { x: this.pos.x, z: this.pos.z });
       G.fx.flash(head, 0xff2020, 2.8 * Math.max(1, this.size * .7), .6, true);
       G.hud?.burstWarn();
-    } else if (this.stepI === 0 && !s.proj && s.anim !== 'roar') {
+    } else if (this.stepI === 0 && !s.proj && !s.heal && s.anim !== 'roar') {
       G.fx.flash(head.add(new THREE.Vector3(Math.sin(this.yaw) * .4, 0, Math.cos(this.yaw) * .4)), 0xfff2c0, 1.2 * Math.max(1, this.size * .6), .35, true);
       G.audio.sfx('glint', { x: this.pos.x, z: this.pos.z, vol: .5 });
     }
@@ -540,10 +612,22 @@ export class Enemy {
         if (s.proj) {
           const hand = new THREE.Vector3(this.pos.x + Math.sin(this.yaw) * .5, this.height * .7, this.pos.z + Math.cos(this.yaw) * .5);
           G.projectiles.spawn(s.proj.kind, hand, this, s);
+        } else if (s.heal) {
+          // Mending chant: allies nearby knit their wounds.
+          for (const o of G.enemies) {
+            if (!o.alive || Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) > 9) continue;
+            o.hp = Math.min(o.maxHp, o.hp + o.maxHp * s.heal); o.barT = 4;
+            G.fx.ring(o.pos, 0x7dff8a, 1.6, .5); G.fx.motes({ x: o.pos.x, y: .4, z: o.pos.z }, 0x7dff8a, 10, .4, 2, .1, .9);
+          }
+          G.audio.sfx('heal', { x: this.pos.x, z: this.pos.z });
+        } else if (s.howl) {
+          // A rallying howl wakes every ratman in earshot.
+          G.fx.ring(this.pos, 0xffd070, 6, .6);
+          for (const o of G.enemies) if (o !== this && o.alive && !o.aware && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 20) o.alert(rand(.1, .5));
         } else if (s.anim !== 'roar' && s.anim !== 'leap') {
           G.audio.sfx('enemySwing', { x: this.pos.x, z: this.pos.z, vol: Math.min(1.5, this.size) });
         }
-        if (s.anim === 'roar') this.doRoar();
+        if (s.anim === 'roar' && !s.howl) this.doRoar();
       }
     } else if (this.phase === 'active') {
       const ad = D.active;
@@ -553,10 +637,10 @@ export class Enemy {
       } else this.advanceLunge(ad, d, s, p);
       this.faceYaw = toP; this.turnRate = s.anim === 'thrust' && s.lunge > 3 ? 1.2 : .8;
       const hitAt = s.aoeAt ? ad * .5 : s.anim === 'leap' ? ad * .98 : 0;
-      if (!this.hitDone && this.pt >= hitAt && !s.proj && s.anim !== 'roar') this.tryHit(s);
+      if (!this.hitDone && this.pt >= hitAt && !s.proj && !s.heal && s.anim !== 'roar') this.tryHit(s);
       if (this.pt >= ad) {
         this.phase = 'recover'; this.pt = 0; this.burstGlow = 0;
-        if (!this.hitDone && !s.proj && s.anim !== 'roar') this.tryHit(s);
+        if (!this.hitDone && !s.proj && !s.heal && s.anim !== 'roar') this.tryHit(s);
       }
     } else if (this.phase === 'recover') {
       this.advanceLunge(D.active, d, s, p, D.active + this.pt);
@@ -592,6 +676,7 @@ export class Enemy {
       G.fx.ring({ x: c.x, z: c.z }, s.burst ? 0xff5030 : 0xfff0d0, s.aoe * 1.2, .35);
       G.fx.dust({ x: c.x, z: c.z }, 16);
       G.audio.sfx('slam', { x: c.x, z: c.z, vol: Math.min(1.4, this.size * .7) });
+      if (s.fire) G.projectiles.hazard(c.x, c.z, s.fire, 3.5, 30, 'fire');
       G.cam.shake(s.shake || .3, c);
       const d = Math.hypot(p.pos.x - c.x, p.pos.z - c.z);
       if (d <= s.aoe + p.radius) { this.hitDone = true; this.deliver(s, c); return; }
@@ -623,7 +708,8 @@ export class Enemy {
     this.usedOnce[this.atk.name] = true;
     G.cam.shake(.7, this.pos);
     G.fx.ring(this.pos, 0x8fe040, 7, .8);
-    G.projectiles.hazard(this.pos.x, this.pos.z, 5, 6, 40);
+    if (this.T.roarHazard === 'fire') { G.projectiles.hazard(this.pos.x, this.pos.z, 4.5, 4.5, 30, 'fire'); G.fx.ring(this.pos, 0xff6a2a, 7, .8); }
+    else G.projectiles.hazard(this.pos.x, this.pos.z, 5, 6, 40);
     G.onBossPhase2?.(this);
   }
 

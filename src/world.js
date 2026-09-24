@@ -335,6 +335,120 @@ export class World {
     if (collide) this.prop(this.addCyl(x, z, .4, h));
   }
 
+  // ---- forest builders (need level.forest for their materials)
+  // A broad tree: crooked trunk and a crown of faceted leaf clumps.
+  tree(x, z, h, seed, collide = true) {
+    const r = rng(seed * 7 + 1), lean = (r() - .5) * .25, ry = r() * 6.28;
+    const trunk = new THREE.CylinderGeometry(.18 + h * .02, .32 + h * .035, h, 7);
+    trunk.translate(0, h / 2, 0); trunk.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(lean, ry, 0, 'YXZ')));
+    trunk.translate(x, 0, z); this.batch('bark', trunk);
+    const top = { x: x + Math.sin(ry) * Math.sin(lean) * h, z: z + Math.cos(ry) * Math.sin(lean) * h };
+    const n = 3 + Math.floor(r() * 3);
+    for (let i = 0; i < n; i++) {
+      const cr = h * (.22 + r() * .14), a = r() * 6.28, d = i ? h * (.12 + r() * .16) : 0;
+      const c = this.rock(cr, seed * 13 + i, .18);
+      c.scale(1, .75, 1); c.translate(top.x + Math.sin(a) * d, h * (.85 + r() * .25) - (i ? cr * .3 : 0), top.z + Math.cos(a) * d);
+      this.batch('leaves', c);
+    }
+    if (collide) this.prop(this.addCyl(x, z, .35 + h * .03, h));
+  }
+
+  // A dark fir: stacked cones.
+  pine(x, z, h, seed, collide = false) {
+    const r = rng(seed * 5 + 3);
+    const trunk = new THREE.CylinderGeometry(.1, .22, h * .4, 6); trunk.translate(x, h * .2, z); this.batch('bark', trunk);
+    for (let i = 0; i < 3; i++) {
+      const k = 1 - i * .26, c = new THREE.ConeGeometry(h * .23 * k, h * .42, 7);
+      c.rotateY(r() * 6); c.translate(x, h * (.36 + i * .2) + h * .21, z); this.batch('leaves', c);
+    }
+    if (collide) this.prop(this.addCyl(x, z, .4, h));
+  }
+
+  // Lumpy faceted rock geometry; displacement depends only on position so shared corners stay welded.
+  rock(radius, seed, rough = .28) {
+    const g = new THREE.IcosahedronGeometry(radius, 1), p = g.attributes.position, s = seed * 1.7;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 / radius;
+      const f = 1 + rough * (Math.sin(x * k * 3.1 + s) * Math.sin(y * k * 2.7 + s * 2) * Math.sin(z * k * 3.3 + s * 3) + Math.sin((x + z) * k * 5.3 + s) * .35);
+      p.setXYZ(i, x * f, y * f, z * f);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+  boulder(x, z, r, seed, collide = true, mat = 'rock') {
+    const g = this.rock(r, seed); g.scale(1, .72, 1); g.rotateY(seed); g.translate(x, r * .35, z);
+    this.batch(mat, g);
+    if (collide) this.prop(this.addCyl(x, z, r * .85, r * 1.1));
+  }
+
+  // A cliff face: a box collider dressed with tall rock slabs elongated along the line, so it reads as
+  // broken stone rather than masonry. Slabs are thin across the line so they hug the collider.
+  cliff(x0, z0, x1, z1, o = {}) {
+    const h = o.h ?? 7, TH = o.th ?? 1.8;
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx);
+    const r = rng(Math.abs(Math.round(x0 * 131 + z0 * 71 + x1 * 37 + z1 * 17)) + 7);
+    const b = this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + TH / 2, TH / 2, rot, h);
+    const n = Math.max(1, Math.round(L / 2.1));
+    for (let i = 0; i <= n; i++) {
+      const s = i / n * L + (r() - .5) * .6, px = x0 + dx * s / L, pz = z0 + dz * s / L;
+      const rad = 1.5 + r() * .9, hh = h * (.8 + r() * .45);
+      const g = this.rock(rad, Math.floor(r() * 1000), .22);
+      g.scale(1.3, hh * .62 / rad, .55); g.rotateY(rot + (r() - .5) * .3);
+      g.translate(px, hh * .42, pz);
+      this.batch('rock', g);
+    }
+    return b;
+  }
+
+  // A wall of sharpened stakes lashed together.
+  palisade(x0, z0, x1, z1, h = 4.6) {
+    const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), rot = Math.atan2(-dz, dx), r = rng(Math.round(x0 * 31 + z0 * 17));
+    for (let s = .18; s < L; s += .36) {
+      const hh = h * (.9 + r() * .18), px = x0 + dx * s / L, pz = z0 + dz * s / L;
+      const st = new THREE.CylinderGeometry(.16, .19, hh, 6); st.translate(px, hh / 2, pz); this.batch('stake', st);
+      const tip = new THREE.ConeGeometry(.16, .45, 6); tip.translate(px, hh + .22, pz); this.batch('stake', tip);
+    }
+    for (const y of [1.1, h * .7]) {
+      const b = boxGeo(L, .16, .16, 2); b.applyMatrix4(new THREE.Matrix4().makeRotationY(rot).setPosition((x0 + x1) / 2, y, (z0 + z1) / 2)); this.batch('wood', b);
+    }
+    return this.addBox((x0 + x1) / 2, (z0 + z1) / 2, L / 2 + .2, .3, rot, h);
+  }
+
+  // A round goblin hut: stake walls, thatch cone, a dark doorway facing `ry`.
+  hut(x, z, r, ry = 0) {
+    const wh = 2.3;
+    const wall = scaleUV(new THREE.CylinderGeometry(r, r * 1.04, wh, 14, 1, true), r * 2, 1); wall.translate(x, wh / 2, z); this.batch('stake', wall);
+    const roof = scaleUV(new THREE.ConeGeometry(r * 1.38, r * 1.25, 14, 1, true), r * 2, 1.4); roof.translate(x, wh + r * .55, z); this.batch('thatch', roof);
+    const door = boxGeo(1.1, 1.7, .2, 2); door.translate(0, .85, r - .02); door.rotateY(ry); door.translate(x, 0, z);
+    (this.mats.shadowMat ||= new THREE.MeshBasicMaterial({ color: 0x050403 }));
+    this.batch('shadowMat', door);
+    this.addCyl(x, z, r + .1, wh + r);
+  }
+
+  // Campfire: a stone ring and crossed logs under a ground flame.
+  campfire(x, z, size = 1, color = 0xff7a2a) {
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * 6.28, g = this.rock(.22 * size, i + x, .2); g.scale(1, .7, 1); g.translate(x + Math.sin(a) * .75 * size, .08, z + Math.cos(a) * .75 * size);
+      this.batch('stone', g);
+    }
+    for (let i = 0; i < 3; i++) {
+      const lg = new THREE.CylinderGeometry(.08 * size, .09 * size, 1.3 * size, 6); lg.rotateZ(Math.PI / 2 - .25); lg.rotateY(i * 2.1); lg.translate(x, .2 * size, z);
+      this.batch('bark', lg);
+    }
+    this.prop(this.addCyl(x, z, .85 * size, .6));
+    return this.brazier(x, z, color, false, size);
+  }
+
+  // A goblin warning totem: a stake crowned with skulls.
+  totem(x, z, h = 3.2) {
+    const st = new THREE.CylinderGeometry(.1, .14, h, 6); st.translate(x, h / 2, z); this.batch('stake', st);
+    for (let i = 0; i < 3; i++) {
+      const s = new THREE.SphereGeometry(.17 - i * .02, 8, 6); s.scale(1, 1.1, 1.15); s.translate(x + (i ? (i - 1.5) * .22 : 0), h - i * .45, z + .05);
+      this.batch('bone', s);
+    }
+    this.prop(this.addCyl(x, z, .2, h));
+  }
+
   banner(x, z, ry, color = 0x6b1414, y = 4) {
     this.bannerMats ||= {};
     const mat = this.bannerMats[color] ||= new THREE.MeshStandardMaterial({ color, roughness: .9, side: THREE.DoubleSide });
@@ -345,9 +459,9 @@ export class World {
   }
 
   // Flame source: brazier bowl (or a ground fire) + flickering light slot.
-  brazier(x, z, color = 0xff8a3a, tall = true, size = 1) {
+  brazier(x, z, color = 0xff8a3a, tall = true, size = 1, lift = 0) {
     const g = this.group, M = this.mats;
-    const h = tall ? 1.2 : .05;
+    const h = (tall ? 1.2 : .05) + lift;
     if (tall) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(.08, .12, h, 6), M.iron); leg.position.set(x, h / 2, z); leg.castShadow = true; g.add(leg);
       this.prop(this.addCyl(x, z, .35, h + .4));
@@ -477,7 +591,7 @@ export class World {
     const seal = new THREE.Group(); seal.position.set(S.x, 0, S.z); seal.rotation.y = S.yaw;
     const fog = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), fogMat);
     fog.position.y = sh / 2; seal.add(fog);
-    const vineMat = new THREE.MeshStandardMaterial({ color: 0x2a1830, emissive: 0x5a1a6a, emissiveIntensity: .5, roughness: .7 });
+    const vineMat = new THREE.MeshStandardMaterial({ color: 0x2a1830, emissive: 0x5a1a6a, emissiveIntensity: .5, roughness: .7, transparent: true });
     const vines = new THREE.Group(), R = rng(77);
     for (let v = 0; v < 7; v++) {
       const pts = [];
@@ -497,7 +611,7 @@ export class World {
     this.group.add(seal);
     this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(S.x, S.z, sw / 2 + .1, .9, S.yaw, 7)), gone: false, fade: 1, viewFade: 1 };
     this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade * this.fogGate.viewFade; fog.visible = this.fogGate.fade > .01;
-      vines.scale.y = this.fogGate.fade; vines.visible = this.fogGate.fade > .01; });
+      vines.scale.y = this.fogGate.fade; vineMat.opacity = Math.min(1, this.fogGate.viewFade * 1.2 - .1); vines.visible = this.fogGate.fade > .01 && vineMat.opacity > .02; });
     const out = { x: S.x - Math.sin(S.yaw) * 1.8, z: S.z - Math.cos(S.yaw) * 1.8 };
     this.interactables.push({ kind: 'fog', x: out.x, z: out.z, r: 1.7, prompt: 'Part the briars' });
 

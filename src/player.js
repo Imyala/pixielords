@@ -114,7 +114,7 @@ export class Player {
     this.pos.set(x, 0, z); this.yaw = yaw; this.vel.set(0, 0, 0);
     this.hp = this.maxHp; this.ki = this.maxKi; this.anima = this.anima ?? 0;
     this.state = 'free'; this.st = 0; this.alive = true;
-    this.poison = 0; this.poisoned = 0;
+    this.poison = 0; this.poisoned = 0; this.snared = 0;
     this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.chain = 0;
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
     this.exhaustPending = false; this.kiSpentT = -9; this.guardPressT = -9;
@@ -172,7 +172,7 @@ export class Player {
   burn(dmg) {
     const G = this.G;
     if (this.shifted) { this.anima -= dmg * .5; if (this.anima <= 0) this.endShift(); return; }
-    this.hp -= dmg;
+    this.hp -= dmg; this.burnedT = G.time;
     G.hud.screenFlash('hurt'); G.audio.sfx('playerHurt', { vol: .35 });
     if (this.hp <= 0) this.die();
   }
@@ -181,6 +181,13 @@ export class Player {
     if (this.poisoned > 0 || !this.alive) return;
     this.poison += n;
     if (this.poison >= 100) { this.poison = 0; this.poisoned = 12; this.G.hud.toast('Blighted', 'poison'); this.G.audio.sfx('poison'); }
+  }
+
+  // Bolas and nets: legs bound, no sprinting until they fall away or are shaken off with dashes.
+  snare(t) {
+    if (!this.alive || this.shifted || this.G.time < (this.snareFree ?? 0)) return;
+    if (!(this.snared > 0)) { this.G.hud.toast('Snared — dash to break free', 'warn'); this.G.audio.sfx('grapple', { vol: .6 }); }
+    this.snared = Math.max(this.snared, t);
   }
 
   setStance(s) {
@@ -357,6 +364,7 @@ export class Player {
       G.fx.dust(this.pos, 5);
     }
     this.dashed = 0; this.ghostT = 0;
+    if (this.snared > 0) { this.snared -= 1.1; if (this.snared <= 0) { this.snareFree = G.time + 3; G.hud.toast('Broke free', 'pulse'); } }
     G.audio.sfx('roll');
     return true;
   }
@@ -462,6 +470,7 @@ export class Player {
     this.hp -= dmg;
     this.chain = 0;
     if (h.poison) this.addPoison(h.poison);
+    if (h.snare) this.snare(h.snare);
     G.hitstop = .06;
     G.cam.shake(h.heavy ? .45 : .28);
     G.audio.sfx('playerHurt');
@@ -593,9 +602,9 @@ export class Player {
         const act = takeAny(['light', 'heavy', 'dodge', 'burst', 'heal', 'shift']);
         if (act && this.tryStart(act)) break;
         this.guarding = G.controlsOn && inp.down('guard');
-        this.sprinting = !!this.sprintArmed && inp.down('dodge') && mag > .3 && !this.guarding;
+        this.sprinting = !!this.sprintArmed && inp.down('dodge') && mag > .3 && !this.guarding && !(this.snared > 0);
         const speed = this.guarding ? 3 : this.sprinting ? 8.2 : this.lock ? 5 : 6.2;
-        const s = speed * mag;
+        const s = speed * mag * (this.snared > 0 ? .45 : 1);
         if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
         if (this.lock && !this.sprinting) turn = yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z);
         else if (moveInput()) turn = this.inputYaw;
@@ -867,6 +876,11 @@ export class Player {
       if (Math.random() < dt * 6) G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0x8fe040, 1, .3, .8, .1, .8);
       if (this.hp <= 0) this.die();
     } else this.poison = Math.max(0, this.poison - 8 * dt);
+    if (this.snared > 0) {
+      this.snared -= dt;
+      if (this.snared <= 0) this.snareFree = G.time + 3;   // a moment's grace before the next bola can bind
+      if (Math.random() < dt * 8) G.fx.motes({ x: this.pos.x, y: .3, z: this.pos.z }, 0xc8a060, 1, .3, .4, .08, .5);
+    }
     if (this.shifted) {
       this.anima -= 100 / this.shiftDur * dt;
       if (Math.random() < dt * 30) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, Math.random() < .5 ? 0xff9cf0 : 0x9ff3ff, 1, .5, 1, .1, .8);
