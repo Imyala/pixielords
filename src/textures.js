@@ -134,7 +134,7 @@ export function glowTexture(kind = 'soft') {
   return toTex(c, false);
 }
 
-// Ring of runes for shrines and floor messages.
+// Ring of runes for Moonwells.
 export function runeCircle(color = '120,230,255') {
   const c = canvas(256), g = c.getContext('2d'), R = rng(99);
   g.translate(128, 128);

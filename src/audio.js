@@ -219,7 +219,7 @@ export class Audio {
         const g = d(.6, 1);
         for (const [i, f] of [392, 523, 659, 784].entries()) this.tone(g, t + i * .07, 1.1, { type: 'triangle', f0: f, peak: .18 }); break;
       }
-      case 'amrita': this.tone(d(.25, 1), t, .4, { type: 'sine', f0: 1800 + R() * 800, f1: 2600, peak: .2 }); break;
+      case 'glimmer': this.tone(d(.25, 1), t, .4, { type: 'sine', f0: 1800 + R() * 800, f1: 2600, peak: .2 }); break;
       case 'pickup': {
         const g = d(.6, 1);
         for (const [i, f] of [660, 880, 1320].entries()) this.tone(g, t + i * .08, .6, { type: 'triangle', f0: f, peak: .2 }); break;

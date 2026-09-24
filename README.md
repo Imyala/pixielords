@@ -1,8 +1,7 @@
 # PixieLords
 
-A soulslike action game in the browser, in the vein of Nioh 2 and Dark Souls. You play a fae knight
-climbing a ruined keep held by goblins and ratmen. Learn each foe's tells, manage your Ki, and put down
-the Warblade on his throne.
+A fast, stance-based action game in the browser, inspired by the Nioh series and Onimusha. You play a fae
+knight cutting a path through a ruined keep held by goblins and ratmen, up to the warlord on its throne.
 
 ## Play
 
@@ -14,52 +13,62 @@ python3 -m http.server
 ```
 
 Keyboard and mouse or a gamepad. Click the game to capture the mouse. Progress saves to the browser
-every time you rest at a shrine or fell a lord.
+every time you rest at a Moonwell or vanquish a warlord.
 
 | Action | Keyboard + mouse | Gamepad |
 |--------|------------------|---------|
 | Move / camera | WASD / mouse | Left / right stick |
-| Light attack · heavy attack | Left click · right click | RB · RT |
-| Guard (tap for Ki Pulse) | Shift | LB |
-| Dodge (hold to sprint) | Space | B |
-| Burst Counter | F | LT |
+| Strike · strike hard | Left click · right click | RB · RT |
+| Guard (tap as a blow lands to Deflect) | Shift | LB |
+| Dash (hold to sprint) | Space | B |
+| Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
+| Thorn Counter | F | LT |
 | Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick |
-| Drink elixir | R | X |
+| Drink Moondew | R | X |
 | Interact | E | A |
-| Fae Shift (Anima full) | G | Y |
+| Fae Shift (Faelight full) | G | Y |
 | Pause | Esc | Start |
 
 ## How it plays
 
-- **Ki** is stamina. Attacks, dodges and blocked blows spend it; empty it and you stagger. As a strike
-  ends, blue light gathers around the knight: tap guard then to **Ki Pulse** and take the Ki back.
-- **Dodge rolls** have invincibility frames. Standing still, you step back instead.
-- **Burst attacks** glow red and can't be guarded. Dodge them, or press **Burst Counter** as they land
-  to shatter the foe's Ki.
-- Break a foe's Ki and it reels; strike it to **Grapple**. Unaware foes can be **backstabbed**.
-- Hits, counters and pulses fill **Anima**. At full, **Fae Shift**: wings flare, damage rises, and hits
-  drain Anima instead of health.
-- **Shrines** heal you, refill elixirs and bring every foe back. Spend **Amrita** there to level up, or
-  travel between kindled shrines. Die and your Amrita stays where you fell; reach it again to reclaim it,
-  die first and it's gone.
+- **Stances.** High hits hardest and its heavy is a leaping slam. Mid is balanced. Low is quick, dashes
+  further, and its heavy is a dashing thrust. Four strikes chain into a spinning cut.
+- **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
+  knight: tap guard then for **Resonance** and the stamina flows back. Change stance in that moment for a
+  Resonant Shift.
+- **Deflect and Flashcut.** Tap guard just as a blow lands to Deflect it. Strike straight after for a
+  **Flashcut**: one draw-cut that fells ordinary foes outright, bites deep into elites and warlords, and
+  chains from foe to foe.
+- **The fae dash** can't be touched mid-dash. Dash at the last instant to **Moonstep**, and the world slows
+  for a moment while you don't.
+- **Dread strikes** glow red and can't be guarded. Dash through them or **Thorn Counter** them into a
+  Flashcut.
+- Drain a foe's stamina to **Shatter** it, then strike to **Execute**. Catch sleeping foes from behind for
+  an **Ambush**.
+- Fallen foes release **souls**: gold Glimmer flies straight to you, green motes mend you and violet motes
+  feed Faelight. The coloured motes wait where they fell until you come close.
+- Strikes, Deflects and Resonance fill **Faelight**. At full, **Fae Shift**: wings flare, damage rises, and
+  hits drain Faelight instead of health.
+- **Moonwells** heal you, refill Moondew and bring every foe back. Spend Glimmer there to level up, or
+  travel between awakened Moonwells. Fall and your Glimmer stays with your **Echo** where you fell.
 - **The keep:** the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the portcullis), the
-  Gnawing Halls, then the fog gate and Gnawfang, Warblade of the Warren. Beat him to unlock New Game+.
+  Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Beat him to unlock New Game+.
 
 ## Code
 
 ```
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
-src/main.js       boot, game loop, shrines, death and Amrita, the boss fight, saving
-src/player.js     the knight's controller: combos, roll, guard, Ki Pulse, Burst Counter, grapples, Fae Shift
+src/main.js       boot, game loop, Moonwells, souls and the Echo, the boss fight, saving
+src/player.js     the knight's controller: stances, chains, dash and Moonstep, Deflect and Flashcut, Resonance, Fae Shift
 src/knight.js     the knight's model, built from primitives, with pose blending and two-bone IK for the sword arm
 src/enemies.js    enemy stats and attack chains, AI, procedural animation on the five-bone rigs, projectiles
-src/world.js      level layout, collision, shrines, messages, portcullis and fog gate, wall cutout shader
+src/world.js      level layout, collision, Moonwells, wisp lanterns, portcullis and Briar Seal, wall cutout shader
 src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
-src/menu.js       title, pause, shrine, controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss and sky textures
 src/models3d.js   loads the sculpted models into three.js

@@ -18,14 +18,14 @@ export class HUD {
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="pbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
-      <div class="amrita"><span class="gain"></span><div><small>AMRITA</small><b>0</b></div></div>
+      <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
       <div class="lock"></div>
       <div class="ebars"></div>
       <div class="boss" hidden><div class="bname"></div><div class="bbar"><i class="trail"></i><i class="fill"></i></div><div class="bki"><i class="fill"></i></div></div>
       <div class="prompt" hidden></div>
       <div class="toasts"></div>
       <div class="banner"><span></span></div>
-      <div class="big"><span></span></div>
+      <div class="big"><span></span><em></em></div>
       <div class="flash"></div>
       <div class="edge"></div>
       <div class="msg" hidden><p></p><small></small></div>
@@ -36,16 +36,16 @@ export class HUD {
       anima: $('.bar.anima .fill', el), animaBar: $('.bar.anima', el),
       poison: $('.poison', el), pbuild: $('.pbuild', el), pbuildI: $('.pbuild i', el),
       flask: $('.elixir', el), flaskN: $('.elixir b', el), flaskKey: $('.elixir .key', el),
-      amrita: $('.amrita b', el), gain: $('.amrita .gain', el),
+      glimmer: $('.glimmer b', el), gain: $('.glimmer .gain', el),
       lock: $('.lock', el), ebars: $('.ebars', el),
       boss: $('.boss', el), bname: $('.bname', el), bfill: $('.bbar .fill', el), btrail: $('.bbar .trail', el), bki: $('.bki .fill', el),
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
-      big: $('.big', el), bigT: $('.big span', el), flash: $('.flash', el), edge: $('.edge', el),
+      big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), fade: $('.fade', el),
     };
     this.bars = new Map();
     this.v = new THREE.Vector3();
-    this.hpTrail = 1; this.bossTrail = 1; this.amritaShown = 0; this.gainAmt = 0; this.gainT = 0;
+    this.hpTrail = 1; this.bossTrail = 1; this.glimmerShown = 0; this.gainAmt = 0; this.gainT = 0;
   }
 
   show(on) { this.el.classList.toggle('on', on); }
@@ -67,9 +67,10 @@ export class HUD {
     b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
   }
 
-  big(text, cls = '', dur = 4) {
+  big(text, cls = '', dur = 4, sub = '') {
     const b = this.q.big;
     this.q.bigT.textContent = text;
+    this.q.bigS.textContent = sub;
     b.className = 'big on ' + cls;
     clearTimeout(this.bigTimer);
     this.bigTimer = setTimeout(() => b.classList.remove('on'), dur * 1000);
@@ -124,7 +125,7 @@ export class HUD {
   closeMessage() { this.q.msg.hidden = true; }
   get messageOpen() { return !this.q.msg.hidden; }
 
-  addAmrita(n) { this.gainAmt += n; this.gainT = 2.5; }
+  addGlimmer(n) { this.gainAmt += n; this.gainT = 2.5; }
 
   setBoss(e) { this.bossE = e; this.q.boss.hidden = !e; if (e) { this.q.bname.textContent = e.name; this.bossTrail = e.hp / e.maxHp; } }
 
@@ -174,10 +175,10 @@ export class HUD {
     if (this.stanceShown !== p.stance) this.stance(p.stance);
     const sk = this.key('stance'); if (this.stanceKey !== sk) { this.stanceKey = sk; this.el.querySelector('.stance small').textContent = sk; }
 
-    // Amrita counter rolls up.
-    const target = G.save.amrita;
-    this.amritaShown = this.amritaShown < target ? Math.min(target, this.amritaShown + Math.max(1, (target - this.amritaShown) * dt * 6)) : target;
-    q.amrita.textContent = Math.round(this.amritaShown).toLocaleString();
+    // Glimmer counter rolls up.
+    const target = G.save.glimmer;
+    this.glimmerShown = this.glimmerShown < target ? Math.min(target, this.glimmerShown + Math.max(1, (target - this.glimmerShown) * dt * 6)) : target;
+    q.glimmer.textContent = Math.round(this.glimmerShown).toLocaleString();
     this.gainT -= dt;
     if (this.gainT > 0 && this.gainAmt) { q.gain.textContent = '+' + this.gainAmt.toLocaleString(); q.gain.style.opacity = Math.min(1, this.gainT); }
     else { q.gain.style.opacity = 0; this.gainAmt = 0; }

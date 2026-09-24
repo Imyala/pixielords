@@ -1,10 +1,11 @@
-// PixieLords: a soulslike in the browser. Boot, game loop and the rules that tie the systems together
-// (shrines, death and lost Amrita, the Gatewarden's portcullis, the fog gate and the boss).
+// PixieLords: a stance-based fae action game in the browser. Boot, game loop and the rules that tie the
+// systems together (Moonwells, souls and the Echo, the Gatewarden's portcullis, the Briar Seal and the boss).
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { World, SHRINES, SPAWNS, CUT } from './world.js';
 import { Player } from './player.js';
+import { buildKnight, KnightAnimator } from './knight.js';
 import { Enemy, Projectiles } from './enemies.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
@@ -105,13 +106,17 @@ applySettings();
 const shake = G.cam.shake.bind(G.cam);
 G.cam.shake = (a, at) => shake(a * (G.shakeScale ?? 1), at);
 
-// Grave marker for lost Amrita.
+// Your Echo: a kneeling ghost of the knight that holds lost Glimmer until you reach it.
 const grave = new THREE.Group();
+const echo = buildKnight(), echoAnim = new KnightAnimator(echo);
 {
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x9dff9a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glow.scale.set(1.4, 2.6, 1); glow.position.y = 1;
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(.18), new THREE.MeshStandardMaterial({ color: 0xcfffc0, emissive: 0x7dff70, emissiveIntensity: 2 }));
-  core.position.y = 1; grave.add(glow, core); grave.userData.core = core;
+  const mat = new THREE.MeshBasicMaterial({ color: 0x8dff9a, transparent: true, opacity: .32, blending: THREE.AdditiveBlending, depthWrite: false });
+  echo.root.traverse(o => { if (o.isMesh) { o.material = mat; o.castShadow = false; } if (o.isSprite) o.visible = false; });
+  echoAnim.play('rest');
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x9dff9a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .6 }));
+  glow.scale.set(1.6, 2.8, 1); glow.position.y = 1;
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(.12), new THREE.MeshBasicMaterial({ color: 0xcfffc0 }));
+  core.position.y = 1.9; grave.add(echo.root, glow, core); grave.userData.core = core;
   grave.visible = false; scene.add(grave);
 }
 
@@ -158,6 +163,7 @@ function applyWorldState() {
   updateGrave();
 }
 
+G.updateGrave = () => updateGrave();
 function updateGrave() {
   const g = G.save.data.grave;
   grave.visible = !!g;
@@ -197,7 +203,7 @@ G.newGame = () => {
 G.continueGame = () => startRun();
 G.newGamePlus = () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, amrita: d.amrita, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1 };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1 };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -229,12 +235,18 @@ function titleScene() {
 function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 
 // ---------------------------------------------------------------- events from the systems
-G.onEnemyKilled = (e) => {
-  const amt = Math.round(e.T.amrita * G.ngMul);
-  G.save.amrita += amt;
-  G.hud.addAmrita(amt);
-  const p = G.player;
-  G.fx.wisps({ x: e.pos.x, y: e.height * .5, z: e.pos.z }, Math.min(24, 4 + Math.round(amt / 60)), () => ({ x: p.pos.x, y: 1.1, z: p.pos.z }), () => G.audio.sfx('amrita', { vol: .5 }));
+G.onEnemyKilled = (e, hit = {}) => {
+  // A Flashcut kill yields half again as much Glimmer.
+  const amt = Math.round(e.T.glimmer * G.ngMul * (hit.flash ? 1.5 : 1));
+  G.save.glimmer += amt;
+  G.hud.addGlimmer(amt);
+  const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
+  G.fx.wisps(at, Math.min(24, 4 + Math.round(amt / 60)), to, () => G.audio.sfx('glimmer', { vol: .5 }));
+  // Souls: green motes mend, violet motes feed Faelight. They wait where they fell until you come close.
+  const big = e.boss ? 3 : e.elite ? 2 : 0;
+  const life = big ? 4 * big : (Math.random() < .6 ? 1 : 0) + (hit.flash ? 1 : 0), fae = big ? 3 * big : Math.random() < .5 ? 1 : 0;
+  G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
+  G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
   if (e === G.boss) bossDefeated();
   else if (e === G.warden) wardenDefeated();
 };
@@ -244,7 +256,7 @@ function wardenDefeated() {
   G.save.write();
   G.slowmo = .9;
   G.after(0.9, () => {
-    G.hud.big('GATEWARDEN FELLED', 'gold', 4);
+    G.hud.big('GATEWARDEN VANQUISHED', 'gold', 4);
     G.audio.sfx('felled');
     G.hud.setBoss(null);
   });
@@ -258,7 +270,7 @@ function bossDefeated() {
   G.audio.music('none');
   for (const e of G.enemies) if (e.spawn.add && e.alive) e.die({});
   G.after(1.4, () => {
-    G.hud.big('LORD FELLED', 'gold felled', 6);
+    G.hud.big('WARLORD VANQUISHED', 'gold felled', 6);
     G.audio.sfx('felled');
     G.hud.setBoss(null);
     G.bossFight = false;
@@ -297,13 +309,13 @@ G.onPlayerDeath = () => {
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
   d.deaths++;
-  d.grave = d.amrita > 0 ? { x: p.pos.x, z: p.pos.z, amount: d.amrita } : null;
-  d.amrita = 0;
+  d.grave = d.glimmer > 0 ? { x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
+  d.glimmer = 0;
   G.save.write();
   G.audio.music('none');
   G.audio.sfx('died');
   G.slowmo = .8;
-  G.after(.7, () => G.hud.big('YOU DIED', 'died', 4.2));
+  G.after(.7, () => G.hud.big('FALLEN', 'died', 4.2, d.grave ? 'Your Glimmer lingers in your Echo.' : ''));
   G.after(4.2, () => G.hud.fadeTo(true, 1.2));
   G.after(5.6, respawn);
 };
@@ -319,7 +331,7 @@ function respawn() {
   G.audio.music('explore');
 }
 
-// ---------------------------------------------------------------- shrines & interaction
+// ---------------------------------------------------------------- Moonwells & interaction
 function rest(shrine) {
   const p = G.player, d = G.save.data;
   const first = !d.kindled.includes(shrine.id);
@@ -328,7 +340,7 @@ function rest(shrine) {
   p.setState('rest'); p.anim.play('rest');
   p.vel.set(0, 0, 0); p.poisoned = 0; p.poison = 0;
   G.controlsOn = false;
-  G.hud.big(first ? 'SHRINE KINDLED' : 'SHRINE', 'shrine', 2.5);
+  G.hud.big(first ? 'MOONWELL AWAKENED' : 'MOONWELL', 'shrine', 2.5);
   G.audio.sfx('rest');
   G.after(0.9, () => {
     if (G.state !== 'play') return;
@@ -352,13 +364,13 @@ G.leaveShrine = () => {
 
 G.levelUp = stat => {
   const sv = G.save, cost = levelCost(sv.level);
-  if (sv.amrita < cost) return;
-  sv.amrita -= cost;
+  if (sv.glimmer < cost) return;
+  sv.glimmer -= cost;
   sv.data.stats[stat]++;
   const p = G.player;
   p.stats = { ...sv.stats }; p.applyStats();
   p.hp = p.maxHp; p.ki = p.maxKi;
-  G.hud.amritaShown = sv.amrita;
+  G.hud.glimmerShown = sv.glimmer;
   G.audio.sfx('levelUp');
   G.fx.motes({ x: p.pos.x, y: .3, z: p.pos.z }, 0xffd27a, 30, .6, 2.5, .12, 1.2);
   sv.write();
@@ -404,8 +416,8 @@ function interact(it) {
       const item = it.item;
       d.items.push(item.id);
       G.world.setItemTaken(item.id, true);
-      if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.amrita += 400; G.hud.addAmrita(400); } }
-      if (item.kind === 'amrita') { G.save.amrita += item.amount; G.hud.addAmrita(item.amount); }
+      if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
+      if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
       G.hud.toast(`${item.label} — ${item.desc}`, 'item');
       G.audio.sfx('pickup');
       p.setState('pickup'); p.anim.play('pickup');
@@ -511,12 +523,12 @@ function step(dt, rdt) {
   } else G.hud.prompt(null);
   const gd = G.save.data.grave;
   if (gd && p.alive && G.state === 'play' && Math.hypot(p.pos.x - gd.x, p.pos.z - gd.z) < 1.3) {
-    G.save.amrita += gd.amount; G.hud.addAmrita(gd.amount);
-    G.fx.wisps({ x: gd.x, y: 1, z: gd.z }, 16, () => ({ x: p.pos.x, y: 1.1, z: p.pos.z }), () => G.audio.sfx('amrita', { vol: .5 }), 0x9dff9a);
-    G.hud.toast('Amrita reclaimed', 'item');
+    G.save.glimmer += gd.amount; G.hud.addGlimmer(gd.amount);
+    G.fx.wisps({ x: gd.x, y: 1, z: gd.z }, 16, () => ({ x: p.pos.x, y: 1.1, z: p.pos.z }), () => G.audio.sfx('glimmer', { vol: .5 }), 0x9dff9a);
+    G.hud.toast('Echo reclaimed', 'item');
     G.save.data.grave = null; G.save.write(); updateGrave();
   }
-  if (grave.visible) { grave.userData.core.rotation.y += rdt * 2; if (Math.random() < rdt * 20) G.fx.motes({ x: grave.position.x, y: .3, z: grave.position.z }, 0x9dff9a, 1, .3, 1.2, .08, 1); }
+  if (grave.visible) { echoAnim.update(rdt, { speed: 0 }); grave.userData.core.rotation.y += rdt * 2; grave.userData.core.position.y = 1.9 + Math.sin(G.time * 2) * .1; if (Math.random() < rdt * 20) G.fx.motes({ x: grave.position.x, y: .3, z: grave.position.z }, 0x9dff9a, 1, .3, 1.2, .08, 1); }
 
   // Area names.
   const area = G.world.areaAt(p.pos.x, p.pos.z);
@@ -558,14 +570,14 @@ function updateCutout(p) {
   CUT.uCutDepth.value = depth;
 }
 
-// While resting, the camera drifts round to the front of the shrine.
+// While resting, the camera drifts round to the front of the Moonwell.
 const _rc = new THREE.Vector3(), _rl = new THREE.Vector3();
 function restCam() {
   const p = G.player, s = Object.values(SHRINES).reduce((a, b) => (Math.hypot(b.x - p.pos.x, b.z - p.pos.z) < Math.hypot(a.x - p.pos.x, a.z - p.pos.z) ? b : a));
   const a = Math.atan2(p.pos.x - s.x, p.pos.z - s.z) + .9;
   _rc.set(s.x + Math.sin(a) * 4.6, 2.1, s.z + Math.cos(a) * 4.6);
   _rl.set((s.x + p.pos.x) / 2, 1.1, (s.z + p.pos.z) / 2);
-  // Aim left of the pair so they sit on the right, clear of the shrine menu.
+  // Aim left of the pair so they sit on the right, clear of the Moonwell menu.
   const dx = _rl.x - _rc.x, dz = _rl.z - _rc.z, dl = Math.hypot(dx, dz);
   _rl.x += dz / dl * 1.7; _rl.z -= dx / dl * 1.7;
   const k = G.restCamK * G.restCamK * (3 - 2 * G.restCamK);

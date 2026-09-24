@@ -1,6 +1,6 @@
 // The level: a ruined keep climbed from south to north.
-//   Fallen Grove (start shrine) → Gatehouse Yard (Gatewarden) → portcullis → Gnawing Halls (second shrine)
-//   → fog gate → Throne of the Warren (boss).
+//   Fallen Grove (first Moonwell) → Gatehouse Yard (Gatewarden) → portcullis → Gnawing Halls (second Moonwell)
+//   → Briar Seal → Throne of the Warren (boss).
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
 import { flagstone, brick, grass, arenaStone, runeCircle, glowTexture, skyTexture } from './textures.js';
@@ -14,8 +14,8 @@ export const AREAS = [
 ];
 
 export const SHRINES = {
-  grove: { id: 'grove', name: 'Shrine of the Fallen Grove', x: 0, z: -5.5, spawn: [2.2, -4.2], yaw: 0 },
-  halls: { id: 'halls', name: 'Shrine of the Gnawing Halls', x: -16.2, z: 102, spawn: [-13.9, 100.1], yaw: Math.PI / 2 },
+  grove: { id: 'grove', name: 'Moonwell of the Fallen Grove', x: 0, z: -5.5, spawn: [2.2, -4.2], yaw: 0 },
+  halls: { id: 'halls', name: 'Moonwell of the Gnawing Halls', x: -16.2, z: 102, spawn: [-13.9, 100.1], yaw: Math.PI / 2 },
 };
 
 // Enemy placements. idle: 'stand' | 'sleep'. patrol: waypoints.
@@ -41,23 +41,23 @@ export const SPAWNS = [
 ];
 
 export const MESSAGES = [
-  { x: 0, z: -1.2, text: 'Move with WASD. Click the screen to take the mouse; turn the camera with it.\nA gamepad works too.' },
-  { x: -4.5, z: 1.5, text: 'Space dodges. Mid-roll, nothing can touch you. Hold Space afterwards to sprint.\nStanding still, Space steps back.' },
-  { x: 4.5, z: 1.5, text: 'Left click strikes, right click swings hard.\nHold Shift to guard: blocked blows cost Ki, not blood.' },
-  { x: 2.6, z: 5, text: 'Ahead, a goblin dozes. Strike an unaware foe from behind to open its back.' },
-  { x: -1.6, z: 12.5, text: 'Every blow and dodge spends Ki, the green bar.\nAs you finish a strike, blue light gathers around you: tap Shift in that moment to Ki Pulse and take the Ki back.' },
-  { x: 1.6, z: 26, text: 'Beat on a foe until its Ki breaks. While it reels, strike it to Grapple for a killing blow. Q locks on.' },
-  { x: 0, z: 49, text: 'Foes that flare RED unleash Burst attacks. No guard stops them.\nPress F as the blow lands to Burst Counter and shatter their Ki.' },
-  { x: -2, z: 70, text: 'R drinks an elixir. Rest at a shrine to refill them, and to spend Amrita on strength.\nDie, and your Amrita stays where you fell.' },
-  { x: 2, z: 110, text: 'Strike, counter and pulse to fill the violet Anima.\nWhen it is full, G awakens your Fae Shift.' },
-  { x: -1.8, z: 114, text: 'Beyond the fog, the Warblade waits upon his throne.' },
+  { x: 0, z: -1.2, text: 'Move with WASD. Click the screen to take the mouse, and turn the camera with it.\nA gamepad works too.' },
+  { x: -4.5, z: 1.5, text: 'Space dashes, and mid-dash nothing can touch you.\nDash just as a blow lands to Moonstep: the world slows around you. Hold Space to sprint.' },
+  { x: 4.5, z: 1.5, text: 'Left click strikes, right click strikes hard. Four strikes make a chain.\nHold Shift to guard. Tap it just as a blow lands to Deflect.' },
+  { x: 2.6, z: 5, text: 'A goblin dozes ahead. Strike an unaware foe from behind: an Ambush.' },
+  { x: -1.6, z: 12.5, text: 'Stamina, the green bar, fuels every strike. As a strike ends, blue light gathers: tap Shift then for Resonance, and the stamina flows back.\n1, 2 and 3 change stance. High hits hardest, Low moves fastest.' },
+  { x: 1.6, z: 26, text: 'Strike the moment after a Deflect to Flashcut: one cut that fells a foe outright.\nDrain a foe\'s stamina bar to shatter it, then strike to Execute. Q locks on.' },
+  { x: 0, z: 49, text: 'Foes that flare RED unleash Dread strikes. No guard stops them.\nDash through them, or press F as they land to Thorn Counter.' },
+  { x: -2, z: 70, text: 'R drinks Moondew. Rest at a Moonwell to refill it, and spend Glimmer there to grow stronger.\nFall, and your Glimmer lingers in your Echo until you reach it again.' },
+  { x: 2, z: 104, text: 'Strikes, Deflects and Resonance fill the violet Faelight.\nWhen it is full, G awakens your Fae Shift.' },
+  { x: -1.8, z: 114, text: 'Beyond the briars, the Warblade waits upon his throne.' },
 ];
 
 export const ITEMS = [
-  { id: 'grace1', x: 26.2, z: 41, kind: 'grace', label: 'Bottled Grace', desc: 'One more elixir, every rest.' },
-  { id: 'amrita1', x: -16, z: 30.5, kind: 'amrita', amount: 350, label: 'Amrita Crystal', desc: '+350 Amrita' },
-  { id: 'amrita2', x: 10.6, z: 110.4, kind: 'amrita', amount: 600, label: 'Amrita Crystal', desc: '+600 Amrita' },
-  { id: 'grace2', x: -17.8, z: 99.3, kind: 'grace', label: 'Bottled Grace', desc: 'One more elixir, every rest.' },
+  { id: 'grace1', x: 26.2, z: 41, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+  { id: 'glimmer1', x: -16, z: 30.5, kind: 'glimmer', amount: 350, label: 'Glimmer Shard', desc: '+350 Glimmer' },
+  { id: 'glimmer2', x: 10.6, z: 110.4, kind: 'glimmer', amount: 600, label: 'Glimmer Shard', desc: '+600 Glimmer' },
+  { id: 'grace2', x: -17.8, z: 99.3, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
 ];
 
 // ---------------------------------------------------------------- geometry helpers
@@ -111,9 +111,11 @@ void main(){
   vec2 p = vUv * vec2(2.5, 3.);
   float n = fbm(p + vec2(uTime*.12, -uTime*.05));
   float m = fbm(p*1.6 - vec2(uTime*.08, uTime*.22) + n*1.5);
-  float a = smoothstep(.25, .85, m) * .85 + .12;
+  float a = smoothstep(.3, .85, m) * .6 + .1;
+  float threads = pow(abs(sin((vUv.x * 18. + n * 4.) + uTime * .6)), 24.) * .6 + pow(abs(sin(vUv.y * 22. - uTime * .4 + m * 5.)), 30.) * .4;
   float edge = smoothstep(0., .1, vUv.x) * smoothstep(1., .9, vUv.x) * smoothstep(0., .05, vUv.y) * smoothstep(1., .7, vUv.y);
-  gl_FragColor = vec4(vec3(.82, .88, 1.) * (.55 + m * .7), a * edge * uOpacity);
+  vec3 col = mix(vec3(.45, .18, .75), vec3(1., .55, .95), m) + threads * vec3(1., .85, 1.);
+  gl_FragColor = vec4(col * (.5 + m * .6), (a + threads * .5) * edge * uOpacity);
 }`;
 
 // See-through cutout: walls and pillars between the camera and the knight dissolve in a dithered disc,
@@ -560,9 +562,16 @@ export class World {
       const grp = new THREE.Group(); grp.position.set(s.x, 0, s.z);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(.75, .95, .5, 10), this.mats.stone); base.position.y = .25; base.castShadow = true; base.receiveShadow = true;
       const col = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, 1, 8), this.mats.stone); col.position.y = 1;
-      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.5, .25, .25, 10), this.mats.stone); bowl.position.y = 1.55;
-      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.2, 1), new THREE.MeshStandardMaterial({ color: 0x9ff3ff, emissive: 0x6fe8ff, emissiveIntensity: 2.5 }));
-      core.position.y = 2.05;
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.62, .28, .3, 16), this.mats.stone); bowl.position.y = 1.55;
+      // Moon-bright water in the basin, and a crescent turning above it.
+      const water = new THREE.Mesh(new THREE.CircleGeometry(.54, 24), new THREE.MeshBasicMaterial({ color: 0x9fe8ff }));
+      water.rotation.x = -Math.PI / 2; water.position.y = 1.69;
+      const core = new THREE.Group(); core.position.y = 2.15;
+      const moonMat = new THREE.MeshStandardMaterial({ color: 0xe6f6ff, emissive: 0x9fe8ff, emissiveIntensity: 2.2 });
+      const crescent = new THREE.Mesh(new THREE.TorusGeometry(.2, .055, 8, 28, Math.PI * 1.35), moonMat);
+      crescent.rotation.z = Math.PI * .83;
+      core.add(crescent, new THREE.Mesh(new THREE.SphereGeometry(.045, 10, 8), moonMat));
+      grp.add(water);
       const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0x6fe8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       halo.position.y = 2.05; halo.scale.setScalar(1.4); halo.material.opacity = .7;
       const rune = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), new THREE.MeshBasicMaterial({ map: ring, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .45 }));
@@ -574,25 +583,34 @@ export class World {
       this.flames.push(src);
       s.fx = { core, halo, rune, lit: 0 };
       this.anim.push(t => {
-        core.position.y = 2.05 + Math.sin(t * 1.6) * .08; core.rotation.y = t * .8; core.rotation.x = t * .5;
+        core.position.y = 2.15 + Math.sin(t * 1.6) * .08; core.rotation.y = t * .6;
+        water.material.color.setHSL(.53, .8, .72 + Math.sin(t * 2.3) * .06 + s.fx.lit * .08);
         rune.rotation.z = t * .1;
         const lit = s.fx.lit;
         halo.scale.setScalar(1.1 + lit * .5 + Math.sin(t * 3) * .1);
         rune.material.opacity = .3 + lit * .4 + Math.sin(t * 2) * .05;
         src.flick = 1 + lit * .5;
       });
-      this.interactables.push({ kind: 'shrine', id: s.id, x: s.x, z: s.z, r: 2.4, prompt: 'Rest at shrine', shrine: s });
+      this.interactables.push({ kind: 'shrine', id: s.id, x: s.x, z: s.z, r: 2.4, prompt: 'Rest at the Moonwell', shrine: s });
     }
   }
 
   buildMessages() {
-    const tex = runeCircle('255,190,110');
+    // Wisp lanterns: little paper lights that float at head height and whisper advice.
+    const paper = new THREE.MeshStandardMaterial({ color: 0x8a4a2a, emissive: 0xff8a3a, emissiveIntensity: .75, roughness: .8, side: THREE.DoubleSide });
+    const frame = new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: .8 });
+    const body = new THREE.CylinderGeometry(.13, .13, .26, 10, 1, true), cap = new THREE.CylinderGeometry(.09, .14, .04, 10);
     for (const [i, m] of MESSAGES.entries()) {
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffb870 }));
-      mesh.rotation.x = -Math.PI / 2; mesh.position.set(m.x, .04, m.z);
-      this.group.add(mesh);
-      this.anim.push(t => { mesh.material.opacity = .55 + Math.sin(t * 2 + i) * .25; mesh.rotation.z = t * .2; });
-      this.interactables.push({ kind: 'message', x: m.x, z: m.z, r: 1.5, prompt: 'Read message', text: m.text });
+      const lan = new THREE.Group();
+      lan.add(new THREE.Mesh(body, paper));
+      const top = new THREE.Mesh(cap, frame); top.position.y = .15; const bot = new THREE.Mesh(cap, frame); bot.position.y = -.15; bot.rotation.x = Math.PI;
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffa860, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .7 }));
+      glow.scale.setScalar(1.1);
+      lan.add(top, bot, glow);
+      lan.position.set(m.x, 1.45, m.z);
+      this.group.add(lan);
+      this.anim.push(t => { lan.position.y = 1.45 + Math.sin(t * 1.4 + i) * .1; lan.rotation.y = Math.sin(t * .7 + i) * .4; glow.material.opacity = .55 + Math.sin(t * 3 + i) * .15; });
+      this.interactables.push({ kind: 'message', x: m.x, z: m.z, r: 1.5, prompt: 'Listen to the wisp', text: m.text });
     }
   }
 
@@ -622,7 +640,7 @@ export class World {
     this.group.add(port);
     this.portcullis = { mesh: port, col: this.prop(this.addBox(0, 66, 3, .25, 0, 6)), open: 0, opening: false };
 
-    // Fog gate in front of the arena.
+    // The Briar Seal in front of the arena: a violet veil and thorned vines.
     const fogMat = new THREE.ShaderMaterial({
       vertexShader: FOG_VERT, fragmentShader: FOG_FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       uniforms: { uTime: { value: 0 }, uOpacity: { value: 1 } },
@@ -631,9 +649,29 @@ export class World {
     const fog = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 6.8), fogMat);
     fog.position.set(0, 3.4, 119.2);
     this.group.add(fog);
+    // Thorned briars woven across the arch; they wither when the seal breaks.
+    const vineMat = new THREE.MeshStandardMaterial({ color: 0x2a1830, emissive: 0x5a1a6a, emissiveIntensity: .5, roughness: .7 });
+    const vines = new THREE.Group(), R = rng(77);
+    for (let v = 0; v < 7; v++) {
+      const pts = [];
+      const y0 = R() * 6.2, y1 = R() * 6.2;
+      for (let k = 0; k <= 8; k++) {
+        const u = k / 8;
+        pts.push(new THREE.Vector3(-3.7 + u * 7.4, lerp(y0, y1, u) + Math.sin(u * 9 + v) * .5, (R() - .5) * .5));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      vines.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, .06 + R() * .04, 5), vineMat));
+      for (let k = 0; k < 14; k++) {
+        const pt = curve.getPoint(R()), th = new THREE.Mesh(new THREE.ConeGeometry(.04, .22, 4), vineMat);
+        th.position.copy(pt); th.rotation.set(R() * 6, R() * 6, R() * 6); vines.add(th);
+      }
+    }
+    vines.position.set(0, 0, 119.2);
+    this.group.add(vines);
     this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(0, 119.2, 3.7, .9, 0, 7)), gone: false, fade: 1, viewFade: 1 };
-    this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade * this.fogGate.viewFade; fog.visible = this.fogGate.fade > .01; });
-    this.interactables.push({ kind: 'fog', x: 0, z: 117.4, r: 1.7, prompt: 'Traverse the white fog' });
+    this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade * this.fogGate.viewFade; fog.visible = this.fogGate.fade > .01;
+      vines.scale.y = this.fogGate.fade; vines.visible = this.fogGate.fade > .01; });
+    this.interactables.push({ kind: 'fog', x: 0, z: 117.4, r: 1.7, prompt: 'Part the briars' });
 
     // The way onward, lit once the Warblade falls.
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, .08, 8, 48), new THREE.MeshBasicMaterial({ color: 0xffd6ff, transparent: true, blending: THREE.AdditiveBlending }));

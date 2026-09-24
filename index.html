@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PixieLords</title>
-<meta name="description" content="A soulslike in the browser: a fae knight, a keep of goblins and ratmen, and a lord upon the throne.">
+<meta name="description" content="A fast, stance-based action game in the browser: a fae knight, a keep of goblins and ratmen, and a warlord upon the throne.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
@@ -55,10 +55,10 @@
   .elixir.empty .flask i{background:#222;box-shadow:none}
   .elixir b{font:700 26px var(--serif);text-shadow:0 2px 6px #000}
   .elixir .key{font:11px var(--sans);color:var(--dim);margin-bottom:6px}
-  .amrita{position:absolute;right:30px;bottom:28px;text-align:right}
-  .amrita small{display:block;font:600 10px var(--serif);letter-spacing:3px;color:var(--dim)}
-  .amrita b{font:700 26px var(--serif);color:var(--gold);text-shadow:0 0 12px rgba(230,195,106,.4),0 2px 6px #000}
-  .amrita .gain{display:block;font:600 16px var(--serif);color:#ffe6a0;opacity:0;text-shadow:0 0 8px rgba(255,210,122,.6)}
+  .glimmer{position:absolute;right:30px;bottom:28px;text-align:right}
+  .glimmer small{display:block;font:600 10px var(--serif);letter-spacing:3px;color:var(--dim)}
+  .glimmer b{font:700 26px var(--serif);color:var(--gold);text-shadow:0 0 12px rgba(230,195,106,.4),0 2px 6px #000}
+  .glimmer .gain{display:block;font:600 16px var(--serif);color:#ffe6a0;opacity:0;text-shadow:0 0 8px rgba(255,210,122,.6)}
 
   .lock{position:absolute;left:0;top:0;width:0;height:0}
   .lock:before{content:'';position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:radial-gradient(#fff 0 28%,rgba(255,255,255,.2) 32% 60%,transparent 64%);box-shadow:0 0 10px #fff}
@@ -105,6 +105,7 @@
   .big.on{opacity:1}
   .big.died,.big.gold{background:linear-gradient(transparent,rgba(0,0,0,.78) 25%,rgba(0,0,0,.78) 75%,transparent)}
   .big span{font:400 clamp(40px,7vw,96px) var(--serif);letter-spacing:.12em}
+  .big em{display:block;font:italic 16px var(--serif);color:#cfc8b6;margin-top:6px;letter-spacing:.06em}
   .big.died span{color:#a8141c;text-shadow:0 0 30px rgba(168,20,28,.5)}
   .big.gold span{color:var(--gold);text-shadow:0 0 30px rgba(230,195,106,.5)}
   .big.on.died span,.big.on.gold span{animation:grow 5s ease-out forwards}
@@ -174,7 +175,7 @@
   .ending .btn{text-align:center}
   .error{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#300;border:1px solid #a33;padding:10px 16px;font-size:14px;max-width:90vw}
   @media (max-width:700px){
-    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.amrita{right:16px;bottom:16px}
+    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.glimmer{right:16px;bottom:16px}
     #menu.title,#menu.shrine{padding-left:16px;background:rgba(5,6,10,.8)}
   }
 </style>

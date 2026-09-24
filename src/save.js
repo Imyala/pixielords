@@ -6,7 +6,7 @@ export const levelCost = lvl => Math.round(160 + 70 * (lvl - 1) + 9 * (lvl - 1) 
 
 export function freshSave(ng = 0) {
   return {
-    v: 1, stats: { vit: 1, end: 1, str: 1, spi: 1 }, amrita: 0, elixirMax: 4, shrine: 'grove', kindled: ['grove'],
+    v: 1, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, shrine: 'grove', kindled: ['grove'],
     dead: [], items: [], grave: null, deaths: 0, time: 0, ng, seenMessages: [],
   };
 }
@@ -16,13 +16,18 @@ export class Save {
     this.data = null;
     try { this.data = JSON.parse(localStorage.getItem(KEY)); } catch { this.data = null; }
     if (this.data && this.data.v !== 1) this.data = null;
+    // Older saves called the currency by another name.
+    if (this.data && this.data.glimmer == null && this.data.amrita != null) {
+      this.data.glimmer = this.data.amrita; delete this.data.amrita;
+      this.data.items = (this.data.items || []).map(i => i.replace('amrita', 'glimmer'));
+    }
     this.exists = !!this.data;
     if (!this.data) this.data = freshSave();
   }
   get level() { const s = this.data.stats; return s.vit + s.end + s.str + s.spi - 3; }
   get stats() { return this.data.stats; }
-  get amrita() { return this.data.amrita; }
-  set amrita(v) { this.data.amrita = Math.max(0, Math.round(v)); }
+  get glimmer() { return this.data.glimmer; }
+  set glimmer(v) { this.data.glimmer = Math.max(0, Math.round(v)); }
   get elixirMax() { return this.data.elixirMax; }
   get kindled() { return this.data.kindled; }
   get deaths() { return this.data.deaths; }

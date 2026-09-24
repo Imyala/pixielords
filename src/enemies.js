@@ -1,6 +1,6 @@
 // Enemies: stats, attack sets, AI and procedural animation on top of the five-bone rigs from models3d.js.
-// Every attack is a list of steps (windup → active → recover). A step marked burst glows red and can't be
-// guarded; the player answers it with a Burst Counter or a dodge.
+// Every attack is a list of steps (windup → active → recover). A step marked burst is a Dread strike: it glows
+// red and can't be guarded; the player dashes through it or answers with a Thorn Counter.
 import * as THREE from 'three';
 import { createModel, MODEL_SIZE } from './models3d.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
@@ -11,7 +11,7 @@ const A = (name, range, steps, o = {}) => ({ name, range, steps, minRange: 0, w:
 
 export const TYPES = {
   'goblin-scout': {
-    name: 'Goblin Scout', scale: .82, radius: .38, hp: 110, ki: 60, poise: 8, walk: 1.6, run: 4.6, amrita: 55, voice: 'growl', pitch: 1.5,
+    name: 'Goblin Scout', scale: .82, radius: .38, hp: 110, ki: 60, poise: 8, walk: 1.6, run: 4.6, glimmer: 55, voice: 'growl', pitch: 1.5,
     attacks: [
       A('Slash', 2.1, [S('swing', .42, .12, .55, 32, { reach: 2.1, arc: 110, lunge: 1 })]),
       A('Twin Slash', 2.1, [S('swing', .38, .1, .16, 26, { reach: 2.1, arc: 110, lunge: .8 }), S('backswing', .2, .1, .6, 26, { reach: 2.1, arc: 110, lunge: .8 })], { w: .8 }),
@@ -19,7 +19,7 @@ export const TYPES = {
     ],
   },
   'goblin-spearguard': {
-    name: 'Goblin Spear Guard', scale: .85, radius: .42, hp: 170, ki: 110, poise: 18, walk: 1.4, run: 3.9, amrita: 85, voice: 'growl', pitch: 1.3,
+    name: 'Goblin Spear Guard', scale: .85, radius: .42, hp: 170, ki: 110, poise: 18, walk: 1.4, run: 3.9, glimmer: 85, voice: 'growl', pitch: 1.3,
     attacks: [
       A('Thrust', 2.9, [S('thrust', .55, .12, .6, 42, { reach: 3, arc: 40, lunge: .7 })]),
       A('Double Thrust', 2.9, [S('thrust', .5, .1, .15, 34, { reach: 3, arc: 40, lunge: .5 }), S('thrust', .25, .12, .7, 38, { reach: 3, arc: 40, lunge: .7 })], { w: .7 }),
@@ -28,35 +28,35 @@ export const TYPES = {
     ],
   },
   'goblin-archer': {
-    name: 'Goblin Archer', scale: .82, radius: .38, hp: 90, ki: 50, poise: 8, walk: 1.6, run: 3.8, amrita: 60, voice: 'growl', pitch: 1.6, style: 'ranged', prefer: [7, 14],
+    name: 'Goblin Archer', scale: .82, radius: .38, hp: 90, ki: 50, poise: 8, walk: 1.6, run: 3.8, glimmer: 60, voice: 'growl', pitch: 1.6, style: 'ranged', prefer: [7, 14],
     attacks: [
       A('Arrow', 16, [S('shoot', .95, .1, .5, 34, { proj: { kind: 'arrow', speed: 24 } })], { minRange: 3.5 }),
       A('Stab', 2, [S('thrust', .45, .12, .6, 24, { reach: 1.9, arc: 70, lunge: .8 })]),
     ],
   },
   'goblin-bomber': {
-    name: 'Goblin Bomber', scale: .82, radius: .38, hp: 100, ki: 60, poise: 10, walk: 1.6, run: 4, amrita: 70, voice: 'growl', pitch: 1.4, style: 'ranged', prefer: [5, 12],
+    name: 'Goblin Bomber', scale: .82, radius: .38, hp: 100, ki: 60, poise: 10, walk: 1.6, run: 4, glimmer: 70, voice: 'growl', pitch: 1.4, style: 'ranged', prefer: [5, 12],
     attacks: [
       A('Firebomb', 13, [S('throw', 1.0, .1, .8, 58, { proj: { kind: 'bomb', flight: 1.05 } })], { minRange: 3.5 }),
       A('Headbutt', 1.9, [S('thrust', .5, .12, .6, 26, { reach: 1.8, arc: 70, lunge: 1 })]),
     ],
   },
   'goblin-berserker': {
-    name: 'Goblin Berserker', scale: .85, radius: .42, hp: 210, ki: 120, poise: 24, walk: 1.8, run: 5, amrita: 130, voice: 'growl', pitch: 1.2, aggro: .95,
+    name: 'Goblin Berserker', scale: .85, radius: .42, hp: 210, ki: 120, poise: 24, walk: 1.8, run: 5, glimmer: 130, voice: 'growl', pitch: 1.2, aggro: .95,
     attacks: [
       A('Frenzy', 2.2, [S('swing', .34, .1, .08, 26, { reach: 2.2, lunge: .9 }), S('backswing', .16, .1, .08, 26, { reach: 2.2, lunge: .9 }), S('overhead', .3, .12, .8, 36, { reach: 2.2, arc: 60, lunge: 1 })]),
       A('Mad Leap', 6, [S('overhead', .8, .16, 1, 70, { reach: 2.2, arc: 70, lunge: 4.6, burst: true, hyper: true })], { minRange: 3, cd: 5, w: .8 }),
     ],
   },
   'goblin-poisoner': {
-    name: 'Goblin Poisoner', scale: .82, radius: .38, hp: 120, ki: 70, poise: 10, walk: 1.6, run: 4.4, amrita: 80, voice: 'growl', pitch: 1.5,
+    name: 'Goblin Poisoner', scale: .82, radius: .38, hp: 120, ki: 70, poise: 10, walk: 1.6, run: 4.4, glimmer: 80, voice: 'growl', pitch: 1.5,
     attacks: [
       A('Venom Stab', 2, [S('thrust', .4, .12, .55, 26, { reach: 2, arc: 70, lunge: 1, poison: 40 })]),
       A('Toxic Vial', 10, [S('throw', .85, .1, .7, 0, { proj: { kind: 'vial', flight: .9 } })], { minRange: 4, cd: 5 }),
     ],
   },
   'goblin-clubber': {
-    name: 'Gatewarden Grubskull', scale: 1.28, radius: .95, hp: 820, ki: 280, poise: 55, walk: 1.5, run: 4, amrita: 1500, voice: 'growl', pitch: .7, elite: true, track: 3.5,
+    name: 'Gatewarden Grubskull', scale: 1.28, radius: .95, hp: 820, ki: 280, poise: 55, walk: 1.5, run: 4, glimmer: 1500, voice: 'growl', pitch: .7, elite: true, track: 3.5,
     attacks: [
       A('Club Smash', 3.2, [S('overhead', .85, .16, .9, 88, { reach: 3.3, arc: 60, lunge: 1.2, aoe: 1.4, shake: .5 })]),
       A('Sweep', 3.3, [S('swing', .7, .18, .8, 70, { reach: 3.5, arc: 160, lunge: .8 })]),
@@ -66,28 +66,28 @@ export const TYPES = {
     ],
   },
   'ratman-scout': {
-    name: 'Ratman Scout', scale: .9, radius: .38, hp: 100, ki: 55, poise: 8, walk: 1.8, run: 5.6, amrita: 70, voice: 'squeal', pitch: 1.2,
+    name: 'Ratman Scout', scale: .9, radius: .38, hp: 100, ki: 55, poise: 8, walk: 1.8, run: 5.6, glimmer: 70, voice: 'squeal', pitch: 1.2,
     attacks: [
       A('Claw', 1.9, [S('swing', .32, .1, .45, 26, { reach: 1.9, lunge: 1 })]),
       A('Pounce', 4.5, [S('thrust', .5, .14, .7, 34, { reach: 1.8, arc: 70, lunge: 3.4 })], { minRange: 2.6, w: .8 }),
     ],
   },
   'ratman-skirmisher': {
-    name: 'Ratman Skirmisher', scale: .9, radius: .4, hp: 150, ki: 90, poise: 14, walk: 1.8, run: 5, amrita: 110, voice: 'squeal', pitch: 1, evasive: .3,
+    name: 'Ratman Skirmisher', scale: .9, radius: .4, hp: 150, ki: 90, poise: 14, walk: 1.8, run: 5, glimmer: 110, voice: 'squeal', pitch: 1, evasive: .3,
     attacks: [
       A('Rend', 2.1, [S('swing', .38, .1, .14, 32, { reach: 2.1, lunge: .9 }), S('backswing', .24, .1, .6, 32, { reach: 2.1, lunge: .9 })]),
       A('Gutting Lunge', 5.5, [S('thrust', .75, .15, .85, 58, { reach: 2.1, arc: 50, lunge: 4.5, burst: true })], { minRange: 3, cd: 5, w: .6 }),
     ],
   },
   'ratman-poisoner': {
-    name: 'Ratman Poisoner', scale: .9, radius: .4, hp: 130, ki: 80, poise: 12, walk: 1.7, run: 4.4, amrita: 100, voice: 'squeal', pitch: 1.1,
+    name: 'Ratman Poisoner', scale: .9, radius: .4, hp: 130, ki: 80, poise: 12, walk: 1.7, run: 4.4, glimmer: 100, voice: 'squeal', pitch: 1.1,
     attacks: [
       A('Blight Stab', 2, [S('thrust', .42, .12, .55, 26, { reach: 2, arc: 70, lunge: 1, poison: 45 })]),
       A('Plague Flask', 11, [S('throw', .8, .1, .7, 0, { proj: { kind: 'vial', flight: .95 } })], { minRange: 3.5, cd: 4.5 }),
     ],
   },
   'ratman-brute': {
-    name: 'Ratman Brute', scale: .92, radius: .6, hp: 430, ki: 240, poise: 42, walk: 1.4, run: 3.6, amrita: 320, voice: 'growl', pitch: .8, track: 3.8,
+    name: 'Ratman Brute', scale: .92, radius: .6, hp: 430, ki: 240, poise: 42, walk: 1.4, run: 3.6, glimmer: 320, voice: 'growl', pitch: .8, track: 3.8,
     attacks: [
       A('Crush', 2.8, [S('overhead', .85, .16, .9, 84, { reach: 2.8, arc: 60, lunge: .8, aoe: 1.1, shake: .4 })]),
       A('Backhand', 2.9, [S('swing', .7, .16, .8, 68, { reach: 3, arc: 160, lunge: .5 })]),
@@ -95,28 +95,28 @@ export const TYPES = {
     ],
   },
   'ratman-slinger': {
-    name: 'Ratman Slinger', scale: .9, radius: .38, hp: 90, ki: 50, poise: 8, walk: 1.8, run: 4.4, amrita: 75, voice: 'squeal', pitch: 1.3, style: 'ranged', prefer: [6, 13],
+    name: 'Ratman Slinger', scale: .9, radius: .38, hp: 90, ki: 50, poise: 8, walk: 1.8, run: 4.4, glimmer: 75, voice: 'squeal', pitch: 1.3, style: 'ranged', prefer: [6, 13],
     attacks: [
       A('Sling', 15, [S('throw', .8, .1, .45, 28, { proj: { kind: 'stone', speed: 17 } })], { minRange: 3 }),
       A('Bite', 1.8, [S('thrust', .4, .12, .5, 22, { reach: 1.8, arc: 70, lunge: .8 })]),
     ],
   },
   'ratman-assassin': {
-    name: 'Ratman Assassin', scale: .9, radius: .38, hp: 140, ki: 80, poise: 12, walk: 2, run: 6.2, amrita: 140, voice: 'squeal', pitch: .9, aggro: .9, evasive: .35,
+    name: 'Ratman Assassin', scale: .9, radius: .38, hp: 140, ki: 80, poise: 12, walk: 2, run: 6.2, glimmer: 140, voice: 'squeal', pitch: .9, aggro: .9, evasive: .35,
     attacks: [
       A('Flurry', 2, [S('swing', .26, .08, .06, 22, { reach: 2, lunge: .7 }), S('backswing', .14, .08, .06, 22, { reach: 2, lunge: .7 }), S('thrust', .2, .1, .7, 28, { reach: 2.1, arc: 60, lunge: 1 })]),
       A('Shadow Leap', 6.5, [S('thrust', .6, .15, .9, 72, { reach: 2, arc: 60, lunge: 5.5, burst: true })], { minRange: 3, cd: 5, w: .8 }),
     ],
   },
   'ratman-shaman': {
-    name: 'Ratman Shaman', scale: .9, radius: .4, hp: 110, ki: 60, poise: 10, walk: 1.5, run: 3.8, amrita: 120, voice: 'squeal', pitch: 1, style: 'ranged', prefer: [8, 14],
+    name: 'Ratman Shaman', scale: .9, radius: .4, hp: 110, ki: 60, poise: 10, walk: 1.5, run: 3.8, glimmer: 120, voice: 'squeal', pitch: 1, style: 'ranged', prefer: [8, 14],
     attacks: [
       A('Rot Orbs', 16, [S('cast', 1.1, .15, .9, 30, { proj: { kind: 'orb', count: 3, speed: 6.5 } })], { minRange: 3 }),
       A('Staff Swipe', 2.2, [S('swing', .5, .12, .6, 26, { reach: 2.2, lunge: .6 })]),
     ],
   },
   'ratman-warblade': {
-    name: 'Gnawfang, Warblade of the Warren', scale: 1.55, radius: .9, hp: 2300, ki: 380, poise: 75, walk: 2, run: 5.2, amrita: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
+    name: 'Gnawfang, Warblade of the Warren', scale: 1.55, radius: .9, hp: 2300, ki: 380, poise: 75, walk: 2, run: 5.2, glimmer: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
     attacks: [
       A('Cleave', 3.9, [S('swing', .72, .16, .85, 95, { reach: 4.0, arc: 150, lunge: 1.8 })]),
       A('Rending Chain', 3.9, [

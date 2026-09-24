@@ -7,23 +7,23 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 const STATS = [
   { k: 'vit', name: 'Vitality', desc: 'Maximum health' },
-  { k: 'end', name: 'Endurance', desc: 'Maximum Ki' },
+  { k: 'end', name: 'Endurance', desc: 'Maximum stamina' },
   { k: 'str', name: 'Strength', desc: 'Weapon damage' },
-  { k: 'spi', name: 'Spirit', desc: 'Anima gain and Fae Shift length' },
+  { k: 'spi', name: 'Spirit', desc: 'Faelight gain and Fae Shift length' },
 ];
 
 const CONTROLS = [
   ['Move', 'W A S D', 'Left stick'],
   ['Camera', 'Mouse', 'Right stick'],
-  ['Light attack', 'Left click', 'RB'],
-  ['Heavy attack', 'Right click', 'RT'],
-  ['Guard  ·  tap for Ki Pulse', 'Shift', 'LB'],
-  ['Dodge  ·  hold to sprint', 'Space', 'B'],
-  ['Burst Counter', 'F', 'LT'],
+  ['Strike  ·  strike hard', 'Left click  ·  right click', 'RB  ·  RT'],
+  ['Guard  ·  tap as a blow lands to Deflect', 'Shift', 'LB'],
+  ['Dash  ·  hold to sprint', 'Space', 'B'],
+  ['Stance: High / Mid / Low', '1  2  3  (or C / X)', 'D-pad ↑ / ↓'],
+  ['Thorn Counter', 'F', 'LT'],
   ['Lock on  ·  switch target', 'Q / middle click  ·  wheel / Tab', 'R3  ·  flick right stick'],
-  ['Drink elixir', 'R', 'X'],
+  ['Drink Moondew', 'R', 'X'],
   ['Interact', 'E', 'A'],
-  ['Fae Shift (Anima full)', 'G', 'Y'],
+  ['Fae Shift (Faelight full)', 'G', 'Y'],
   ['Pause', 'Esc', 'Start'],
 ];
 
@@ -127,15 +127,18 @@ export class Menu {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
         <button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
-        <p class="dim">Progress is saved each time you rest at a shrine or fell a lord.</p></div>`;
+        <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
         ${CONTROLS.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table>
         <div class="tips">
-          <p><b>Ki</b> is your stamina. Strikes, dodges and blocked blows spend it; run dry and you stagger, out of breath.</p>
-          <p><b>Ki Pulse</b>: as a strike ends, blue light gathers around you. Tap guard then to take back the Ki you spent. Tap while it's brightest for a perfect pulse.</p>
-          <p><b>Burst attacks</b> glow red and can't be guarded. Dodge them, or press Burst Counter as they land to shatter the foe's Ki.</p>
-          <p>Break a foe's <b>Ki</b> and it reels. Strike it then to <b>Grapple</b> for a killing blow. Unaware foes can be struck in the back.</p>
+          <p><b>Stamina</b> fuels strikes, dashes and blocked blows. Run dry and you stagger, out of breath.</p>
+          <p><b>Resonance</b>: as a strike ends, blue light gathers around you. Tap guard then and the stamina you spent flows back. Change stance in that moment for a Resonant Shift.</p>
+          <p><b>Stances</b>: High hits hardest and slams from the air, Mid is balanced, Low is quick and ends in a dashing thrust.</p>
+          <p><b>Deflect</b> by tapping guard just as a blow lands. Strike straight after for a <b>Flashcut</b>, one cut that fells ordinary foes and chains from one to the next.</p>
+          <p><b>Moonstep</b>: dash at the last instant and the world slows around you.</p>
+          <p><b>Dread strikes</b> glow red and can't be guarded. Dash through them, or Thorn Counter as they land.</p>
+          <p>Drain a foe's stamina bar and it is <b>Shattered</b>: strike to <b>Execute</b>. Strike unaware foes from behind for an <b>Ambush</b>.</p>
         </div>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'settings') {
@@ -155,20 +158,20 @@ export class Menu {
       const cur = derive(sv.stats);
       const rows = STATS.map(st => {
         const next = { ...sv.stats, [st.k]: sv.stats[st.k] + 1 }, d = derive(next);
-        const gain = st.k === 'vit' ? `+${d.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${d.maxKi - cur.maxKi} Ki` : st.k === 'str' ? `+${Math.round((d.dmgMul - cur.dmgMul) * 100)}% damage` : `+${Math.round((d.animaGain - cur.animaGain) * 100)}% Anima, +1s shift`;
+        const gain = st.k === 'vit' ? `+${d.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${d.maxKi - cur.maxKi} stamina` : st.k === 'str' ? `+${Math.round((d.dmgMul - cur.dmgMul) * 100)}% damage` : `+${Math.round((d.animaGain - cur.animaGain) * 100)}% Faelight, +1s shift`;
         return `<div class="stat"><div><b>${st.name}</b> <span class="val">${sv.stats[st.k]}</span><small>${st.desc} · ${gain}</small></div>
-          <button class="btn plus" data-act="level" data-stat="${st.k}" ${sv.amrita >= cost ? '' : 'disabled'}>+</button></div>`;
+          <button class="btn plus" data-act="level" data-stat="${st.k}" ${sv.glimmer >= cost ? '' : 'disabled'}>+</button></div>`;
       }).join('');
       const other = Object.values(G.shrines).filter(s => s.id !== data.id && sv.kindled.includes(s.id));
       h = `<div class="panel shrine"><h2>${esc(data.name)}</h2>
-        <div class="lv"><div><small>Level</small><b>${lvl}</b></div><div><small>Amrita</small><b class="gold">${sv.amrita.toLocaleString()}</b></div><div><small>Next level</small><b>${cost.toLocaleString()}</b></div></div>
-        <div class="derived">Health ${p.maxHp} · Ki ${p.maxKi} · Damage ×${p.dmgMul.toFixed(2)} · Elixirs ${sv.elixirMax}</div>
+        <div class="lv"><div><small>Level</small><b>${lvl}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div><div><small>Next level</small><b>${cost.toLocaleString()}</b></div></div>
+        <div class="derived">Health ${p.maxHp} · Stamina ${p.maxKi} · Damage ×${p.dmgMul.toFixed(2)} · Moondew ${sv.elixirMax}</div>
         ${rows}
         <div class="btns">
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           <button class="btn" data-act="leave">Rise</button>
         </div>
-        <p class="dim">Resting mends you, refills your elixirs, and calls every fallen foe back to the keep.</p></div>`;
+        <p class="dim">Resting mends you, refills your Moondew, and calls every fallen foe back to the keep.</p></div>`;
     } else if (screen === 'ending') {
       const sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
       h = `<div class="panel ending"><h1>THE WARREN IS STILL</h1>

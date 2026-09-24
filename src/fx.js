@@ -1,5 +1,5 @@
 // Visual effects: point particles (additive and alpha-blended), sword trails, slash arcs, ground rings,
-// sprite flashes and Amrita wisps that fly to the player.
+// sprite flashes and Glimmer wisps that fly to the player.
 import * as THREE from 'three';
 import { glowTexture } from './textures.js';
 import { rand } from './util.js';
@@ -245,10 +245,12 @@ export class FX {
     return s;
   }
 
-  // Amrita wisps: rise from p, then home in on target() and call onArrive once per wisp.
-  wisps(p, n, target, onArrive, color = 0xffd27a) {
+  // Soul motes: burst from p, then home in on target() and call onArrive once each.
+  // With o.range set, a mote hovers where it fell until the target comes within range (or o.hover runs out).
+  wisps(p, n, target, onArrive, color = 0xffd27a, o = {}) {
     for (let i = 0; i < n; i++) {
-      this.wispList.push({ x: p.x + rand(-.4, .4), y: p.y + rand(0, .8), z: p.z + rand(-.4, .4), vx: rand(-2, 2), vy: rand(2, 4), vz: rand(-2, 2), t: 0, delay: i * .03, target, onArrive, c: this.col(color) });
+      this.wispList.push({ x: p.x + rand(-.4, .4), y: p.y + rand(0, .8), z: p.z + rand(-.4, .4), vx: rand(-2.5, 2.5), vy: rand(2, 4), vz: rand(-2.5, 2.5), t: 0, delay: i * .03,
+        target, onArrive, c: this.col(color), range: o.range || 0, hover: o.hover || 0, size: o.size || .16, homing: !o.range, ph: Math.random() * 6 });
     }
   }
 
@@ -269,12 +271,21 @@ export class FX {
       w.t += dt;
       if (w.t < w.delay) continue;
       const tg = w.target(), dx = tg.x - w.x, dy = tg.y - w.y, dz = tg.z - w.z, d = Math.hypot(dx, dy, dz);
+      if (!w.homing) {
+        // Hover and bob where it fell until the knight comes near.
+        const drag = Math.exp(-3 * dt); w.vx *= drag; w.vz *= drag; w.vy = w.vy * drag + (1.1 + Math.sin(w.t * 2 + w.ph) * .15 - w.y) * 3 * dt;
+        w.x += w.vx * dt; w.y += w.vy * dt; w.z += w.vz * dt;
+        if (Math.random() < dt * 30) this.add.emit({ x: w.x, y: w.y, z: w.z, life: .5, size: w.size, color: w.c, alpha: .8, vy: .3 });
+        if (w.t > .5 && d < w.range) { w.homing = true; w.t = w.delay + .3; }
+        if (w.t > w.hover) this.wispList.splice(i, 1);
+        continue;
+      }
       const pull = Math.min(1, (w.t - w.delay) * 1.2) * 40;
       w.vx += dx / d * pull * dt; w.vy += dy / d * pull * dt; w.vz += dz / d * pull * dt;
       const drag = Math.exp(-2.2 * dt); w.vx *= drag; w.vy *= drag; w.vz *= drag;
       w.x += w.vx * dt; w.y += w.vy * dt; w.z += w.vz * dt;
-      this.add.emit({ x: w.x, y: w.y, z: w.z, life: .25, size: .16, color: w.c, alpha: .9 });
-      if (d < .5 || w.t > 4) { this.wispList.splice(i, 1); w.onArrive?.(); }
+      this.add.emit({ x: w.x, y: w.y, z: w.z, life: .25, size: w.size, color: w.c, alpha: .9 });
+      if (d < .5 || w.t > 6) { this.wispList.splice(i, 1); w.onArrive?.(); }
     }
   }
 }
