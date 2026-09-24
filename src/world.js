@@ -9,13 +9,13 @@ import { rng, clamp, lerp } from './util.js';
 export const AREAS = [
   { id: 'grove', name: 'The Fallen Grove', x0: -11, x1: 11, z0: -12, z1: 10 },
   { id: 'yard', name: 'Grubhold Gatehouse', x0: -18, x1: 28, z0: 10, z1: 64 },
-  { id: 'halls', name: 'The Gnawing Halls', x0: -19, x1: 12, z0: 64, z1: 112 },
-  { id: 'throne', name: 'Throne of the Warren', x0: -17, x1: 17, z0: 112.5, z1: 152 },
+  { id: 'halls', name: 'The Gnawing Halls', x0: -19, x1: 12, z0: 64, z1: 120.2 },
+  { id: 'throne', name: 'Throne of the Warren', x0: -17, x1: 17, z0: 120.2, z1: 152 },
 ];
 
 export const SHRINES = {
-  grove: { id: 'grove', name: 'Shrine of the Fallen Grove', x: 0, z: -5.5, spawn: [0, -2.9], yaw: 0 },
-  halls: { id: 'halls', name: 'Shrine of the Gnawing Halls', x: -16.2, z: 102, spawn: [-14.4, 102], yaw: Math.PI / 2 },
+  grove: { id: 'grove', name: 'Shrine of the Fallen Grove', x: 0, z: -5.5, spawn: [2.2, -4.2], yaw: 0 },
+  halls: { id: 'halls', name: 'Shrine of the Gnawing Halls', x: -16.2, z: 102, spawn: [-13.9, 100.1], yaw: Math.PI / 2 },
 };
 
 // Enemy placements. idle: 'stand' | 'sleep'. patrol: waypoints.
@@ -50,7 +50,7 @@ export const MESSAGES = [
   { x: 0, z: 49, text: 'Foes that flare RED unleash Burst attacks. No guard stops them.\nPress F as the blow lands to Burst Counter and shatter their Ki.' },
   { x: -2, z: 70, text: 'R drinks an elixir. Rest at a shrine to refill them, and to spend Amrita on strength.\nDie, and your Amrita stays where you fell.' },
   { x: 2, z: 110, text: 'Strike, counter and pulse to fill the violet Anima.\nWhen it is full, G awakens your Fae Shift.' },
-  { x: -1.5, z: 116.5, text: 'Beyond the fog, the Warblade waits upon his throne.' },
+  { x: -1.8, z: 114, text: 'Beyond the fog, the Warblade waits upon his throne.' },
 ];
 
 export const ITEMS = [
@@ -115,6 +115,27 @@ void main(){
   float edge = smoothstep(0., .1, vUv.x) * smoothstep(1., .9, vUv.x) * smoothstep(0., .05, vUv.y) * smoothstep(1., .7, vUv.y);
   gl_FragColor = vec4(vec3(.82, .88, 1.) * (.55 + m * .7), a * edge * uOpacity);
 }`;
+
+// See-through cutout: walls and pillars between the camera and the knight dissolve in a dithered disc,
+// so the player never loses sight of their character. uCut = (x px, y px, radius px), uCutDepth = view depth.
+export const CUT = { uCut: { value: new THREE.Vector3() }, uCutDepth: { value: 0 } };
+function cutout(mat) {
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.uCut = CUT.uCut; shader.uniforms.uCutDepth = CUT.uCutDepth;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying float vCutDepth;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvCutDepth = -mvPosition.z;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uCut; uniform float uCutDepth; varying float vCutDepth;')
+      .replace('void main() {', `void main() {
+        if (uCut.z > 0. && vCutDepth < uCutDepth - .7) {
+          float d = length(gl_FragCoord.xy - uCut.xy) / uCut.z;
+          float n = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+          if (d < 1. && n > smoothstep(.55, 1., d)) discard;
+        }`);
+  };
+  return mat;
+}
 
 // ---------------------------------------------------------------- the world
 export class World {
@@ -230,6 +251,7 @@ export class World {
       bone: new THREE.MeshStandardMaterial({ color: 0xc9bfa6, roughness: .7 }),
       stone: new THREE.MeshStandardMaterial({ color: 0x5a5a5e, roughness: .95 }),
     };
+    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood']) cutout(this.mats[k]);
     this.glowTex = glowTexture();
     this.starTex = glowTexture('star');
 
@@ -334,7 +356,7 @@ export class World {
       g.translate(x, hh / 2, z); pil.push(g);
       const cap = boxGeo(r * 2.6, .5, r * 2.6, 2); cap.translate(x, .25, z); pil.push(cap);
       if (!broken) { const top = boxGeo(r * 2.6, .5, r * 2.6, 2); top.translate(x, hh - .25, z); pil.push(top); }
-      this.addCyl(x, z, r + .05, hh);
+      this.prop(this.addCyl(x, z, r + .05, hh));   // the camera passes pillars rather than jamming into the knight
     };
     for (const [x, z, b] of [[-11, 36, 0], [-11, 46, 1], [11, 34, 1], [12, 47, 0], [-6, 58, 0], [6, 58, 0]]) pillar(x, z, .75, 7, !!b);
     for (let z = 80; z <= 106; z += 6.5) { pillar(-6, z, .8, 9); pillar(6, z, .8, 9); }
@@ -521,7 +543,7 @@ export class World {
     for (const [x, z] of [[-2.2, 12.5], [2.2, 27]]) this.brazier(x, z);
     for (const [x, z] of [[-16, 30], [16, 30], [-16, 62], [16, 62], [-4, 63], [4, 63], [26.5, 44]]) this.brazier(x, z);
     for (const [x, z] of [[-11, 76], [11, 76], [-11, 110], [11, 110], [0, 88]]) this.brazier(x, z, 0x9cff5a);
-    for (const [x, z] of [[-2.3, 112.8], [2.3, 112.8]]) this.brazier(x, z, 0xff5030);
+    for (const [x, z] of [[-2.3, 116.6], [2.3, 116.6]]) this.brazier(x, z, 0xff5030);
     for (let i = 0; i < 6; i++) { const a = (i + 1) / 7 * Math.PI * 2; this.brazier(Math.sin(a) * 14.4, 135 - Math.cos(a) * 14.4, 0xff4020); }
 
     // A small pool of real point lights, moved each frame onto the nearest flames.
@@ -605,12 +627,13 @@ export class World {
       vertexShader: FOG_VERT, fragmentShader: FOG_FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide,
       uniforms: { uTime: { value: 0 }, uOpacity: { value: 1 } },
     });
-    const fog = new THREE.Mesh(new THREE.PlaneGeometry(6, 6.4), fogMat);
-    fog.position.set(0, 3.2, 114.5);
+    // The fog seals the arena mouth. Seen from behind during the fight it thins to a veil (viewFade).
+    const fog = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 6.8), fogMat);
+    fog.position.set(0, 3.4, 119.2);
     this.group.add(fog);
-    this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(0, 114.5, 3, .3, 0, 7)), gone: false, fade: 1 };
-    this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade; fog.visible = this.fogGate.fade > .01; });
-    this.interactables.push({ kind: 'fog', x: 0, z: 113.3, r: 1.8, prompt: 'Traverse the white fog' });
+    this.fogGate = { mesh: fog, mat: fogMat, col: this.prop(this.addBox(0, 119.2, 3.7, .9, 0, 7)), gone: false, fade: 1, viewFade: 1 };
+    this.anim.push(t => { fogMat.uniforms.uTime.value = t; fogMat.uniforms.uOpacity.value = this.fogGate.fade * this.fogGate.viewFade; fog.visible = this.fogGate.fade > .01; });
+    this.interactables.push({ kind: 'fog', x: 0, z: 117.4, r: 1.7, prompt: 'Traverse the white fog' });
 
     // The way onward, lit once the Warblade falls.
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, .08, 8, 48), new THREE.MeshBasicMaterial({ color: 0xffd6ff, transparent: true, blending: THREE.AdditiveBlending }));

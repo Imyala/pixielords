@@ -139,10 +139,10 @@ export const ACTIONS = {
     K(.8, { lift: -.2, chestRx: .2, headRx: 0, thLx: -.6, knL: .7, thRx: .1, knR: .8 }),
     K(1.4, {}),
   ] },
-  fog: { dur: 1.4, keys: [
+  fog: { dur: 2.6, keys: [
     K(0, { chestRx: .1, lhX: .15, lhY: .2, lhZ: .45 }),
-    K(1.2, { chestRx: .1, lhX: .15, lhY: .2, lhZ: .45 }),
-    K(1.4, {}),
+    K(2.2, { chestRx: .1, lhX: .15, lhY: .2, lhZ: .45 }),
+    K(2.6, {}),
   ] },
   shift: { dur: 1.0, keys: [
     K(0, { chestRx: .3, lift: -.1, wings: .3 }),

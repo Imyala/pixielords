@@ -557,11 +557,13 @@ export class Player {
         if (this.st >= 1.2) this.setState('free');
         break;
       case 'fog': {
+        // Walk through the fog and on into the arena, so the camera ends up inside too.
         this.iframes = true;
-        const sp = 2.6;
+        const sp = 3.4;
         this.pos.x = damp(this.pos.x, 0, 6, dt);
         this.pos.z += sp * dt; this.yaw = 0;
-        if (this.st >= 1.4) { this.setState('free'); G.onFogCrossed(); }
+        want = { x: 0, z: sp };
+        if (this.pos.z >= 122.6 || this.st >= 3) { this.setState('free'); this.anim.stop(); G.onFogCrossed(); }
         break;
       }
       case 'pickup':
@@ -663,7 +665,7 @@ export class Player {
     const ls = Math.cos(this.yaw) * this.vel.x - Math.sin(this.yaw) * this.vel.z;
     A.capeLag = clamp(sp / 7, 0, 1) * .9 + (this.state === 'roll' ? .3 : 0);
     const prevStep = Math.floor(A.gait / Math.PI);
-    A.update(dt, { speed: this.state === 'free' || this.state === 'drink' ? sp : 0, forward: sp > .1 ? lf / sp : 1, side: sp > .1 ? ls / sp : 0, guard: this.guarding, sprint: this.sprinting });
+    A.update(dt, { speed: ['free', 'drink', 'fog'].includes(this.state) ? sp : 0, forward: sp > .1 ? lf / sp : 1, side: sp > .1 ? ls / sp : 0, guard: this.guarding, sprint: this.sprinting });
     if (Math.floor(A.gait / Math.PI) !== prevStep && sp > .8) G.audio.sfx('step');
 
     // Sword trail while swinging.

@@ -29,6 +29,8 @@ export class CameraRig {
     this.t += dt;
     const p = player.pos;
     this.pivot.set(p.x, 1.55, p.z);
+    const bigLock = lock && lock.height > 3;
+    this.dist = damp(this.dist, bigLock ? 6.2 : 5.1, 2, dt);
     if (lock) {
       const lp = lock.pos, d = Math.hypot(lp.x - p.x, lp.z - p.z);
       this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 7, dt);
@@ -49,7 +51,10 @@ export class CameraRig {
     this.curDist = want < this.curDist ? want : damp(this.curDist, want, 3, dt);
     const cam = this.camera;
     cam.position.copy(this.pivot).addScaledVector(dir, this.curDist);
-    cam.position.y = Math.max(.35, cam.position.y);
+    // Pulled in close by a wall: lift the camera to look over the knight's head.
+    const close = Math.max(0, 2.4 - this.curDist);
+    cam.position.y = Math.max(.35, cam.position.y + close * .55);
+    this.look.y += close * .25;
     // Shake.
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
     const s = this.trauma * this.trauma;

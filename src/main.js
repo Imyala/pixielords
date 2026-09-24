@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
-import { World, SHRINES, SPAWNS } from './world.js';
+import { World, SHRINES, SPAWNS, CUT } from './world.js';
 import { Player } from './player.js';
 import { Enemy, Projectiles } from './enemies.js';
 import { FX } from './fx.js';
@@ -370,7 +370,7 @@ function findInteractable() {
   let best = null, bd = Infinity;
   for (const it of w.interactables) {
     if (it.kind === 'item' && it.taken) continue;
-    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || p.pos.z > 114.2 || !G.boss?.alive)) continue;
+    if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || p.pos.z > 118.1 || !G.boss?.alive)) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
@@ -518,7 +518,23 @@ function step(dt, rdt) {
   }
   G.audio.listener = { x: p.pos.x, z: p.pos.z, yaw: G.cam.yaw };
   moon.position.set(p.pos.x - 18, 40, p.pos.z + 30); moon.target.position.set(p.pos.x, 0, p.pos.z);
+  const fg = G.world.fogGate;
+  fg.viewFade = damp(fg.viewFade, G.bossFight && camera.position.z < 119.4 ? .12 : 1, 6, rdt);
+  updateCutout(p);
   G.hud.update(rdt);
+}
+
+// Point the wall cutout at the knight.
+const _cv = new THREE.Vector3();
+function updateCutout(p) {
+  camera.updateMatrixWorld();
+  _cv.set(p.pos.x, 1.1, p.pos.z);
+  const depth = _cv.clone().applyMatrix4(camera.matrixWorldInverse).z * -1;
+  _cv.project(camera);
+  const buf = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const r = 1.05 * (buf.y / 2) / Math.tan(camera.fov * Math.PI / 360) / Math.max(.5, depth);
+  CUT.uCut.value.set((_cv.x * .5 + .5) * buf.x, (_cv.y * .5 + .5) * buf.y, G.state === 'play' || G.state === 'dead' ? r : 0);
+  CUT.uCutDepth.value = depth;
 }
 
 // While resting, the camera drifts round to the front of the shrine.
@@ -528,6 +544,9 @@ function restCam() {
   const a = Math.atan2(p.pos.x - s.x, p.pos.z - s.z) + .9;
   _rc.set(s.x + Math.sin(a) * 4.6, 2.1, s.z + Math.cos(a) * 4.6);
   _rl.set((s.x + p.pos.x) / 2, 1.1, (s.z + p.pos.z) / 2);
+  // Aim left of the pair so they sit on the right, clear of the shrine menu.
+  const dx = _rl.x - _rc.x, dz = _rl.z - _rc.z, dl = Math.hypot(dx, dz);
+  _rl.x += dz / dl * 1.7; _rl.z -= dx / dl * 1.7;
   const k = G.restCamK * G.restCamK * (3 - 2 * G.restCamK);
   camera.position.lerp(_rc, k);
   camera.lookAt(_rl.lerp(G.cam.look, 1 - k));

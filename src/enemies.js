@@ -116,25 +116,25 @@ export const TYPES = {
     ],
   },
   'ratman-warblade': {
-    name: 'Gnawfang, Warblade of the Warren', scale: 1.85, radius: 1.05, hp: 2700, ki: 380, poise: 75, walk: 2, run: 5.2, amrita: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
+    name: 'Gnawfang, Warblade of the Warren', scale: 1.55, radius: .9, hp: 2700, ki: 380, poise: 75, walk: 2, run: 5.2, amrita: 6000, voice: 'growl', pitch: .55, boss: true, track: 3.2, aggro: .9,
     attacks: [
-      A('Cleave', 4.4, [S('swing', .72, .16, .85, 95, { reach: 4.6, arc: 150, lunge: 1.8 })]),
-      A('Rending Chain', 4.4, [
-        S('swing', .6, .14, .12, 72, { reach: 4.5, arc: 140, lunge: 1.4 }),
-        S('backswing', .38, .14, .12, 72, { reach: 4.5, arc: 140, lunge: 1.4 }),
-        S('overhead', .55, .18, 1.1, 100, { reach: 4.4, arc: 60, lunge: 1.6, aoe: 1.8, shake: .6 }),
+      A('Cleave', 3.9, [S('swing', .72, .16, .85, 95, { reach: 4.0, arc: 150, lunge: 1.8 })]),
+      A('Rending Chain', 3.9, [
+        S('swing', .6, .14, .12, 72, { reach: 3.9, arc: 140, lunge: 1.4 }),
+        S('backswing', .38, .14, .12, 72, { reach: 3.9, arc: 140, lunge: 1.4 }),
+        S('overhead', .55, .18, 1.1, 100, { reach: 3.8, arc: 60, lunge: 1.6, aoe: 1.8, shake: .6 }),
       ], { w: .9 }),
-      A('Gnaw Lunge', 11, [S('thrust', .9, .3, 1.1, 130, { reach: 3.4, arc: 70, lunge: 8.5, burst: true, hyper: true })], { minRange: 5, cd: 6, w: .9 }),
-      A('Warren Quake', 14, [S('leap', .75, .8, 1.2, 140, { reach: 0, aoe: 4, burst: true, hyper: true, shake: 1.1 })], { minRange: 6, cd: 8, w: .8 }),
-      A('Tail Whirl', 4.2, [S('spin', .6, .35, .9, 82, { reach: 4.4, arc: 360, lunge: 0 })], { cond: 'behind', w: 2, cd: 4 }),
+      A('Gnaw Lunge', 11, [S('thrust', .9, .3, 1.1, 130, { reach: 3.0, arc: 70, lunge: 8.5, burst: true, hyper: true })], { minRange: 5, cd: 6, w: .9 }),
+      A('Warren Quake', 14, [S('leap', .75, .8, 1.2, 140, { reach: 0.0, aoe: 4, burst: true, hyper: true, shake: 1.1 })], { minRange: 6, cd: 8, w: .8 }),
+      A('Tail Whirl', 3.7, [S('spin', .6, .35, .9, 82, { reach: 3.8, arc: 360, lunge: 0 })], { cond: 'behind', w: 2, cd: 4 }),
     ],
     phase2: [
       A('Plague Roar', 30, [S('roar', 1.4, .6, .6, 0, { hyper: true })], { once: true }),
-      A('Frenzied Chain', 4.4, [
-        S('swing', .45, .12, .08, 70, { reach: 4.5, arc: 140, lunge: 1.4 }),
-        S('backswing', .3, .12, .08, 70, { reach: 4.5, arc: 140, lunge: 1.4 }),
-        S('swing', .3, .12, .1, 70, { reach: 4.5, arc: 140, lunge: 1.4 }),
-        S('overhead', .7, .18, 1.2, 120, { reach: 4.4, arc: 60, lunge: 2, aoe: 2, burst: true, hyper: true, shake: .8 }),
+      A('Frenzied Chain', 3.9, [
+        S('swing', .45, .12, .08, 70, { reach: 3.9, arc: 140, lunge: 1.4 }),
+        S('backswing', .3, .12, .08, 70, { reach: 3.9, arc: 140, lunge: 1.4 }),
+        S('swing', .3, .12, .1, 70, { reach: 3.9, arc: 140, lunge: 1.4 }),
+        S('overhead', .7, .18, 1.2, 120, { reach: 3.8, arc: 60, lunge: 2, aoe: 2, burst: true, hyper: true, shake: .8 }),
       ], { w: 1 }),
     ],
   },
