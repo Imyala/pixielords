@@ -39,7 +39,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0d1122, .026);
 scene.background = new THREE.Color(0x0d1122);
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, .1, 900);
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 900);
 Object.assign(G, { renderer, scene, camera });
 
 const hemi = new THREE.HemisphereLight(0x7d8fc4, 0x2a2016, 1.35);
@@ -481,14 +481,17 @@ function step(dt, rdt) {
   runTimers();
   if (dt > 0) {
     p.update(dt);
+    // Moonstep: the world slows while the knight doesn't.
+    const edt = G.warp > 0 ? dt * .28 : dt;
+    G.warp = Math.max(0, (G.warp || 0) - rdt);
     for (const e of G.enemies) {
       if (!e.active) continue;
       const d = e.distToPlayer();
       e.outer.visible = d < 60;
-      if (d < 50 || e.aware) e.update(dt);
+      if (d < 50 || e.aware) e.update(edt);
     }
-    separate();
-    G.projectiles.update(dt);
+    separate(edt);
+    G.projectiles.update(edt);
   }
   // Boss phases and the Gatewarden's bar.
   const b = G.boss;
@@ -571,15 +574,18 @@ function restCam() {
 }
 
 // Keep bodies from overlapping.
-function separate() {
-  const E = G.enemies;
+// Keep bodies apart softly: overlap is eased out over a few frames and a little personal space is kept,
+// so crowds drift apart instead of jittering.
+function separate(dt) {
+  const E = G.enemies, k = 1 - Math.exp(-dt * 12);
   for (let i = 0; i < E.length; i++) {
     const a = E[i]; if (!a.alive) continue;
     for (let j = i + 1; j < E.length; j++) {
       const b = E[j]; if (!b.alive) continue;
-      const dx = a.pos.x - b.pos.x, dz = a.pos.z - b.pos.z, d = Math.hypot(dx, dz), m = a.radius + b.radius;
+      const dx = a.pos.x - b.pos.x, dz = a.pos.z - b.pos.z, d = Math.hypot(dx, dz), m = a.radius + b.radius + .3;
       if (d < m && d > 1e-4) {
-        const push = (m - d) / 2, wa = b.boss ? 1.8 : a.boss ? .2 : 1, wb = 2 - wa;
+        const hard = d < m - .3;
+        const push = (m - d) / 2 * (hard ? Math.max(k, .5) : k * .5), wa = b.boss ? 1.8 : a.boss ? .2 : 1, wb = 2 - wa;
         a.pos.x += dx / d * push * wa; a.pos.z += dz / d * push * wa;
         b.pos.x -= dx / d * push * wb; b.pos.z -= dz / d * push * wb;
       }

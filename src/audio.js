@@ -102,7 +102,28 @@ export class Audio {
     const t = now + .005, vol = o.vol ?? 1, R = Math.random;
     const d = (v, wet) => this.out(v * vol, o.x, o.z, wet);
     switch (name) {
-      case 'swing': this.noiseBurst(d(.5, .3), t, .18, { f0: 900 + R() * 300, f1: 3200, q: 1.4, a: .04 }); break;
+      case 'swing': { const pp = o.pitch || 1; this.noiseBurst(d(.5, .3), t, .16 / pp, { f0: (900 + R() * 300) * pp, f1: 3200 * pp, q: 1.4, a: .03 }); break; }
+      case 'stance': { const g = d(.45, .6), pp = o.pitch || 1; this.noiseBurst(g, t, .18, { f0: 600 * pp, f1: 2400 * pp, q: 1.2, a: .02, peak: .6 }); this.tone(g, t, .25, { type: 'triangle', f0: 520 * pp, f1: 780 * pp, peak: .18 }); break; }
+      case 'deflect': {
+        const g = d(1, .9);
+        for (const f of [2200, 3300, 4700, 6100]) this.tone(g, t, .7 + R() * .3, { type: 'triangle', f0: f * (1 + R() * .015), peak: .16, a: .001 });
+        this.noiseBurst(g, t, .08, { type: 'highpass', f0: 5000, peak: .9 });
+        this.tone(g, t, .2, { type: 'sine', f0: 180, f1: 90, peak: .6 }); break;
+      }
+      case 'moonstep': {
+        const g = d(.8, 1);
+        this.tone(g, t, .9, { type: 'sine', f0: 260, f1: 1100, a: .05, peak: .35 });
+        this.tone(g, t + .05, .9, { type: 'sine', f0: 390, f1: 1650, a: .05, peak: .2 });
+        this.noiseBurst(g, t, .6, { f0: 3000, f1: 400, q: .8, a: .02, peak: .4 }); break;
+      }
+      case 'flashDraw': this.noiseBurst(d(.8, .5), t, .22, { type: 'highpass', f0: 1500, f1: 9000, a: .01, peak: .8 }); break;
+      case 'flashcut': {
+        const g = d(1.3, 1);
+        this.noiseBurst(g, t, .14, { type: 'highpass', f0: 7000, f1: 2500, a: .001, peak: 1.2 });
+        this.tone(g, t, .9, { type: 'sine', f0: 90, f1: 32, peak: 1.4 });
+        for (const f of [1760, 2640, 3520]) this.tone(g, t + .02, 1.4, { type: 'sine', f0: f, peak: .12, a: .002 });
+        this.noiseBurst(g, t + .03, .5, { type: 'lowpass', f0: 1500, f1: 80, peak: .8 }); break;
+      }
       case 'swingHeavy':
         this.noiseBurst(d(.7, .4), t, .32, { f0: 400, f1: 1800, q: 1.2, a: .1 });
         this.tone(d(.25), t, .3, { type: 'sine', f0: 90, f1: 60, a: .08 }); break;

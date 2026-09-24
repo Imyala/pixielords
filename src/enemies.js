@@ -305,6 +305,9 @@ export class Enemy {
     G.scene.add(this.outer);
     this.pos = this.outer.position;
     this.cur = { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0 };
+    this.animVel = Object.fromEntries(Object.keys(this.cur).map(k => [k, 0]));
+    this.tg = { ...this.cur };
+    this.want = new THREE.Vector3(); this.impulse = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.cd = {};
     this.reset();
   }
@@ -323,7 +326,10 @@ export class Enemy {
     this.poiseDmg = 0; this.poiseT = 0; this.kiT = 0;
     this.state = s.idle === 'sleep' ? 'sleep' : s.patrol ? 'patrol' : 'idle';
     this.st = 0; this.atk = null; this.step = null;
-    this.patrolI = 0; this.think = rand(0, .3); this.vel = new THREE.Vector3();
+    this.patrolI = 0; this.think = rand(0, .3); this.vel.set(0, 0, 0); this.impulse.set(0, 0, 0); this.want.set(0, 0, 0);
+    this.yawVel = 0; this.gait = 0; this.speedNow = 0; this.turnRate = 6; this.faceYaw = null; this.planT = 0; this.detour = 0;
+    for (const k in this.animVel) this.animVel[k] = 0;
+    Object.assign(this.cur, { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0 });
     this.phase2 = false; this.usedOnce = {};
     this.dmgShown = 0; this.dmgShowT = 0; this.barT = 0;
     this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0;
@@ -380,10 +386,11 @@ export class Enemy {
     if (this.state !== 'broken' && this.state !== 'grappled') this.ki -= hit.ki || 0;
     this.poiseDmg += hit.poise || 0; this.poiseT = 1.2;
     if (!this.aware && !this.boss) { this.alert(); this.state = 'engage'; this.st = 0; this.think = .15; }
-    // Knockback.
-    if (!this.boss && this.state !== 'grappled') {
-      const kb = (hit.heavy ? .45 : .18) * (this.elite ? .3 : 1);
-      this.pos.x += Math.sin(hit.dir) * kb; this.pos.z += Math.cos(hit.dir) * kb;
+    // Knockback as an impulse, plus a jolt through the pose springs.
+    if (this.state !== 'grappled') {
+      const kb = (hit.heavy ? 4.5 : 2) * (this.boss ? .15 : this.elite ? .35 : 1);
+      this.impulse.x += Math.sin(hit.dir) * kb; this.impulse.z += Math.cos(hit.dir) * kb;
+      this.pulseAnim(hit.heavy ? 'heavy' : 'hit', this.boss ? .4 : this.elite ? .6 : 1);
     }
     if (this.hp <= 0) { this.die(hit); return 'kill'; }
     if (this.state === 'grappled') return 'hit';
@@ -411,7 +418,19 @@ export class Enemy {
     this.G.hud?.enemyBroken(this);
   }
 
-  // The player Burst Countered one of our attacks.
+  // The player met the blow with a perfect guard: the attacker reels and loses posture.
+  deflected(h) {
+    const G = this.G;
+    this.ki -= (18 + h.dmg * .5) * (this.boss ? .6 : 1);
+    this.kiT = 1.4; this.barT = 6;
+    this.pulseAnim('deflected', this.boss ? .5 : 1);
+    const back = yawTo(G.player.pos.x, G.player.pos.z, this.pos.x, this.pos.z);
+    this.impulse.x += Math.sin(back) * (this.boss ? 1 : 3); this.impulse.z += Math.cos(back) * (this.boss ? 1 : 3);
+    if (this.ki <= 0) { this.breakKi(); return; }
+    if (!this.boss && !this.elite) this.hurt(.55);
+  }
+
+  // The player Thorn Countered one of our attacks.
   countered(wasBurst) {
     const G = this.G;
     if (wasBurst) {
@@ -470,7 +489,7 @@ export class Enemy {
   beginStep() {
     const s = this.atk.steps[this.stepI];
     const spd = this.phase2 ? .85 : 1;
-    this.step = s; this.phase = 'windup'; this.pt = 0; this.hitDone = false; this.lungeLeft = 0;
+    this.step = s; this.phase = 'windup'; this.pt = 0; this.hitDone = false; this.lungeTotal = 0; this.lungeDone = 0;
     this.stepDur = { windup: s.windup * spd, active: s.active, recover: s.recover * (this.phase2 ? .8 : 1) };
     const G = this.G, head = new THREE.Vector3(this.pos.x, this.height * .75, this.pos.z);
     if (s.burst) {
@@ -495,14 +514,14 @@ export class Enemy {
     const toP = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z);
     const d = this.distToPlayer();
     if (this.phase === 'windup') {
-      this.yaw = turnTowards(this.yaw, toP, (s.anim === 'leap' ? 6 : (this.T.track || 6)) * dt);
+      this.faceYaw = toP; this.turnRate = s.anim === 'leap' ? 6 : (this.T.track || 6);
       if (s.burst) G.fx.burstAura(this.pos, 0xff2020, 2, this.height, this.radius);
       if (s.anim === 'leap') { this.leap.x1 = p.pos.x; this.leap.z1 = p.pos.z; }
       if (this.pt >= D.windup) {
         this.phase = 'active'; this.pt = 0;
         const want = s.lunge ? Math.min(s.lunge, Math.max(0, d - (s.reach * .55 + p.radius))) : 0;
-        this.lungeLeft = s.anim === 'thrust' && s.lunge > 3 ? s.lunge : want;   // charges commit to their full length
-        this.lungeTotal = this.lungeLeft;
+        this.lungeTotal = s.anim === 'thrust' && s.lunge > 3 ? s.lunge : want;   // charges commit to their full length
+        this.lungeDone = 0;
         if (s.proj) {
           const hand = new THREE.Vector3(this.pos.x + Math.sin(this.yaw) * .5, this.height * .7, this.pos.z + Math.cos(this.yaw) * .5);
           G.projectiles.spawn(s.proj.kind, hand, this, s);
@@ -516,13 +535,8 @@ export class Enemy {
       if (s.anim === 'leap') {
         const k = clamp(this.pt / ad, 0, 1), L = this.leap;
         this.pos.x = lerp(L.x0, L.x1, smooth(k)); this.pos.z = lerp(L.z0, L.z1, smooth(k));
-      } else if (this.lungeLeft > 0) {
-        const step = Math.min(this.lungeLeft, this.lungeTotal / ad * dt * 1.1);
-        this.pos.x += Math.sin(this.yaw) * step; this.pos.z += Math.cos(this.yaw) * step;
-        this.lungeLeft -= step;
-        if (s.lunge > 3 && d < s.reach * .6 + p.radius) this.lungeLeft = 0;
-      }
-      this.yaw = turnTowards(this.yaw, toP, (s.anim === 'thrust' && s.lunge > 3 ? 1.2 : .8) * dt);
+      } else this.advanceLunge(ad, d, s, p);
+      this.faceYaw = toP; this.turnRate = s.anim === 'thrust' && s.lunge > 3 ? 1.2 : .8;
       const hitAt = s.aoeAt ? ad * .5 : s.anim === 'leap' ? ad * .98 : 0;
       if (!this.hitDone && this.pt >= hitAt && !s.proj && s.anim !== 'roar') this.tryHit(s);
       if (this.pt >= ad) {
@@ -530,6 +544,7 @@ export class Enemy {
         if (!this.hitDone && !s.proj && s.anim !== 'roar') this.tryHit(s);
       }
     } else if (this.phase === 'recover') {
+      this.advanceLunge(D.active, d, s, p, D.active + this.pt);
       if (this.pt >= D.recover) {
         this.stepI++;
         if (this.stepI < this.atk.steps.length) this.beginStep();
@@ -540,6 +555,16 @@ export class Enemy {
         }
       }
     }
+  }
+
+  // Lunges ease in and out over the active frames and spill a little into recovery.
+  advanceLunge(ad, d, s, p, t = this.pt) {
+    if (!this.lungeTotal || this.lungeDone >= this.lungeTotal) return;
+    const k = smooth(clamp(t / (ad * 1.35), 0, 1));
+    let step = this.lungeTotal * k - this.lungeDone;
+    if (s.lunge > 3 && d < s.reach * .6 + p.radius) { step = 0; this.lungeTotal = this.lungeDone; }
+    this.lungeDone += step;
+    this.pos.x += Math.sin(this.yaw) * step; this.pos.z += Math.cos(this.yaw) * step;
   }
 
   tryHit(s) {
@@ -598,9 +623,10 @@ export class Enemy {
     this.poiseT -= dt; if (this.poiseT <= 0) this.poiseDmg = 0;
     this.kiT -= dt;
     if (this.kiT <= 0 && this.state !== 'broken' && this.ki < this.maxKi) this.ki = Math.min(this.maxKi, this.ki + this.maxKi * .35 * dt);
-    this.vel.set(0, 0, 0);
+    this.want.set(0, 0, 0);
+    this.faceYaw = null;
 
-    if (this.state === 'dead') { this.updateDead(dt); this.animate(dt); return; }
+    if (this.state === 'dead') { this.updateDead(dt); this.integrate(dt); this.animate(dt); return; }
 
     const d = this.distToPlayer();
     const toP = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z);
@@ -610,23 +636,23 @@ export class Enemy {
       case 'sleep':
       case 'idle':
         if (this.think <= 0) { this.think = .2; if (this.canSee(d)) this.alert(); }
-        this.yaw = turnTowards(this.yaw, this.home.yaw, 2 * dt);
+        this.faceYaw = this.home.yaw; this.turnRate = 2;
         break;
       case 'patrol': {
         const wp = this.spawn.patrol[this.patrolI];
         const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, dd = Math.hypot(dx, dz);
-        if (dd < .4) { this.patrolI = (this.patrolI + 1) % this.spawn.patrol.length; this.think = Math.max(this.think, 0); }
-        else this.moveToward(Math.atan2(dx, dz), this.T.walk, dt);
+        if (dd < .6) this.patrolI = (this.patrolI + 1) % this.spawn.patrol.length;
+        else this.steer(Math.atan2(dx, dz), this.T.walk * Math.min(1, dd / 1.5 + .3));
         if (this.think <= 0) { this.think = .2; if (this.canSee(d)) this.alert(); }
         break;
       }
       case 'alert':
-        if (this.st > 0) this.yaw = turnTowards(this.yaw, toP, 7 * dt);
-        if (this.st > .45) { this.state = 'engage'; this.st = 0; this.think = rand(0, .3); }
+        if (this.st > 0) { this.faceYaw = toP; this.turnRate = 7; }
+        if (this.st > .45) { this.state = 'engage'; this.st = 0; this.think = rand(0, .3); this.planT = 0; }
         break;
       case 'intro':
-        this.yaw = turnTowards(this.yaw, toP, 2 * dt);
-        if (this.st > 2.2) { this.state = 'engage'; this.st = 0; this.think = .3; }
+        this.faceYaw = toP; this.turnRate = 2;
+        if (this.st > 2.2) { this.state = 'engage'; this.st = 0; this.think = .3; this.planT = 0; }
         break;
       case 'engage':
         this.updateEngage(dt, d, toP);
@@ -635,10 +661,10 @@ export class Enemy {
         this.updateAttack(dt);
         break;
       case 'hurt':
-        if (this.st > this.hurtDur) { this.state = 'engage'; this.st = 0; this.think = rand(.1, .5); }
+        if (this.st > this.hurtDur) { this.state = 'engage'; this.st = 0; this.think = rand(.1, .4); this.planT = 0; }
         break;
       case 'broken':
-        if (this.st > (this.boss ? 3 : 2.6)) { this.state = 'engage'; this.st = 0; this.ki = this.maxKi * .6; this.think = .2; }
+        if (this.st > (this.boss ? 3 : 2.6)) { this.state = 'engage'; this.st = 0; this.ki = this.maxKi * .6; this.think = .2; this.planT = 0; }
         break;
       case 'grappled':
         if (G.player.state !== 'grapple' || G.player.grapple?.e !== this) { this.state = 'hurt'; this.st = 0; this.hurtDur = .5; }
@@ -646,71 +672,105 @@ export class Enemy {
       case 'return': {
         const dx = this.home.x - this.pos.x, dz = this.home.z - this.pos.z, dd = Math.hypot(dx, dz);
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * .2 * dt);
-        if (dd < .5) { this.state = this.spawn.patrol ? 'patrol' : 'idle'; this.hp = this.maxHp; this.ki = this.maxKi; }
-        else this.moveToward(Math.atan2(dx, dz), this.T.run * .8, dt);
-        if (this.think <= 0) { this.think = .3; if (d < 9 && this.canSee(d)) { this.state = 'engage'; this.st = 0; } }
+        if (dd < .6) { this.state = this.spawn.patrol ? 'patrol' : 'idle'; this.hp = this.maxHp; this.ki = this.maxKi; }
+        else this.steer(Math.atan2(dx, dz), this.T.run * .75 * Math.min(1, dd / 2 + .3));
+        if (this.think <= 0) { this.think = .3; if (d < 9 && this.canSee(d)) { this.state = 'engage'; this.st = 0; this.planT = 0; } }
         break;
       }
     }
 
     // Leash back home when the player is long gone.
-    if (!this.boss && (this.state === 'engage') && G.player.alive) {
+    if (!this.boss && this.state === 'engage' && G.player.alive) {
       const hd = Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z);
       if (hd > (this.elite ? 18 : 24) || d > 28) { this.state = 'return'; this.st = 0; }
     }
     if ((this.state === 'engage' || this.state === 'attack') && !p.alive) { this.endAttack(); this.state = 'return'; }
 
+    this.integrate(dt);
     this.animate(dt);
   }
 
+  // Choose an attack when one fits; otherwise follow a movement plan for a while before rethinking.
   updateEngage(dt, d, toP) {
     const G = this.G, T = this.T;
     const ranged = T.style === 'ranged';
-    this.yaw = turnTowards(this.yaw, toP, 6 * dt);
+    this.faceYaw = toP; this.turnRate = T.track ? T.track * 1.4 : 6;
     if (this.think <= 0) {
-      this.think = rand(.18, .35);
+      this.think = rand(.16, .3);
       const a = this.pickAttack(d);
       const tokens = G.attackTokens || 0;
       const eager = Math.random() < (T.aggro || .7);
       if (a && (this.boss || this.elite || tokens < 2 || ranged) && (eager || this.boss)) { this.startAttack(a); return; }
-      // Otherwise choose how to move for a moment.
+    }
+    this.planT -= dt;
+    if (this.planT <= 0) {
+      this.planT = rand(.7, 1.6);
       if (ranged) {
         const [lo, hi] = T.prefer;
-        this.plan = d < lo ? 'back' : d > hi ? 'close' : 'strafe';
+        this.plan = d < lo ? 'back' : d > hi ? 'close' : Math.random() < .7 ? 'strafe' : 'hold';
       } else {
         const want = Math.min(...T.attacks.map(x => x.range)) * .85;
-        this.plan = d > want + .8 ? 'close' : (tokens >= 2 && !this.boss && !this.elite) ? (d < 3.2 ? 'back' : 'strafe') : Math.random() < .3 ? 'back' : 'strafe';
-        if (this.plan === 'strafe' && Math.random() < .5) this.strafeDir = Math.random() < .5 ? -1 : 1;
+        const crowded = (G.attackTokens || 0) >= 2 && !this.boss && !this.elite;
+        if (d > want + 1) this.plan = 'close';
+        else if (crowded) this.plan = d < 3.4 ? 'back' : 'strafe';
+        else this.plan = Math.random() < .2 ? 'back' : Math.random() < .75 ? 'strafe' : 'hold';
+        if (this.plan === 'close') this.planT = rand(.35, .7);
       }
-      this.strafeDir ??= 1;
+      if (this.plan === 'strafe' && Math.random() < .45) this.strafeDir = -(this.strafeDir || 1);
+      this.strafeDir ??= Math.random() < .5 ? -1 : 1;
     }
-    const spdClose = d > 6 ? T.run : T.walk * 1.6;
-    if (this.plan === 'close') this.moveToward(toP, spdClose, dt, true);
-    else if (this.plan === 'back') this.moveToward(toP + Math.PI, T.walk * 1.2, dt, true);
-    else if (this.plan === 'strafe') this.moveToward(toP + this.strafeDir * Math.PI / 2, T.walk, dt, true);
+    const want = Math.min(...T.attacks.map(x => x.range)) * .85;
+    if (this.plan === 'close') {
+      // Run in, easing off as the gap closes.
+      const sp = d > 6 ? T.run : lerp(T.walk * 1.3, T.run, clamp((d - want) / 5, 0, 1));
+      this.steer(toP, d < want * .8 ? 0 : sp);
+      if (d < want * .9) this.planT = Math.min(this.planT, .1);
+    } else if (this.plan === 'back') {
+      this.steer(toP + Math.PI, T.walk * 1.1);
+    } else if (this.plan === 'strafe') {
+      // Circle, while gently holding the preferred distance.
+      const hold = ranged ? (T.prefer[0] + T.prefer[1]) / 2 : want;
+      const radial = clamp((d - hold) * .35, -.5, .5);
+      this.steer(toP + this.strafeDir * (Math.PI / 2 - radial), T.walk * .9);
+    }
 
     // Evasive types hop aside when the player swings at them.
     if (T.evasive && G.player.isAttacking && d < 3 && (this.hopCd || 0) < G.time && Math.random() < T.evasive * dt * 4) {
       this.hopCd = G.time + 2.5;
-      const side = Math.random() < .5 ? -1 : 1;
-      this.hop = { yaw: toP + side * Math.PI / 2, t: .3 };
-    }
-    if (this.hop) {
-      this.pos.x += Math.sin(this.hop.yaw) * 9 * dt; this.pos.z += Math.cos(this.hop.yaw) * 9 * dt;
-      this.hop.t -= dt; if (this.hop.t <= 0) this.hop = null;
+      const side = Math.random() < .5 ? -1 : 1, yaw = toP + side * Math.PI / 2;
+      this.impulse.x += Math.sin(yaw) * 7; this.impulse.z += Math.cos(yaw) * 7;
+      this.pulseAnim('hop');
     }
   }
 
-  moveToward(yaw, speed, dt, keepFacing = false) {
-    const ox = this.pos.x, oz = this.pos.z;
+  // Ask to move this frame; integrate() blends the velocity in smoothly.
+  steer(yaw, speed, face = true) {
     let y = yaw + (this.stuck > .4 ? this.detour : 0);
-    this.pos.x += Math.sin(y) * speed * dt; this.pos.z += Math.cos(y) * speed * dt;
-    if (!keepFacing) this.yaw = turnTowards(this.yaw, y, 8 * dt);
+    this.want.set(Math.sin(y) * speed, 0, Math.cos(y) * speed);
+    if (face && this.state !== 'engage') { this.faceYaw = y; this.turnRate = 7; }
+  }
+
+  integrate(dt) {
+    const T = this.T, big = this.boss || this.elite;
+    const accel = (big ? 9 : 16) * dt;
+    const dvx = this.want.x - this.vel.x, dvz = this.want.z - this.vel.z, dv = Math.hypot(dvx, dvz);
+    if (dv > 1e-4) { const k = Math.min(1, accel / dv); this.vel.x += dvx * k; this.vel.z += dvz * k; }
+    const ox = this.pos.x, oz = this.pos.z;
+    this.pos.x += (this.vel.x + this.impulse.x) * dt; this.pos.z += (this.vel.z + this.impulse.z) * dt;
+    const id = Math.exp(-7 * dt); this.impulse.x *= id; this.impulse.z *= id;
     this.G.world.collide(this.pos, this.radius);
-    const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz);
-    if (moved < speed * dt * .3) { this.stuck += dt; if (this.stuck > .4 && !this.detour) this.detour = (Math.random() < .5 ? -1 : 1) * 1.1; }
+    // Detour around corners we keep bumping into.
+    const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz), wanted = Math.hypot(this.want.x, this.want.z) * dt;
+    if (wanted > .001 && moved < wanted * .3) { this.stuck += dt; if (this.stuck > .4 && !this.detour) this.detour = (Math.random() < .5 ? -1 : 1) * 1.1; }
     else if (this.stuck > 0) { this.stuck = Math.max(0, this.stuck - dt * .5); if (this.stuck === 0) this.detour = 0; }
-    this.vel.set((this.pos.x - ox) / dt, 0, (this.pos.z - oz) / dt);
+    this.speedNow = dt > 0 ? moved / dt : 0;
+    // Turn with angular inertia rather than snapping.
+    if (this.faceYaw !== null) {
+      const diff = angleDiff(this.yaw, this.faceYaw);
+      const wantVel = clamp(diff * 10, -this.turnRate, this.turnRate);
+      this.yawVel = damp(this.yawVel, wantVel, 14, dt);
+    } else this.yawVel = damp(this.yawVel, 0, 10, dt);
+    this.yaw += this.yawVel * dt;
   }
 
   updateDead(dt) {
@@ -723,27 +783,42 @@ export class Enemy {
     if (this.fadeT > 2.2) { this.active = false; this.outer.visible = false; }
   }
 
+  // A one-off jolt layered on top of the pose springs (hits, hops, deflects).
+  pulseAnim(kind, k = 1) {
+    const v = this.animVel;
+    if (kind === 'hit') { v.pitch -= 7 * k; v.twist += (Math.random() - .5) * 8 * k; v.sq -= 2 * k; }
+    if (kind === 'heavy') { v.pitch -= 12 * k; v.twist += (Math.random() - .5) * 12 * k; v.sq -= 3.5 * k; }
+    if (kind === 'deflected') { v.pitch -= 10 * k; v.aL += 10 * k; v.aR += 10 * k; }
+    if (kind === 'hop') { v.roll += (Math.random() < .5 ? -1 : 1) * 6; v.hop += 3; }
+  }
+
   // ------------------------------------------------ procedural animation
   animate(dt) {
-    const c = this.cur, t = this.G.time, s = this.step;
-    const tg = { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0 };
-    const spd = Math.hypot(this.vel.x, this.vel.z);
-    let rate = 14, walk = Math.min(1, spd / 3);
+    const c = this.cur, v = this.animVel, t = this.G.time, s = this.step;
+    const tg = this.tg;
+    for (const key in tg) tg[key] = key === 'sq' ? 1 : 0;
+    const spd = this.speedNow || 0;
+    let omega = 9, walk = Math.min(1.2, spd / 3.2);
     const E = x => smooth(clamp(x, 0, 1));
     switch (this.state) {
       case 'sleep':
-        tg.pitch = .42; tg.sq = .8; tg.aL = .25; tg.aR = .25; tg.roll = Math.sin(t * 1.3) * .03;
+        tg.pitch = .42; tg.sq = .8; tg.aL = .25; tg.aR = .25; tg.roll = Math.sin(t * 1.3) * .03; omega = 4;
         if (Math.random() < dt * .8) this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0x9fb8ff, 1, .1, .4, .06, 1.5);
         break;
-      case 'idle': tg.pitch = .04 + Math.sin(t * 1.7 + this.pos.x) * .02; break;
-      case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; break;
-      case 'intro': tg.pitch = -.35 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -2; tg.aLz = .6; tg.aRz = -.6; break;
-      case 'hurt': tg.pitch = -.3; tg.twist = .2; rate = 25; break;
-      case 'broken': tg.pitch = .6 + Math.sin(t * 3) * .05; tg.sq = .82; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0;
+      case 'idle':
+      case 'return':
+      case 'patrol':
+        tg.pitch = .04 + Math.sin(t * 1.7 + this.pos.x) * .02; tg.twist = Math.sin(t * .6 + this.pos.z) * .06; tg.sq = 1 + Math.sin(t * 2.1 + this.pos.x) * .012; break;
+      case 'engage':
+        tg.pitch = .1; tg.twist = Math.sin(t * .9 + this.pos.z) * .05; tg.aL = -.35; tg.aR = -.25; tg.sq = .97 + Math.sin(t * 3 + this.pos.x) * .012; break;
+      case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; omega = 12; break;
+      case 'intro': tg.pitch = -.4 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -1.4; tg.aLz = .6; tg.aRz = -.6; break;
+      case 'hurt': tg.pitch = -.25; tg.twist = .15; omega = 12; walk = 0; break;
+      case 'broken': tg.pitch = .6 + Math.sin(t * 3) * .05; tg.sq = .84; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0; omega = 7;
         if (Math.random() < dt * 8) this.G.fx.motes({ x: this.pos.x, y: this.height * .95, z: this.pos.z }, 0xffe070, 1, .3, .2, .1, .6);
         break;
-      case 'grappled': tg.pitch = -.35 - this.grappleK * .4; tg.sq = .95; tg.aL = tg.aR = -.8; rate = 20; walk = 0; break;
-      case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; rate = 5; walk = 0; tg.hop = -this.height * .12; break;
+      case 'grappled': tg.pitch = -.35 - this.grappleK * .4; tg.sq = .95; tg.aL = tg.aR = -.8; omega = 14; walk = 0; break;
+      case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; break;
       case 'attack': {
         walk *= .3;
         const w = this.phase === 'windup' ? E(this.pt / this.stepDur.windup) : 1;
@@ -751,58 +826,72 @@ export class Enemy {
         const r = this.phase === 'recover' ? E(this.pt / this.stepDur.recover) : 0;
         const mix = (wind, act) => lerp(lerp(0, wind, w), act, a) * (1 - r);
         const mixS = (wind, act) => 1 + mix(wind - 1, act - 1);   // squash is neutral at 1
-        rate = this.phase === 'active' ? 30 : 16;
+        omega = this.phase === 'active' ? 26 : this.phase === 'windup' ? 11 : 8;
         switch (s.anim) {
           case 'swing':
-            tg.twist = mix(-.75, .65); tg.pitch = mix(-.15, .3); tg.aL = mix(-2.1, -1); tg.aR = mix(-1, -.4); tg.aLz = mix(-.5, .3); break;
+            tg.twist = mix(-.85, .7); tg.pitch = mix(-.2, .32); tg.aL = mix(-1.5, -.9); tg.aR = mix(-.9, -.4); tg.aLz = mix(-.5, .3); tg.sq = mixS(1.03, .96); break;
           case 'backswing':
-            tg.twist = mix(.75, -.65); tg.pitch = mix(-.1, .28); tg.aL = mix(-1.8, -1.1); tg.aR = mix(-1.2, -.5); tg.aLz = mix(.4, -.3); break;
+            tg.twist = mix(.85, -.7); tg.pitch = mix(-.15, .3); tg.aL = mix(-1.4, -1); tg.aR = mix(-1.1, -.5); tg.aLz = mix(.4, -.3); tg.sq = mixS(1.03, .96); break;
           case 'overhead':
-            tg.pitch = mix(-.45, .55); tg.aL = tg.aR = mix(-2.6, -.5); tg.sq = mixS(1.06, .88); break;
+            tg.pitch = mix(-.55, .6); tg.aL = tg.aR = mix(-1.55, -.45); tg.sq = mixS(1.08, .86); break;
           case 'thrust':
-            tg.pitch = mix(-.12, .35); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.5, -1.6); tg.aR = mix(.2, -1.2); tg.twist = mix(-.3, .1); break;
+            tg.pitch = mix(-.12, .35); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.5, -1.6); tg.aR = mix(.2, -1.2); tg.twist = mix(-.3, .1); tg.sq = mixS(.96, 1.03); break;
           case 'spin':
             tg.twist = mix(.9, .9); tg.sq = mixS(.9, .95); tg.aL = tg.aR = mix(-1.2, -1.5); tg.aLz = mix(-.8, -1.2); tg.aRz = mix(.8, 1.2);
             tg.spin = this.phase === 'active' ? -E(this.pt / this.stepDur.active) * TAU : 0; break;
           case 'leap':
             tg.sq = this.phase === 'windup' ? lerp(1, .72, w) : this.phase === 'active' ? 1.08 : lerp(.8, 1, r);
             tg.pitch = this.phase === 'windup' ? .35 * w : this.phase === 'active' ? -.2 + a * .8 : .6 * (1 - r);
-            tg.aL = tg.aR = this.phase === 'active' ? lerp(-2.6, -.4, a) : mix(.4, -.4); break;
+            tg.aL = tg.aR = this.phase === 'active' ? lerp(-1.5, -.4, a) : mix(.4, -.4); break;
           case 'shoot':
             tg.twist = mix(.35, .3); tg.aL = mix(-1.5, -1.4); tg.aR = mix(-1.3, -.9); tg.pitch = mix(-.05, .05); break;
           case 'throw':
-            tg.aL = mix(-2.8, -.5); tg.pitch = mix(-.25, .3); tg.twist = mix(-.5, .4); break;
+            tg.aL = mix(-1.6, -.5); tg.pitch = mix(-.3, .3); tg.twist = mix(-.6, .45); break;
           case 'cast':
-            tg.aL = tg.aR = mix(-2.5, -1.4); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
+            tg.aL = tg.aR = mix(-1.55, -1.1); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
             if (this.phase === 'windup') this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0xb060ff, 1, .4, .6, .12, .6);
             break;
           case 'roar':
-            tg.pitch = -.4 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -2.2; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.06; break;
+            tg.pitch = -.45 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.4; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08; break;
         }
         break;
       }
     }
-    // Steps and a light body bob while moving.
-    const gait = t * (4 + spd * 2.2) + this.pos.x;
-    if (walk > .05) {
-      tg.pitch += .1 * walk;
-      tg.hop += Math.abs(Math.sin(gait)) * .05 * walk * this.size;
-      if (this.state !== 'attack') { tg.aL += Math.sin(gait) * .5 * walk; tg.aR -= Math.sin(gait) * .5 * walk; }
+    // Locomotion: a gait driven by distance travelled, so feet don't skate; lean into speed and turns.
+    this.gait += spd * dt / (.85 * this.size) * Math.PI;
+    const g = this.gait;
+    if (walk > .02 || Math.abs(this.yawVel) > .8) {
+      const wk = Math.max(walk, Math.min(.35, Math.abs(this.yawVel) * .15));
+      tg.pitch += .09 * wk;
+      tg.hop += Math.abs(Math.sin(g)) * .06 * wk * this.size;
+      if (this.state !== 'attack') { tg.aL += Math.sin(g) * .5 * wk; tg.aR -= Math.sin(g) * .5 * wk; }
+      tg.roll += Math.sin(g) * .04 * wk;
     }
-    const k = 1 - Math.exp(-rate * dt);
-    for (const key in tg) c[key] = key === 'spin' ? tg.spin : lerp(c[key], tg[key], k);
+    tg.roll += clamp(-this.yawVel * spd * .02, -.2, .2);
+
+    // Critically-damped-ish springs per channel (a little overshoot for follow-through).
+    const zeta = .72, o2 = omega * omega;
+    for (const key in tg) {
+      if (key === 'spin') { c.spin = tg.spin; continue; }
+      // Implicit spring step: stable at any frame rate.
+      const x = c[key], vel = v[key];
+      const f = 1 + 2 * dt * zeta * omega, hoo = dt * o2, hhoo = dt * hoo, inv = 1 / (f + hhoo);
+      c[key] = (f * x + dt * vel + hhoo * tg[key]) * inv;
+      v[key] = (vel + hoo * (tg[key] - x)) * inv;
+    }
     if (this.state === 'attack' && s?.anim === 'leap' && this.phase === 'active') c.hop = Math.sin(clamp(this.pt / this.stepDur.active, 0, 1) * Math.PI) * 4;
 
     this.outer.rotation.y = this.yaw;
     this.lean.rotation.set(c.pitch, c.twist + c.spin, c.roll);
     this.lean.position.y = .45 * this.height + c.hop;
     this.lean.position.z = c.fwd;
-    this.model.scale.set(1 / Math.sqrt(c.sq), c.sq, 1 / Math.sqrt(c.sq));
+    const sq = clamp(c.sq, .6, 1.3);
+    this.model.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
     const [aL, aR] = this.arms, [lL, lR] = this.legs;
-    if (aL) { aL.rotation.set(c.aL, 0, c.aLz); aR.rotation.set(c.aR, 0, c.aRz); }
-    if (lL) { const sw = Math.sin(gait) * .6 * walk; lL.rotation.x = sw; lR.rotation.x = -sw; }
+    if (aL) { aL.rotation.set(clamp(c.aL, -1.7, .8), 0, clamp(c.aLz, -1, 1)); aR.rotation.set(clamp(c.aR, -1.7, .8), 0, clamp(c.aRz, -1, 1)); }   // the region rig tears past ~100°
+    if (lL) { const sw = Math.sin(g) * .6 * Math.min(1, walk + Math.min(.35, Math.abs(this.yawVel) * .15)); lL.rotation.x = sw; lR.rotation.x = -sw; }
 
-    // Hit flash and burst glow.
+    // Hit flash and dread glow.
     const burst = this.burstGlow > 0 ? .7 + Math.sin(t * 30) * .3 : 0;
     if (burst > 0) { this.mat.emissive.setRGB(1, .12, .08); this.mat.emissiveIntensity = .5 + burst * .6; }
     else if (this.state === 'broken') { this.mat.emissive.setRGB(1, .85, .4); this.mat.emissiveIntensity = .15 + Math.sin(t * 8) * .08; }

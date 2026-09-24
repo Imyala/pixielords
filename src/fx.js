@@ -222,6 +222,20 @@ export class FX {
     this.items.push({ obj: g, t: 0, dur, update: k => { m.material.opacity = .28 * (1 - k) * (1 - k); m.scale.setScalar(1 + k * .15); } });
   }
 
+  // A bright diagonal cut hanging in the air: the Flashcut.
+  slash(p, yaw, len = 5, color = 0xffffff, dur = .45) {
+    const g = new THREE.Group(); g.position.set(p.x, p.y, p.z); g.rotation.y = yaw;
+    const mk = (w, h, c, o) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+    const glow = mk(len * 1.05, .45, color, .45), core = mk(len, .06, 0xffffff, 1);
+    for (const m of [glow, core]) { m.rotation.z = .38; m.renderOrder = 21; g.add(m); }
+    this.scene.add(g);
+    this.items.push({ obj: g, t: 0, dur, update: k => {
+      const grow = Math.min(1, k * 6);
+      g.scale.set(.2 + grow * .8, 1 - k * .7, 1);
+      core.material.opacity = 1 - k; glow.material.opacity = .45 * (1 - k);
+    } });
+  }
+
   // Camera-facing flash (attack glints, burst warnings, pulses).
   flash(p, color, size = 1, dur = .3, star = false) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: star ? this.star : this.glow, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));

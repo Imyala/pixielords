@@ -14,6 +14,7 @@ export class HUD {
         <div class="bar hp"><i class="trail"></i><i class="fill"></i></div>
         <div class="bar ki"><i class="pool"></i><i class="fill"></i></div>
         <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
+        <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="pbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
@@ -91,7 +92,15 @@ export class HUD {
     e.className = 'edge'; void e.offsetWidth; e.className = 'edge on';
   }
 
-  enemyBroken(e) { this.floatText(e, 'KI BROKEN', 'broken'); }
+  enemyBroken(e) { this.floatText(e, 'SHATTERED', 'broken'); }
+
+  stance(s) {
+    const el = this.el.querySelector('.stance');
+    for (const sp of el.querySelectorAll('span')) sp.classList.toggle('on', sp.dataset.s === s);
+    el.querySelector('b').textContent = { high: 'High', mid: 'Mid', low: 'Low' }[s];
+    el.dataset.s = s;
+    this.stanceShown = s;
+  }
 
   floatText(e, text, cls) {
     const b = this.bar(e);
@@ -162,6 +171,8 @@ export class HUD {
     q.flask.classList.toggle('empty', p.elixirs <= 0);
     q.flaskKey.textContent = this.key('heal');
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
+    if (this.stanceShown !== p.stance) this.stance(p.stance);
+    const sk = this.key('stance'); if (this.stanceKey !== sk) { this.stanceKey = sk; this.el.querySelector('.stance small').textContent = sk; }
 
     // Amrita counter rolls up.
     const target = G.save.amrita;

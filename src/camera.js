@@ -6,7 +6,7 @@ import { clamp, damp, dampAngle, yawTo, angleDiff } from './util.js';
 export class CameraRig {
   constructor(camera, world) {
     this.camera = camera; this.world = world;
-    this.yaw = 0; this.pitch = .32; this.dist = 5.1; this.curDist = 5.1;
+    this.yaw = 0; this.pitch = .3; this.dist = 4.7; this.curDist = 4.7;
     this.trauma = 0; this.t = 0;
     this.pivot = new THREE.Vector3(); this.look = new THREE.Vector3();
     this.recenterT = 0; this.recenterYaw = 0;
@@ -30,10 +30,10 @@ export class CameraRig {
     const p = player.pos;
     this.pivot.set(p.x, 1.55, p.z);
     const bigLock = lock && lock.height > 3;
-    this.dist = damp(this.dist, bigLock ? 6.2 : 5.1, 2, dt);
+    this.dist = damp(this.dist, bigLock ? 6 : 4.7, 2, dt);
     if (lock) {
       const lp = lock.pos, d = Math.hypot(lp.x - p.x, lp.z - p.z);
-      this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 7, dt);
+      this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 9, dt);
       const big = lock.height > 3;
       const want = clamp((big ? .38 : .26) - (d < 2.5 ? .05 : 0) + (big && d < 6 ? .12 : 0), .1, .6);
       this.pitch = damp(this.pitch, want, 4, dt);

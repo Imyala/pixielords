@@ -37,6 +37,12 @@
   .bar.anima.shift .fill{background:linear-gradient(90deg,#ff5ad0,#8ff0ff)}
   .bar.anima .ready{position:absolute;left:calc(100% + 10px);top:-5px;font:600 11px var(--serif);letter-spacing:2px;color:var(--anima);white-space:nowrap;opacity:0}
   .bar.anima.full .ready{opacity:1;animation:blink .8s infinite alternate}
+  .stance{display:flex;align-items:center;gap:6px;font:600 12px var(--serif);letter-spacing:2px;margin-top:2px}
+  .stance span{opacity:.3;font-size:12px;transition:opacity .15s,transform .15s}
+  .stance span.on{opacity:1;transform:scale(1.35)}
+  .stance[data-s=high]{color:#ffb060}.stance[data-s=mid]{color:var(--cyan)}.stance[data-s=low]{color:#9dff9a}
+  .stance b{margin-left:4px;font-weight:600;text-transform:uppercase}
+  .stance small{margin-left:6px;color:var(--dim);font:10px var(--sans);letter-spacing:0}
   .status{font:12px var(--sans);color:#a6e070;display:flex;gap:10px;align-items:center;min-height:14px}
   .pbuild{width:80px;height:4px;background:rgba(0,0,0,.6);position:relative;display:none}
   .pbuild i{position:absolute;inset:0;background:#8fe040;transform-origin:left}
@@ -87,6 +93,7 @@
   .toast{font:600 15px var(--serif);letter-spacing:2px;text-transform:uppercase;text-shadow:0 0 8px rgba(0,0,0,.9),0 2px 4px #000;transition:opacity .6s,transform .6s;white-space:nowrap}
   .toast.out{opacity:0;transform:translateY(-10px)}
   .toast.pulse{color:var(--cyan)} .toast.burst{color:#ffd0f4;font-size:20px;text-shadow:0 0 14px #ff5ad0,0 2px 4px #000}
+  .toast.flash{color:#fff;font-size:24px;letter-spacing:6px;text-shadow:0 0 18px #fff,0 0 30px #8ff0ff,0 2px 4px #000}
   .toast.crit{color:#ffd080;font-size:19px} .toast.warn{color:#ff8a70} .toast.anima{color:var(--anima)} .toast.poison{color:#a6e070} .toast.item{color:var(--gold);text-transform:none;letter-spacing:1px}
 
   .banner{position:absolute;left:0;right:0;top:24%;text-align:center;opacity:0}
@@ -109,6 +116,8 @@
   .flash{position:absolute;inset:0;opacity:0}
   .flash.hurt{background:radial-gradient(ellipse at center,transparent 45%,rgba(160,0,10,.55));animation:fl .6s ease-out}
   .flash.burst{background:radial-gradient(ellipse at center,rgba(255,255,255,.45),rgba(255,120,230,.2) 60%,transparent);animation:fl .35s ease-out}
+  .flash.flashcut{background:#fff;animation:fl .45s ease-out}
+  .flash.moon{background:radial-gradient(ellipse at center,rgba(120,150,255,.05),rgba(60,80,200,.35));animation:fl 1.2s ease-in}
   .flash.shift{background:radial-gradient(ellipse at center,rgba(255,120,230,.4),rgba(140,240,255,.25));animation:fl .8s ease-out}
   @keyframes fl{from{opacity:1}to{opacity:0}}
   .edge{position:absolute;inset:0;opacity:0;box-shadow:inset 0 0 120px rgba(255,20,20,.7)}

@@ -38,6 +38,9 @@ export function pose(o = {}, full = false) {
 // Upper-body presets (legs left to locomotion unless given).
 export const P = {
   ready: pose({}, true),
+  // Stance guards: High holds the blade by the head, Low trails it by the knee.
+  readyHigh: pose({ hiltA: -.45, hiltR: .22, hiltH: .32, bladeYaw: .35, bladePitch: 1.15, bladeRoll: .3, lhX: .12, lhY: .05, lhZ: .3, chestRx: -.02, chestRy: -.15, twoHand: .7 }, true),
+  readyLow: pose({ hiltA: -.75, hiltR: .34, hiltH: -.42, bladeYaw: -.25, bladePitch: -.35, bladeRoll: 0, lhX: .3, lhY: -.2, lhZ: .22, chestRx: .22, lift: -.08, thLx: -.35, knL: .5, thRx: .35, knR: .5 }, true),
   guard: pose({ hiltA: -.25, hiltR: .4, hiltH: .12, bladeYaw: 1.35, bladePitch: .35, bladeRoll: 1.57, lhX: .12, lhY: .16, lhZ: .4, chestRx: .12, headRx: .08 }),
   sprint: pose({ chestRx: .32, hiltA: -1.1, hiltR: .3, hiltH: -.3, bladeYaw: -2.6, bladePitch: -.2, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
 };
@@ -75,7 +78,7 @@ export const ACTIONS = {
     K(.62, { hiltA: 0, hiltR: .5, hiltH: -.35, bladeYaw: 0, bladePitch: -1, bladeRoll: 0, twoHand: 1, chestRx: .65, lift: -.28, thLx: -.95, knL: 1.2, thRx: .7, knR: 1.0 }),
     K(1.0, { hiltA: -.3, hiltR: .42, hiltH: -.25, bladeYaw: .1, bladePitch: -.3, twoHand: .2, chestRx: .2, lift: -.05 }),
   ] },
-  roll: { dur: .6, keys: [
+  roll: { dur: .6, spinX: true, keys: [
     K(0, { lift: -.1, bodyRx: 0, chestRx: .5, hiltA: -.6, hiltR: .25, hiltH: -.15, bladeYaw: 0, bladePitch: -.4, lhX: .2, lhY: -.1, lhZ: .25, thLx: -.6, knL: .8, thRx: -.2, knR: .6 }),
     K(.1, { lift: -.45, bodyRx: 1.2, chestRx: .8, thLx: -1.5, knL: 2.1, thRx: -1.4, knR: 2.2 }),
     K(.3, { lift: -.5, bodyRx: 3.6, chestRx: .8, thLx: -1.6, knL: 2.2, thRx: -1.5, knR: 2.2 }),
@@ -150,12 +153,64 @@ export const ACTIONS = {
     K(.8, { chestRx: -.3, headRx: -.3, wings: 2 }),
     K(1.0, {}),
   ] },
+  // A full turn of the body: the fourth strike of the chain.
+  light4: { dur: .8, spinY: true, keys: [
+    K(0, { hiltA: -.9, hiltR: .5, hiltH: .05, bladeYaw: -1.6, bladePitch: .05, bladeRoll: -1.57, bodyRy: 0, chestRy: -.2, ...LUNGE }),
+    K(.12, { hiltA: -1.1, hiltR: .52, hiltH: .08, bladeYaw: -1.9, bladePitch: .05, bladeRoll: -1.57, bodyRy: -.7, chestRy: -.45, lift: -.14 }),
+    K(.44, { hiltA: -.9, hiltR: .58, hiltH: .05, bladeYaw: -1.5, bladePitch: 0, bladeRoll: -1.57, bodyRy: 5.7, chestRy: .2, lift: -.1, wings: 1.6 }),
+    K(.56, { hiltA: .4, hiltR: .5, hiltH: 0, bladeYaw: .9, bladePitch: -.05, bladeRoll: -1.57, bodyRy: 6.283, chestRy: .45 }),
+    K(.8, { bodyRy: 6.283, hiltA: -.3, hiltR: .4, hiltH: -.1, bladeYaw: .5, bladePitch: .2 }),
+  ] },
+  // High-stance heavy: a leaping overhead slam.
+  skyfall: { dur: 1.05, keys: [
+    K(0, { lift: -.18, chestRx: .3, hiltA: -.4, hiltR: .3, hiltH: -.2, bladeYaw: 0, bladePitch: -.3, twoHand: 1, thLx: -.6, knL: .9, thRx: .3, knR: .9 }),
+    K(.22, { lift: .55, chestRx: -.35, hiltA: -.1, hiltR: .08, hiltH: .58, bladeYaw: 3.1, bladePitch: .6, bladeRoll: 0, twoHand: 1, thLx: -.9, knL: 1.4, thRx: .4, knR: 1.2, wings: 2 }),
+    K(.44, { lift: .62, chestRx: -.4, hiltA: -.1, hiltR: .06, hiltH: .6, bladeYaw: 3.1, bladePitch: .45, twoHand: 1, thLx: -.8, knL: 1.3, thRx: .5, knR: 1.3, wings: 2 }),
+    K(.58, { lift: -.28, chestRx: .72, hiltA: 0, hiltR: .5, hiltH: -.35, bladeYaw: 0, bladePitch: -1.1, bladeRoll: 0, twoHand: 1, thLx: -1, knL: 1.3, thRx: .7, knR: 1.1, wings: 1 }),
+    K(1.05, { lift: -.08, chestRx: .2, hiltA: -.3, hiltR: .42, hiltH: -.25, bladePitch: -.3, twoHand: .2 }),
+  ] },
+  // Low-stance heavy: a dashing thrust.
+  needle: { dur: .72, keys: [
+    K(0, { lift: -.2, chestRx: .35, chestRy: -.55, hiltA: -.8, hiltR: .2, hiltH: -.08, bladeYaw: 0, bladePitch: 0, bladeRoll: 1.57, lhX: .3, lhY: -.05, lhZ: .35, thLx: -.7, knL: .9, thRx: .6, knR: .6 }),
+    K(.12, { lift: -.24, chestRx: .4, chestRy: -.75, hiltA: -.9, hiltR: .1, hiltH: -.05, bladeYaw: 0, bladePitch: 0 }),
+    K(.24, { lift: -.3, chestRx: .5, chestRy: .15, hiltA: 0, hiltR: .62, hiltH: 0, bladeYaw: 0, bladePitch: .02, lhX: .35, lhY: .05, lhZ: -.1, thLx: -1.15, knL: .7, thRx: .95, knR: .3, wings: 1.6 }),
+    K(.46, { lift: -.28, chestRx: .48, chestRy: .15, hiltA: 0, hiltR: .6, hiltH: 0, bladeYaw: 0, bladePitch: .02, thLx: -1.1, knL: .7, thRx: .9, knR: .3 }),
+    K(.72, {}),
+  ] },
+  // Fae dash: low and quick, blade trailing; direction lean is added on top.
+  dash: { dur: .36, keys: [
+    K(0, { lift: -.14, chestRx: .32, hiltA: -1.0, hiltR: .3, hiltH: -.25, bladeYaw: -2.6, bladePitch: -.25, bladeRoll: 0, lhX: .32, lhY: -.2, lhZ: -.05, thLx: -.85, knL: 1.0, thRx: .55, knR: .9, wings: 1.9 }),
+    K(.22, { lift: -.18, chestRx: .28, thLx: -.6, knL: .9, thRx: .45, knR: .8, wings: 1.9 }),
+    K(.36, {}),
+  ] },
+  hop: { dur: .32, keys: [
+    K(0, { lift: .02, chestRx: -.18, thLx: .3, knL: .5, thRx: -.2, knR: .3, wings: 1.5 }),
+    K(.18, { lift: -.12, chestRx: .08, thLx: .2, knL: .7, thRx: -.3, knR: .7 }),
+    K(.32, {}),
+  ] },
+  // Perfect guard: the blade flicks the blow aside.
+  deflect: { dur: .34, keys: [
+    K(0, { hiltA: -.1, hiltR: .42, hiltH: .2, bladeYaw: 1.2, bladePitch: .6, bladeRoll: 1.57, lhX: .15, lhY: .18, lhZ: .4, chestRx: -.1 }),
+    K(.08, { hiltA: -.55, hiltR: .4, hiltH: .3, bladeYaw: -.5, bladePitch: .95, bladeRoll: 1.57, chestRx: -.22, chestRy: -.35, lhX: .3, lhY: 0, lhZ: .2 }),
+    K(.34, {}),
+  ] },
+  // Flashcut: a single draw-cut that ends in a held follow-through.
+  flashcut: { dur: .82, keys: [
+    K(0, { lift: -.2, chestRy: .65, chestRx: .3, hiltA: .8, hiltR: .26, hiltH: -.28, bladeYaw: 2.8, bladePitch: -.2, bladeRoll: 1.57, lhX: .25, lhY: -.1, lhZ: .3, thLx: -.8, knL: .9, thRx: .6, knR: .6, wings: 1.2 }),
+    K(.1, { lift: -.32, chestRy: -.95, chestRx: .45, hiltA: -1.55, hiltR: .56, hiltH: .15, bladeYaw: -2.4, bladePitch: .2, bladeRoll: 1.57, lhX: .45, lhY: .1, lhZ: -.1, thLx: -1.2, knL: .8, thRx: 1.0, knR: .3, wings: 2 }),
+    K(.58, { lift: -.32, chestRy: -.95, chestRx: .45, hiltA: -1.55, hiltR: .56, hiltH: .15, bladeYaw: -2.4, bladePitch: .2, thLx: -1.2, knL: .8, thRx: 1.0, knR: .3, wings: 2 }),
+    K(.82, {}),
+  ] },
   pickup: { dur: .7, keys: [
     K(0, {}),
     K(.3, { lift: -.35, chestRx: .7, lhX: .15, lhY: -.55, lhZ: .45, thLx: -1, knL: 1.2, thRx: .1, knR: 1.1 }),
     K(.7, {}),
   ] },
 };
+
+const fill = p => p.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v));
+const READY = { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow) };
+const GUARD_FULL = fill(P.guard), SPRINT_FULL = fill(P.sprint);
 
 function sampleAction(act, t, out) {
   const keys = act.keys;
@@ -388,6 +443,7 @@ export class KnightAnimator {
     this.fadeIn = .08; this.fadeOut = .12;
     this.gait = 0;
     this.time = 0;
+    this.leanTarget = { x: 0, z: 0 };
   }
 
   play(name, speed = 1, fadeIn = .06) {
@@ -400,10 +456,11 @@ export class KnightAnimator {
   update(dt, m) {
     this.time += dt;
     const L = this.loco;
-    L.set(m.guard ? P.guard.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v)) : m.sprint ? P.sprint.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v)) : P.ready);
+    const ready = READY[m.stance || 'mid'];
+    L.set(m.guard ? GUARD_FULL : m.sprint ? SPRINT_FULL : ready);
     // Gait: legs swing with ground speed; strafing tilts the stride.
-    const spd = m.speed, amt = clamp(spd / 4.5, 0, 1.3);
-    this.gait += dt * (spd > .1 ? 5 + spd * 1.6 : 0);
+    const spd = m.speed, amt = clamp(spd / 5.5, 0, 1.3);
+    this.gait += dt * (spd > .1 ? 5.5 + spd * 1.45 : 0);
     const g = this.gait, sw = Math.sin(g), sw2 = Math.sin(g + Math.PI);
     const fwd = m.forward ?? 1, side = m.side ?? 0;
     const dirSign = fwd < -.3 ? -1 : 1;
@@ -438,19 +495,26 @@ export class KnightAnimator {
         for (let c = 0; c < N; c++) {
           const v = this.act[c];
           if (Number.isNaN(v)) continue;
-          // Body roll angles blend in full once inside the action so a roll never unwinds backwards.
-          out[c] = c === IDX.bodyRx && A === ACTIONS.roll ? v : lerp(out[c], v, w);
+          // Whole-body spins take the key value outright so they never unwind backwards.
+          out[c] = (c === IDX.bodyRx && A.spinX) || (c === IDX.bodyRy && A.spinY) ? v : lerp(out[c], v, w);
         }
       }
     }
 
+    // Additive lean (dash direction, turning) on top of everything.
+    const lk = 1 - Math.exp(-dt * 14);
+    this.leanX = lerp(this.leanX || 0, this.leanTarget.x, lk); this.leanZ = lerp(this.leanZ || 0, this.leanTarget.z, lk);
+    out[IDX.bodyRx] += this.leanX; out[IDX.bodyRz] += this.leanZ;
+
     // Smooth toward the target a little so action changes don't pop.
-    const cur = this.cur, k = 1 - Math.exp(-dt * 26);
+    const cur = this.cur, k = 1 - Math.exp(-dt * 34), A = this.action;
     for (let c = 0; c < N; c++) {
-      if (c === IDX.bodyRx && this.action === ACTIONS.roll) { cur[c] = out[c]; continue; }
+      if ((c === IDX.bodyRx && A?.spinX) || (c === IDX.bodyRy && A?.spinY)) { cur[c] = out[c]; continue; }
       cur[c] = lerp(cur[c], out[c], k);
     }
-    if (!this.action || this.action !== ACTIONS.roll) cur[IDX.bodyRx] = ((cur[IDX.bodyRx] + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    const wrap = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    if (!A?.spinX) cur[IDX.bodyRx] = wrap(cur[IDX.bodyRx]);
+    if (!A?.spinY) cur[IDX.bodyRy] = wrap(cur[IDX.bodyRy]);
     this.apply(cur, dt);
   }
 

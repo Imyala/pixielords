@@ -18,17 +18,22 @@ const BIND = {
   down:  ['KeyS', 'ArrowDown', 'Pad13'],
   left:  ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
+  stanceHigh: ['Digit1'],
+  stanceMid:  ['Digit2'],
+  stanceLow:  ['Digit3'],
+  stanceUp:   ['Pad12', 'KeyC'],
+  stanceDown: ['Pad13', 'KeyX'],
   confirm: ['Enter', 'Pad0'],
   back:    ['Escape', 'Pad1'],
 };
 
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
-  interact: 'E', shift: 'G', pause: 'Esc',
+  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3',
 };
 export const PAD_LABEL = {
   light: 'RB', heavy: 'RT', guard: 'LB', dodge: 'B', burst: 'LT', lock: 'R3', heal: 'X',
-  interact: 'A', shift: 'Y', pause: 'Start',
+  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓',
 };
 
 export class Input {
