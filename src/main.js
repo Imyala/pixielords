@@ -396,7 +396,7 @@ function interact(it) {
       const item = it.item;
       d.items.push(item.id);
       G.world.setItemTaken(item.id, true);
-      if (item.kind === 'grace') { d.elixirMax++; p.elixirs++; }
+      if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.amrita += 400; G.hud.addAmrita(400); } }
       if (item.kind === 'amrita') { G.save.amrita += item.amount; G.hud.addAmrita(item.amount); }
       G.hud.toast(`${item.label} — ${item.desc}`, 'item');
       G.audio.sfx('pickup');
