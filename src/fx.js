@@ -216,7 +216,7 @@ export class FX {
     const a = arcDeg * Math.PI / 180;
     const geo = new THREE.RingGeometry(radius * .55, radius, 32, 1, -a / 2, a);
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    const g = new THREE.Group(); g.position.set(p.x, y, p.z); g.rotation.y = yaw;
+    const g = new THREE.Group(); g.position.set(p.x, y, p.z); g.rotation.y = yaw + Math.PI;   // the ring's angle 0 lands on local -Z
     m.rotation.x = -Math.PI / 2 + tilt; m.rotation.z = Math.PI / 2;
     g.add(m); this.scene.add(g);
     this.items.push({ obj: g, t: 0, dur, update: k => { m.material.opacity = .28 * (1 - k) * (1 - k); m.scale.setScalar(1 + k * .15); } });

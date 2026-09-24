@@ -168,7 +168,9 @@ export class Player {
       this.lock = next || null;
       return;
     }
-    if (e.distToPlayer() > 26) this.lock = null;
+    if (e.distToPlayer() > 26) { this.lock = null; return; }
+    this.lockHidden = this.G.world.los(this.pos, e.pos, 1.4) ? 0 : (this.lockHidden || 0) + 1 / 60;
+    if (this.lockHidden > 2) this.lock = null;
   }
 
   findCrit() {
@@ -279,6 +281,7 @@ export class Player {
     const stand = e.radius + .75;
     this.grapple.x = e.pos.x - Math.sin(toE) * stand; this.grapple.z = e.pos.z - Math.cos(toE) * stand;
     this.setState('grapple'); this.anim.play('grapple', 1, .04);
+    this.iframes = true; this.iframesT = .1;   // nothing may interrupt the grapple on its first frame
     G.hud.toast(kind === 'backstab' ? 'Backstab' : 'Grapple', 'crit');
     G.audio.sfx('swingHeavy');
     this.lock = this.lock || e;
@@ -563,7 +566,7 @@ export class Player {
         this.pos.x = damp(this.pos.x, 0, 6, dt);
         this.pos.z += sp * dt; this.yaw = 0;
         want = { x: 0, z: sp };
-        if (this.pos.z >= 122.6 || this.st >= 3) { this.setState('free'); this.anim.stop(); G.onFogCrossed(); }
+        if (this.pos.z >= 122.6 || this.st >= 3) { this.pos.set(0, 0, 122.6); this.setState('free'); this.anim.stop(); G.onFogCrossed(); }
         break;
       }
       case 'pickup':
@@ -641,7 +644,7 @@ export class Player {
       this.ki = Math.min(this.maxKi, this.ki + rate * dt);
     }
     // Poison.
-    if (this.poisoned > 0 && this.alive) {
+    if (this.poisoned > 0 && this.alive && G.state === 'play' && this.state !== 'rest') {
       this.poisoned -= dt;
       this.hp -= this.maxHp * .012 * dt;
       if (Math.random() < dt * 6) G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0x8fe040, 1, .3, .8, .1, .8);

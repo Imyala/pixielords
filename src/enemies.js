@@ -462,7 +462,6 @@ export class Enemy {
 
   startAttack(a) {
     this.atk = a; this.stepI = 0; this.state = 'attack'; this.st = 0;
-    if (a.once) this.usedOnce[a.name] = true;
     this.cd[a.name] = this.G.time + a.cd;
     this.G.attackTokens = (this.G.attackTokens || 0) + 1;
     this.beginStep();
@@ -581,6 +580,7 @@ export class Enemy {
 
   doRoar() {
     const G = this.G;
+    this.usedOnce[this.atk.name] = true;
     G.cam.shake(.7, this.pos);
     G.fx.ring(this.pos, 0x8fe040, 7, .8);
     G.projectiles.hazard(this.pos.x, this.pos.z, 5, 6, 40);
@@ -641,6 +641,7 @@ export class Enemy {
         if (this.st > (this.boss ? 3 : 2.6)) { this.state = 'engage'; this.st = 0; this.ki = this.maxKi * .6; this.think = .2; }
         break;
       case 'grappled':
+        if (G.player.state !== 'grapple' || G.player.grapple?.e !== this) { this.state = 'hurt'; this.st = 0; this.hurtDur = .5; }
         break;
       case 'return': {
         const dx = this.home.x - this.pos.x, dz = this.home.z - this.pos.z, dd = Math.hypot(dx, dz);

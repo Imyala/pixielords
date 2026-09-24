@@ -139,6 +139,7 @@ async function load() {
 // ---------------------------------------------------------------- flow
 function applyWorldState() {
   const d = G.save.data;
+  G.player.lock = null;
   G.ngMul = 1 + d.ng * .5;
   for (const e of G.enemies) {
     e.reset();
@@ -174,6 +175,7 @@ function placeAtShrine(id) {
 
 function startRun() {
   G.audio.init();
+  G.traveling = false;
   timers.length = 0;
   applyWorldState();
   placeAtShrine(G.save.data.shrine);
@@ -293,6 +295,7 @@ function startBossFight() {
 G.onPlayerDeath = () => {
   const p = G.player, d = G.save.data;
   G.state = 'dead'; G.controlsOn = false;
+  G.hud.closeMessage();
   d.deaths++;
   d.grave = d.amrita > 0 ? { x: p.pos.x, z: p.pos.z, amount: d.amrita } : null;
   d.amrita = 0;
@@ -323,7 +326,7 @@ function rest(shrine) {
   if (first) d.kindled.push(shrine.id);
   d.shrine = shrine.id;
   p.setState('rest'); p.anim.play('rest');
-  p.vel.set(0, 0, 0);
+  p.vel.set(0, 0, 0); p.poisoned = 0; p.poison = 0;
   G.controlsOn = false;
   G.hud.big(first ? 'SHRINE KINDLED' : 'SHRINE', 'shrine', 2.5);
   G.audio.sfx('rest');
@@ -338,6 +341,7 @@ function rest(shrine) {
 }
 
 G.leaveShrine = () => {
+  if (G.traveling) return;
   G.menu.stack = [];
   G.menu.el.className = ''; G.menu.el.innerHTML = '';
   const p = G.player;
@@ -361,8 +365,12 @@ G.levelUp = stat => {
 };
 
 G.travel = id => {
+  if (G.traveling) return;
+  G.traveling = true;
   G.hud.fadeTo(true, .5);
   G.after(0.55, () => {
+    G.traveling = false;
+    G.input.wantLock = false; G.input.releaseLock();
     G.save.data.shrine = id;
     const s = SHRINES[id];
     placeAtShrine(id);
@@ -410,6 +418,7 @@ function interact(it) {
       break;
     case 'exit':
       G.state = 'ending'; G.controlsOn = false;
+      p.poisoned = 0; p.poison = 0; p.iframesT = 99;
       G.save.write();
       G.audio.sfx('shift');
       G.hud.fadeTo(true, 1.5);
