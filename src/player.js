@@ -16,6 +16,7 @@ import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
 import { gearStats, weaponMul, defReduce } from './gear.js';
 import { lookColors } from './wardrobe.js';
+import { REALM } from './umbral.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
 import { CHARMS } from './charms.js';
 import { deedFx } from './deeds.js';
@@ -348,7 +349,7 @@ export class Player {
   gainAnima(n) {
     if (this.shifted) return;
     const before = this.anima;
-    this.anima = Math.min(100, this.anima + n * this.animaGain);
+    this.anima = Math.min(100, this.anima + n * this.animaGain * (this.G.inRealm ? REALM.anima : 1));
     if (before < 100 && this.anima >= 100) { this.G.hud.toast(`Faelight full — ${this.G.hud.key('shift')} to Fae Shift`, 'anima'); this.G.audio.sfx('heal', { vol: .5 }); }
   }
 
@@ -1928,7 +1929,7 @@ export class Player {
     const busy = ['attack', 'dash', 'hop', 'thorn'].includes(this.state);
     if (!busy && G.time - this.kiSpentT > .35 && this.ki < this.maxKi) {
       const rate = 52 * (this.guarding ? .45 : 1) * (this.state === 'exhausted' || this.state === 'stagger' ? 1.5 : 1) * (this.sprinting ? .6 : 1) * (this.frozen > 0 ? .5 : 1)
-        * (1 + this.gf('kiRegen') / 100) * (this.setBonus('delver4') && this.hp < this.maxHp * .5 ? 1.25 : 1);
+        * (1 + this.gf('kiRegen') / 100) * (this.setBonus('delver4') && this.hp < this.maxHp * .5 ? 1.25 : 1) * (G.inRealm ? REALM.ki : 1);   // an Umbral Realm drags at the breath
       this.ki = Math.min(this.maxKi, this.ki + rate * dt);
     }
     if (this.poisoned > 0 && this.alive && G.state === 'play' && this.state !== 'rest') {

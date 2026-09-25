@@ -2,13 +2,14 @@
 // Moonpetals only. Moonpetals come from Revenants laid to rest at their graves (graves.js), Duels and other side
 // missions, Deeds, warlords felled the first time and the Underbriar's warlords. The wares change every night
 // (noon to noon, the same for everyone that night, as the Moon Tonight's omens do) and follow how far you have
-// come: gear of the sets of missions you have opened, Fabled or finer; provisions; dyes for the Wardrobe
+// come: gear of the sets of missions you have opened, Fabled or finer; provisions (Moon Cups among them); dyes for the Wardrobe
 // (wardrobe.js). What you buy is gone until the next night. main.js sells; menu.js shows the stall.
 import { rng } from './util.js';
 import { makeItem, SLOTS, MISSION_GEAR } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { DYES, DYE_ORDER, FREE_DYES } from './wardrobe.js';
 import { wayLvl, wayGlimmer } from './ways.js';
+import { CUP_MAX } from './kindred.js';
 
 // A night runs from noon to noon (as moontonight.js's omens).
 export const nightOf = (t = Date.now()) => { const n = new Date(t - 12 * 36e5); return n.getFullYear() * 10000 + (n.getMonth() + 1) * 100 + n.getDate(); };
@@ -38,6 +39,7 @@ export function wares(d, t = Date.now()) {
     { key: 'vial', kind: 'vial', name: 'Moondew Vial', desc: `One more draught of Moondew, for good (up to ${VIAL_MAX}).`, price: 40 + vials * 25, off: d.elixirMax >= VIAL_MAX },
     ...[0, 1, 2].map(k => ({ key: `purse${k}`, kind: 'purse', name: 'Purse of Glimmer', desc: 'Glimmer, as much as a good night\'s hunting where you have reached.', price: 8, glimmer: Math.round(700 * (1 + open.length * .9) * wayGlimmer(ng)) })),
   ];
+  prov.push(...[0, 1, 2].map(k => ({ key: `cup${k}`, kind: 'cup', name: 'Moon Cup', desc: 'Pour it out at a Moonwell (Kinship) and a kindred fae knight answers, to fight beside you.', price: 5, off: (d.cups ?? 0) >= CUP_MAX })));
   const held = Object.keys(d.cores || {}).filter(id => CORES[id] && d.cores[id] < CORE_MAX).sort();
   if (held.length) { const id = pick(held); prov.push({ key: 'core', kind: 'core', core: id, name: CORES[id].name, desc: `A second ${CORES[id].name}, to fuse into the one you hold.`, price: CORES[id].boss ? 40 : 22 }); }
   prov.push({ key: 'lantern', kind: 'lantern', name: 'Grave Lantern', desc: 'Lit at a Moonwell, it wakes every grave in this mission at once, each with a new Revenant, without waiting for a rest.', price: 8, repeat: true });

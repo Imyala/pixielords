@@ -38,9 +38,10 @@ const hash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.c
 const avgDmg = T => { const d = [...T.attacks, ...(T.phase2 || [])].flatMap(a => a.steps || a.seq || []).map(s => s.dmg).filter(v => v > 0); return d.length ? d.reduce((a, b) => a + b, 0) / d.length : 80; };
 
 // The fallen knight in a mission's grave: slot is the grave (0 or 1), gen how many have lain there before it.
-// foes: names of the mission's foes, to say which of them it fell to. The same arguments give the same knight.
-export function fallenKnight(mission, slot, gen, foes = [], level = 1) {
-  const R = rng(hash(`${mission}:${slot}:${gen}`) || 1), pick = a => a[Math.floor(R() * a.length)];
+// foes: names of the mission's foes, to say which of them it fell to; salt keeps other callers' knights apart
+// (kindred.js). The same arguments give the same knight.
+export function fallenKnight(mission, slot, gen, foes = [], level = 1, salt = '') {
+  const R = rng(hash(`${salt}${mission}:${slot}:${gen}`) || 1), pick = a => a[Math.floor(R() * a.length)];
   const weapons = Object.keys(GRAVE_WEAPONS), weapon = pick(weapons);
   // Its harness: the Knight-Errant's, or a set from this mission or one it came through on the way.
   const order = Object.keys(MISSION_GEAR), upto = Math.max(0, order.indexOf(mission));

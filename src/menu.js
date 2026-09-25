@@ -21,7 +21,9 @@ import { PATRONS, PATRON_ORDER, shiftText } from './patrons.js';
 import { OMENS, phaseOf } from './moontonight.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
 import { gravePetals } from './graves.js';
+import { bestiary, ACTS, ROLE_COLOR, traits, coreOf, artsOf, known } from './bestiary.js';
 import { MARKET_TABS, VIAL_MAX } from './market.js';
+import { CUP_MAX } from './kindred.js';
 import { DYES, DYE_ORDER, LOOK_PARTS } from './wardrobe.js';
 
 const STATS = [
@@ -106,6 +108,9 @@ const TIPS = [
   ['Revenant Graves', 'two bloodied graves lie in every mission, where fae knights fell before you. Examine one to raise its Revenant, in the harness it died in and with the weapon it carried. Lay it to rest for Moonpetals and a piece of what it wore or carried. The grave then stays dark until you rest at a Moonwell, and another knight lies in it.'],
   ['The Hidden Market', 'a pixie pedlar at every Moonwell who takes only Moonpetals: Fabled and Moonlit gear from the sets you have reached, Moondew Vials, purses of Glimmer, Soul Cores, Grave Lanterns and dyes. The wares change every night at noon.'],
   ['Wardrobe', 'wear the look of any set you have carried a piece of, whatever you actually wear, and dye the plate, cloak, trim, wings and visor.'],
+  ['Kindred Spirits', 'at a Moonwell (Kinship), pour out a Moon Cup and a kindred fae knight walks the mission beside you, fighting as you do. Foes turn on it too. Fallen, stand over its echo to raise it for a third of your health. It goes home when a warlord falls or you rest.'],
+  ['Umbral Realms', 'one foe in every mission spreads a ring of purple dusk. Inside, stamina returns slower and foes hit harder, but Faelight comes faster. Fell its Umbral host to dispel it, for better spoils.'],
+  ['Bestiary', 'in the Journal: every foe, where it is met, its arts and ways, its Soul Core, and how many you have felled.'],
 ];
 
 const CPAGES = ['Keyboard & Mouse', 'Gamepad', 'Techniques', 'How it plays'];
@@ -241,7 +246,13 @@ export class Menu {
         this.render(); break;
       }
       case 'journal': this.push('journal'); break;
+      case 'bestiary': this.push('bestiary', { act: 0 }); break;
+      case 'bAct': this.top.data.act = ((this.top.data.act ?? 0) + dir + 3) % 3; this.top.focus = 0; this.top.scrolls = null; this.render(); break;
+      case 'beast': break;
       case 'graveFight': this.close(); G.challengeGrave(+b.dataset.i); break;
+      case 'kinship': this.push('kinship'); break;
+      case 'callKin': if (G.callKindred(+b.dataset.i)) this.pop(); else G.audio.sfx('ui'); break;
+      case 'sendKin': G.sendKindred(); this.render(); break;
       case 'market': this.push('market', { tab: 'gear' }); break;
       case 'mTab': { const i = MARKET_TABS.findIndex(t => t.id === this.top.data.tab); this.top.data.tab = MARKET_TABS[(i + dir + MARKET_TABS.length) % MARKET_TABS.length].id; this.top.focus = 0; this.top.scrolls = null; this.render(); break; }
       case 'buy': { const key = b?.dataset.key || this.cur()?.dataset.key; if (!G.buy(this.top.data.tab, key)) G.audio.sfx('ui'); this.render(); break; }
@@ -389,7 +400,6 @@ export class Menu {
           ['arsenal', 'Armoury', 'Arsenal', 'Choose the two weapons you carry, and the ranged one.'],
           ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
           ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
-          ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
           ['journal', 'Chronicle', 'Journal', `${sv.data.letters.length} letters read · ${sv.data.pixies.length} Lost Pixies freed.`],
           ['deeds', 'Renown', 'Deeds', 'Long goals kept across every mission, Way and depth.'],
           ['controls', 'Teachings', 'Controls', 'Keys, the gamepad, and the ways of the fight.'],
@@ -414,6 +424,7 @@ export class Menu {
           ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
           ['patrons', 'Patronage', 'Patron Spirit', `${PATRONS[d.patron || 'lantern'].name} is pledged to you · ${(d.patrons || ['lantern']).length} of ${PATRON_ORDER.length} freed.`],
           d.charms.length && ['charms', 'Trinkets', 'Charms', `${d.equipped.length} of ${CHARM_SLOTS} worn.`],
+          ['kinship', 'Kinship', 'Kindred Spirit', G.kindred?.alive ? `${G.kindred.name} walks with you.` : `${d.cups ?? 0} Moon Cups · call a kindred knight to fight beside you.`],
           ['market', 'Pedlar', 'Hidden Market', `${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night.`],
           ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
           ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
@@ -549,7 +560,7 @@ export class Menu {
       const tag = w => (w.owned ? '<span class="eq">OWNED</span>' : w.off ? '<span class="eq">FULL</span>' : !w.repeat && sold.includes(w.key) ? '<span class="eq">SOLD</span>' : '');
       const row = (w, ic, name, color) => `<button class="btn gi ${gone(w) ? 'sold' : ''}" data-act="buy" data-key="${esc(w.key)}"><span class="ic" style="color:${color}">${ic}</span><span style="color:${color}">${esc(name)}${tag(w)}</span>${price(w)}</button>`;
       const list = T.id === 'gear' ? W.gear.map(w => row(w, w.it.kind === 'weapon' ? '⚔' : SLOT_ICON[w.it.slot], itemName(w.it, wn), col(w.it.rar)))
-        : T.id === 'prov' ? W.prov.map(w => row(w, { vial: '⚱', purse: '◉', core: '◈', lantern: '✧' }[w.kind], w.name, w.kind === 'core' ? '#c89aff' : '#efe3c6'))
+        : T.id === 'prov' ? W.prov.map(w => row(w, { vial: '⚱', purse: '◉', core: '◈', lantern: '✧', cup: '◡' }[w.kind], w.name, w.kind === 'core' ? '#c89aff' : w.kind === 'cup' ? '#9fe8ff' : '#efe3c6'))
         : W.dyes.map(w => row(w, `<i class="swatch" style="background:${hex(DYES[w.dye].hex)}"></i>`, w.name, '#efe3c6'));
       cls = 'gear market';
       h = `${head('Hidden Market', `✿ ${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night at noon`)}
@@ -567,14 +578,14 @@ export class Menu {
         const box = this.el.querySelector('.gdetail'), w = [...W.gear, ...W.prov, ...W.dyes].find(x => x.key === el?.dataset.key);
         if (!box || !w) return;
         const foot = `<div class="gd-sec">Price</div><div class="gd-fx"><span>✿ ${w.price} Moonpetals</span><span class="v">${(d.petals || 0) >= w.price ? `${d.petals - w.price} left after` : `${w.price - (d.petals || 0)} short`}</span></div>
-          <div class="gd-note">${gone(w) ? (w.owned ? 'Already yours.' : w.off ? `Your Moondew is already at ${VIAL_MAX}.` : 'Sold. The pedlar has more tomorrow night.') : w.repeat ? 'The pedlar keeps plenty of these.' : 'One of these tonight.'} Moonpetals come from Revenants at their graves, Duels and other side missions, Deeds, and warlords.</div>`;
+          <div class="gd-note">${gone(w) ? (w.owned ? 'Already yours.' : w.off ? (w.kind === 'cup' ? `You carry as many Moon Cups as you can (${CUP_MAX}).` : `Your Moondew is already at ${VIAL_MAX}.`) : 'Sold. The pedlar has more tomorrow night.') : w.repeat ? 'The pedlar keeps plenty of these.' : 'One of these tonight.'} Moonpetals come from Revenants at their graves, Duels and other side missions, Deeds, and warlords.</div>`;
         if (w.it) { box.innerHTML = this.itemDetail(w.it) + foot; return; }
         if (w.kind === 'dye') {
           const D = DYES[w.dye];
           box.innerHTML = `<div class="glv"><span>Dye</span><span></span></div><h3>${esc(w.name)}</h3><div class="dyebig" style="background:${hex(D.hex)}"></div><div class="gd-note">For the Wardrobe: dye your plate, cloak, trim, wings or visor with it.</div>${foot}`;
           return;
         }
-        const extra = w.kind === 'vial' ? `<div class="gd-fx"><span>Moondew</span><span class="v">${d.elixirMax} → ${Math.min(VIAL_MAX, d.elixirMax + 1)}</span></div>` : w.kind === 'purse' ? `<div class="gd-fx"><span>Glimmer</span><span class="v">${w.glimmer.toLocaleString()}</span></div>`
+        const extra = w.kind === 'cup' ? `<div class="gd-fx"><span>Moon Cups</span><span class="v">${d.cups ?? 0} → ${Math.min(CUP_MAX, (d.cups ?? 0) + 1)}</span></div>` : w.kind === 'vial' ? `<div class="gd-fx"><span>Moondew</span><span class="v">${d.elixirMax} → ${Math.min(VIAL_MAX, d.elixirMax + 1)}</span></div>` : w.kind === 'purse' ? `<div class="gd-fx"><span>Glimmer</span><span class="v">${w.glimmer.toLocaleString()}</span></div>`
           : w.kind === 'core' ? `<div class="gd-fx"><span>Held</span><span class="v">+${Math.max(0, (d.cores[w.core] || 1) - 1)} → +${d.cores[w.core] || 1}</span></div>` : '';
         box.innerHTML = `<div class="glv"><span>Provisions</span><span></span></div><h3>${esc(w.name)}</h3><div class="gd-note">${esc(w.desc)}</div>${extra}${foot}`;
       };
@@ -594,6 +605,28 @@ export class Menu {
           <div class="gd-note">A look is learned from any piece of a set you carry. Dyes are sold in the Hidden Market at every Moonwell.</div></div>
         ${keybar(G, [['mAlt', 'Undo all', 'lookReset'], ['confirm', 'Change'], back])}`;
       this.onFocus = el => { const q = this.el.querySelector('.sdesc'); if (q) q.textContent = el?.dataset.desc || ''; };
+    } else if (screen === 'kinship') {
+      // Kindred Spirits (kindred.js): tonight's three who would answer, for a Moon Cup each.
+      const d = G.save.data, cups = d.cups ?? 0, offers = G.kinOffers(), K0 = G.kindred?.alive ? G.kindred : null, ok = G.kinAllowed();
+      cls = 'grave kinship nioh';
+      h = `${art}${head('Kinship', `${cups} Moon Cup${cups === 1 ? '' : 's'} · ${K0 ? `${K0.name} walks with you` : 'no kindred walks with you'}`)}
+        <div class="gravebox kinbox"></div>
+        <div class="nlist">${entries([
+          ...offers.map((K, i) => ['callKin', K.name, `Level ${K.lvl}`, !ok ? 'A Duel is fought alone.' : cups ? K.motto : 'No Moon Cups: Revenants, gatekeepers and the Hidden Market have them.', `data-i="${i}"`, !ok || !cups]),
+          K0 && ['sendKin', 'Send home', 'Farewell', `${K0.name} goes back to the moon.`],
+          ['back', 'Leave', 'Back', 'Walk on alone.'],
+        ])}</div>
+        ${keybar(G, [['confirm', 'Call'], back])}`;
+      this.onFocus = el => {
+        const box = this.el.querySelector('.kinbox'), K = offers[+(el?.dataset.i ?? -1)] || (el?.dataset.act === 'sendKin' ? K0?.K : null) || offers[0];
+        if (!box || !K) return;
+        const P = PATRONS[K.patron], S = SETS[K.set];
+        box.innerHTML = `<div class="gk">Kindred Spirit · Level ${K.lvl}</div><h2>${esc(K.name)}</h2><div class="gh">${esc(K.motto || '')}</div>
+          <div class="gr"><span>Weapon</span><b>${esc(G.player.weaponName(K.weapon))}</b></div>
+          <div class="gr"><span>Harness</span><b>${esc(S.name)}</b></div>
+          <div class="gr"><span>Patron Spirit</span><b style="color:${P.css}">${esc(P.name)}, ${esc(P.title)}</b></div>
+          <div class="gr sp"><span>The call</span><b>One Moon Cup. It stays until it falls (raise it for a third of your health), a warlord falls, or you rest. Foes grow a little hardier while it walks with you.</b></div>`;
+      };
     } else if (screen === 'grave') {
       // A Revenant Grave (graves.js): who fell here, how, and what laying them to rest would leave.
       const K = data.K, P = PATRONS[K.patron], S = SETS[K.set], wn = G.player.weaponName(K.weapon), carries = G.save.data.arms.includes(K.weapon);
@@ -691,7 +724,33 @@ export class Menu {
       cls = 'journal chrome';
       h = `${head('Journal', `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed (+${d.pixies.length}% health and stamina)`)}
         <div class="panel wide missions journal"><div class="map">${rows}</div></div>
-        ${keybar(G, [['confirm', 'Read'], back])}`;
+        ${keybar(G, [['confirm', 'Read'], ['mAlt', 'Bestiary', 'bestiary'], back])}`;
+    } else if (screen === 'bestiary') {
+      // The Bestiary (bestiary.js): every foe, act by act; known once felled or its mission cleared.
+      const d = G.save.data, all = bestiary(), act = data.act ?? 0, list = all.filter(B => B.act === act);
+      const felled = all.filter(B => (d.beast?.[B.id] || 0) > 0).length;
+      const rows = list.map(B => known(d, B)
+        ? `<button class="btn gi" data-act="beast" data-id="${B.id}"><span class="ic" style="color:${ROLE_COLOR[B.role]}">${{ Foe: '·', Elite: '◇', Gatekeeper: '◆', Warlord: '♛', Revenant: '✦' }[B.role]}</span><span style="color:${ROLE_COLOR[B.role]}">${esc(B.T.name.split(',')[0])}</span><span class="gl">${d.beast?.[B.id] || 0}</span></button>`
+        : `<button class="btn gi" data-act="beast" data-id="${B.id}" data-locked="1"><span class="ic dim">?</span><span class="dim">Not yet felled</span><span class="gl dim">${roman(G.ORDER.indexOf(B.missions[0]) + 1)}</span></button>`).join('');
+      cls = 'gear bestiary';
+      h = `${head('Bestiary', `${felled} of ${all.length} felled · ${(d.beast?.fallen || 0)} fallen knights laid to rest`)}
+        <div class="gwrap"><div class="glist">
+          <div class="gcat"><span class="arr" data-act="bAct" data-dir="-1">‹ ${glyph(G, 'mPrev')}</span><span>${esc(`Act ${roman(act + 1)} · ${ACTS[act]}`)}</span><span class="arr" data-act="bAct" data-dir="1">${glyph(G, 'mNext')} ›</span></div>
+          <div class="gtabs">${ACTS.map((a, i) => `<i class="${i === act ? 'on' : ''}"></i>`).join('')}</div>
+          <div class="gitems">${rows}</div></div><div class="gdetail"></div></div>
+        ${keybar(G, [[['mPrev', 'mNext'], 'Act', 'bAct'], back])}`;
+      this.onFocus = el => {
+        const box = this.el.querySelector('.gdetail'), B = all.find(x => x.id === el?.dataset.id);
+        if (!box || !B) return;
+        const where = B.missions.map(m => G.LEVELS[m]?.name).filter(Boolean).join(' · ');
+        if (el.dataset.locked) { box.innerHTML = `<div class="glv"><span>${esc(B.role)}</span><span></span></div><h3 class="dim">Not yet felled</h3><div class="gd-sec">Met in</div><div class="gd-note">${esc(where)}</div>`; return; }
+        const C = coreOf(B.id), tr = traits(B.T);
+        box.innerHTML = `<div class="glv"><span>${esc(B.role)}</span><span>Act ${roman(B.act + 1)}</span></div><h3 style="color:${ROLE_COLOR[B.role]}">${esc(B.T.name)}</h3><div class="grar">Felled ${d.beast?.[B.id] || 0} time${(d.beast?.[B.id] || 0) === 1 ? '' : 's'}</div>
+          <div class="gd-sec">Met in</div><div class="gd-note">${esc(where)}</div>
+          <div class="gd-sec">Its arts</div>${artsOf(B.T).map(n => `<div class="gd-fx"><span>${esc(n)}</span></div>`).join('')}
+          ${tr.length ? `<div class="gd-sec">Its ways</div>${tr.map(t => `<div class="gd-fx set"><span>${esc(t)}</span></div>`).join('')}` : ''}
+          <div class="gd-sec">Soul Core</div><div class="gd-fx ${C ? '' : 'off'}"><span>${C ? `${esc(C.name)} · ${esc(C.skillName)}` : 'None'}</span></div>`;
+      };
     } else if (screen === 'arsenal') {
       // Every weapon found: take one in hand (the other carried goes to the back), and at a Moonwell, forge it.
       const d = G.save.data, sv = G.save;

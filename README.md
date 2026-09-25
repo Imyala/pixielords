@@ -85,7 +85,7 @@ size; the mouse or right stick tilts it further up or down.
   example). The chain carries on through dashes, so you can dodge mid-combo and keep going.
 - **Combo counter.** Hits in a row build a counter (right of screen). Every 12 add 6% damage, up to +24%.
   A finisher spends it: the more hits counted, the harder it lands, up to 1.8×. A blow taken halves the
-  count; four seconds without a hit clears it. **Movesets** (pause menu or any Moonwell) lists every form.
+  count; four seconds without a hit clears it. **Movesets** (pause menu) lists every form.
 - **Weapons.** The Fae Sword is quick and close. The **Moonglaive**, found in the Gnawing Halls, is a
   polearm: long reach, wide sweeps, heavy posture damage, and heavies you can hold to charge (up to 1.8×):
   the Crescent (Mid), the Moonfall pole-vault (High) and the Piercing Rush (Low). The **Twin Fangs**, found
@@ -142,8 +142,8 @@ size; the mouse or right stick tilts it further up or down.
   Moonwell): goblins, ratmen, fae knights, Champions, gatekeepers, warlords and Revenants felled; Deflects,
   Flashcuts, Executions, ranged hits and Fae Arts; missions and side missions cleared; the deepest Underbriar
   depth; Lost Pixies and letters found; gear dismantled and smithed; Soul Cores fused; Ways walked; Moondew
-  drunk; Glimmer taken; Revenants laid to rest at their graves; wares bought at the Hidden Market; and falls.
-  Each of the 26 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000), Moonpetals (5, 10, 15) and a
+  drunk; Glimmer taken; Revenants laid to rest at their graves; wares bought at the Hidden Market; Umbral
+  Realms dispelled; Kindred Spirits called; and falls. Each of the 28 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000), Moonpetals (5, 10, 15) and a
   small bonus for good (Goblinbane: +3% posture damage a tier; Warlord's Bane: +20 health a tier...).
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
@@ -601,6 +601,37 @@ piece of (whatever you actually wear still decides defence, effects and set bonu
 **dyed**: plate, cloak, trim, wings and the visor's glow. Three dyes (Ink, Bone, Moss) are yours from the start;
 nineteen more are sold in the Hidden Market. The knight is in view at the Moonwell while you change it.
 
+### Kindred Spirits
+
+As Nioh's Visitors. At a Moonwell, **Kinship** offers three kindred fae knights for the night (a name, a level
+near yours, a weapon, a harness and a Patron Spirit, lit blue). Pour out a **Moon Cup** and one answers: it walks
+the mission a pace behind your shoulder, and fights whatever you are locked on to or whatever is fighting it,
+with the weapon it carried (a Duel Revenant's strokes for that weapon) and nearly as hard as you do. It guards
+some blows and sidesteps others; red blows it can't guard. **Foes turn on it** as readily as on you (the nearer,
+and whoever hit them last, draw them), so it can hold a crowd's attention while you work, and every foe is a
+little hardier while it walks with you. Left behind, it catches up in a flicker of light; it comes through a
+warlord's briars with you. Fallen, its echo lingers a while: stand over it and give up a third of your health to
+raise it. It goes home when a warlord falls, when you rest (call another from the same Moonwell), or when you
+fall. Its bar shows under yours. Not on a Duel: a Duel is fought alone.
+
+**Moon Cups**: you start with two and carry up to ten. Gatekeepers leave one; Revenants at their graves often
+do; a crate or urn now and then hides one; the Hidden Market sells three a night.
+
+### Umbral Realms
+
+As Nioh 2's Dark Realms. In every mission one foe, among the hardiest of the rank and file about the middle of
+the way, has swallowed a shard of the moon's dark and spreads it about itself: a ring of purple dusk on the
+ground, fog closing in as you step inside. **Inside, your stamina returns 40% slower and foes hit 15% harder, but
+Faelight comes half again as fast.** The host is **Umbral**: more than twice as hardy, harder-hitting, named for
+it on its bar. Fell it and the realm is **dispelled**: three times its Glimmer, a piece of Rare gear or better
+(and often a second), Moonpetals and, half the time, a Moon Cup. It rises again with the world (a rest, a fall).
+
+### The Bestiary
+
+In the Journal (F / X there): every foe of the fifteen missions, act by act, from goblin scouts to the Eclipse:
+where it is met, its arts, its ways (it parries, it shoots, it hides behind a shield, it rimes over...), its Soul
+Core and how many you have felled. A foe is known once felled, or once its mission has been cleared.
+
 ### Balance
 
 Every mission has a recommended level that its gear drops around: the Grubhold 1, then 10, 18, 26, 34, 42,
@@ -669,7 +700,7 @@ src/sides.js      side missions: Twilight, Hunts and Duels for each mission, the
 src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in fifteen looks, foes, treasure, warlord arenas), checkpoints and scaling
 src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
 src/ways.js       the Ways (New Game+ cycles): names, what each asks, and Divine gear's weight
-src/deeds.js      Deeds: the 26 long goals, their tallies, tiers and bonuses
+src/deeds.js      Deeds: the 28 long goals, their tallies, tiers and bonuses
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
@@ -691,6 +722,9 @@ src/moontonight.js the Moon Tonight: the real moon's phase and blessings, and th
 src/graves.js     Revenant Graves: where the two graves lie in each mission, who fell there (name, weapon, harness, patron, how), the Revenant it rises as, the grave itself
 src/market.js     the Hidden Market: tonight's wares (gear, provisions, dyes) and their prices in Moonpetals
 src/wardrobe.js   the Wardrobe: dyes, the parts of a look, and the colours a look and its dyes give the knight
+src/kindred.js    Kindred Spirits: tonight's kindred at a mission's Moonwells, and the ally knight itself (following, choosing a foe, a Duel Revenant's strokes, guarding, sidestepping, falling and being raised)
+src/umbral.js     Umbral Realms: which foe hosts a mission's realm, its look, and who stands in it
+src/bestiary.js   the Bestiary: every foe placed in a mission, its role, act, arts, ways and Soul Core
 src/menuui.js     the menus' Nioh-style chrome: header plaque, gold-lit lists, key-hint bar (keys or pad buttons), option rows, the ink-wash ring, the gamepad diagram
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures

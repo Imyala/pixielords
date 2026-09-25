@@ -6,6 +6,7 @@ import { createModel, MODEL_SIZE } from './models3d.js';
 import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
 import { AFFIXES, rollChampion, championDress, championDispose } from './champions.js';
+import { REALM } from './umbral.js';
 import { actTwo } from './foes2.js';
 import { actThree } from './foes3.js';
 import { tierHp, tierDmg } from './ways.js';
@@ -514,7 +515,7 @@ class MatSet {
   dispose() { for (const m of this.all) m.dispose(); }
 }
 
-function knightModel(T) {
+export function knightModel(T) {
   const k = buildKnight(), M = k.mats, L = T.knight;
   M.steel.color.setHex(L.steel); M.steel.metalness = .9; M.steel.roughness = .22;
   M.dark.color.setHex(L.dark); M.cloth.color.setHex(L.cloth); M.trim.color.setHex(L.trim); M.leather.color.setHex(L.dark);
@@ -613,7 +614,7 @@ function rimeShell(model) {
 
 // Knight-shaped foes play the knight's own actions. Each enemy step names one, and the hit frame
 // (the second number) is lined up with the end of the windup.
-const KNIGHT_ACT = {
+export const KNIGHT_ACT = {
   swing: ['light1', .22], backswing: ['light2', .2], overhead: ['light3', .33], thrust: ['needle', .26], spin: ['light4', .3],
   leap: ['skyfall', .56], cast: ['counter', .12], roar: ['shift', .38], throw: ['light2', .2], shoot: ['light1', .2],
   heavy: ['heavy', .55], flashcut: ['flashcut', .12], dash: ['dash', .2], light4: ['light4', .3], skyfall: ['skyfall', .56],
@@ -657,7 +658,7 @@ export class Projectiles {
   }
 
   spawn(kind, from, e, step) {
-    const G = this.G, p = G.player, fx = G.fx;
+    const G = this.G, p = e.foe?.() || G.player, fx = G.fx;   // at whoever it is fighting: the knight or a Kindred
     const origin = new THREE.Vector3(from.x, from.y, from.z);
     const aim = new THREE.Vector3(p.pos.x, 1.1, p.pos.z);
     const make = (k, vel, extra = {}) => {
@@ -670,7 +671,7 @@ export class Projectiles {
       }
       obj.position.copy(origin);
       if (k === 'bomb' && step.proj.frost) obj.material = this.mat.frostbomb;
-      const pr = { kind: k, obj, vel, t: 0, dmg: step.dmg * e.dmgMul, from: e, radius: k === 'orb' ? .35 : .18, chill: step.proj.chill || 0, ...extra };
+      const pr = { kind: k, obj, vel, t: 0, dmg: step.dmg * e.dmgMul, from: e, aim: p, radius: k === 'orb' ? .35 : .18, chill: step.proj.chill || 0, ...extra };
       this.list.push(pr);
       return pr;
     };
@@ -734,7 +735,7 @@ export class Projectiles {
   // Travelling ground waves: a line of ice spikes racing out from the attacker, each wave striking once.
   // Jump over them, dash through, step aside, or take them on the guard.
   wave(e, s) {
-    const W = s.wave, G = this.G, p = G.player;
+    const W = s.wave, G = this.G, p = e.foe?.() || G.player;
     const off = W.at ?? Math.min(2, (s.reach || 1) * .6);
     const x0 = e.pos.x + Math.sin(e.yaw) * off, z0 = e.pos.z + Math.cos(e.yaw) * off;
     const base = W.ring ? e.yaw : yawTo(x0, z0, p.pos.x, p.pos.z), n = W.n || 1;
@@ -747,14 +748,16 @@ export class Projectiles {
   }
 
   update(dt) {
-    const G = this.G, p = G.player, fx = G.fx;
+    const G = this.G, p = G.player, fx = G.fx, bodies = G.bodies?.() || [p];
+    // A blast lands on everyone in reach: the knight and a Kindred alike.
+    const blast = (o, R, hit) => { for (const b of bodies) if (b.alive && Math.hypot(b.pos.x - o.position.x, b.pos.z - o.position.z) < R + b.radius) b.receiveHit({ ...hit, dirYaw: yawTo(b.pos.x, b.pos.z, o.position.x, o.position.z) }); };
     for (let i = this.list.length - 1; i >= 0; i--) {
       const pr = this.list[i], o = pr.obj;
       pr.t += dt;
       let dead = false;
       if (pr.kill) dead = true;
       // Orbs home on the knight, or on their caster once deflected back.
-      const tgt = pr.reflected ? pr.from : p;
+      const tgt = pr.reflected ? pr.from : pr.aim?.alive ? pr.aim : p;
       if (pr.homing && tgt.alive) {
         _v.set(tgt.pos.x - o.position.x, (pr.reflected ? tgt.height * .55 : 1.1) - o.position.y, tgt.pos.z - o.position.z).normalize().multiplyScalar(pr.vel.length());
         pr.vel.lerp(_v, 1 - Math.exp(-pr.homing * dt));
@@ -782,18 +785,17 @@ export class Projectiles {
             if (ice) { fx.shatter({ x: o.position.x, y: .3, z: o.position.z }, 22); fx.spikes(o.position, .9, 0xcfeaff, 3, .9); fx.ring(o.position, 0xbfe6ff, 1.7, .3); }
             else { fx.dust(o.position, 14); fx.ring(o.position, 0xc8b090, 1.9, .3); }
             G.audio.sfx(ice ? 'ice' : 'slam', { x: o.position.x, z: o.position.z, vol: .7 }); G.cam.shake(.25, o.position);
-            if (Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z) < R + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true, chill: pr.chill, ranged: true });
+            blast(o, R, { dmg: pr.dmg, from: pr.from, aoe: true, heavy: true, chill: pr.chill, ranged: true });
           } else if (pr.kind === 'bomb' && pr.frost) {
             // A hail pot: a burst of rime that leaves the ground freezing.
             fx.shatter({ x: o.position.x, y: .4, z: o.position.z }, 30); fx.ring(o.position, 0xbfe6ff, 2.4, .35); fx.spikes(o.position, .8, 0xcfeaff, 5, 1);
             G.audio.sfx('shatter', { x: o.position.x, z: o.position.z, vol: .6 }); G.cam.shake(.25, o.position);
-            if (Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z) < 2.4 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true, chill: pr.chill, ranged: true });
+            blast(o, 2.4, { dmg: pr.dmg, from: pr.from, aoe: true, heavy: true, chill: pr.chill, ranged: true });
             this.hazard(o.position.x, o.position.z, pr.frost, 5, 32, 'frost');
           } else if (pr.kind === 'bomb') {
             fx.explosion(o.position, 2.4); G.audio.sfx('explode', { x: o.position.x, z: o.position.z }); G.cam.shake(.35, o.position);
             G.world.smash(o.position.x, o.position.z, 2.2);
-            const d = Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z);
-            if (d < 2.4 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true });
+            blast(o, 2.4, { dmg: pr.dmg, from: pr.from, aoe: true, heavy: true });
             if (pr.fire) this.hazard(o.position.x, o.position.z, pr.fire, 3, 30, 'fire');
           } else {
             this.hazard(o.position.x, o.position.z, 2.1, 5);
@@ -810,9 +812,10 @@ export class Projectiles {
           G.audio.sfx('magic', { x: e.pos.x, z: e.pos.z });
           dead = true;
         }
-      } else if (p.alive) {
+      } else {
+        const p = bodies.find(b => b.alive && Math.hypot(b.pos.x - o.position.x, b.pos.z - o.position.z) < b.radius + pr.radius) || G.player;
         const dx = p.pos.x - o.position.x, dz = p.pos.z - o.position.z;
-        if (Math.hypot(dx, dz) < p.radius + pr.radius && o.position.y > 0 && o.position.y < 2) {
+        if (p.alive && Math.hypot(dx, dz) < p.radius + pr.radius && o.position.y > 0 && o.position.y < 2) {
           const res = p.receiveHit({ dmg: pr.dmg, from: pr.from, projectile: true, snare: pr.snare, chill: pr.chill, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z) });
           // A deflected hex orb flies back at whoever cast it.
           if (res === 'deflected' && pr.kind === 'orb' && pr.from?.alive) {
@@ -858,9 +861,10 @@ export class Projectiles {
         if (G.world.raycast({ x: x - w.dx * w.gap, y: .6, z: z - w.dz * w.gap }, { x: w.dx, y: 0, z: w.dz }, w.gap) < w.gap - .05) { w.dead = true; break; }
         fx.spikes({ x, z }, 1.15 + Math.random() * .6, w.color, 4, 1.05);
         if (w.n++ % 3 === 0) G.audio.sfx('ice', { x, z, vol: .45 });
-        if (!w.hit && p.alive && Math.hypot(p.pos.x - x, p.pos.z - z) < w.r + p.radius) {
-          w.hit = true;
-          p.receiveHit({ dmg: w.dmg, from: w.from, aoe: true, ranged: true, heavy: w.dmg >= 60, chill: w.chill, dirYaw: yawTo(p.pos.x, p.pos.z, w.x, w.z) });
+        for (const b of bodies) {
+          if (w.hit === b || w.hit === true || !b.alive || Math.hypot(b.pos.x - x, b.pos.z - z) >= w.r + b.radius) continue;
+          w.hit = b === p ? true : b;   // a wave strikes the knight once, and a Kindred once before it
+          b.receiveHit({ dmg: w.dmg, from: w.from, aoe: true, ranged: true, heavy: w.dmg >= 60, chill: w.chill, dirYaw: yawTo(b.pos.x, b.pos.z, w.x, w.z) });
         }
         w.next += w.gap;
       }
@@ -966,7 +970,7 @@ export class Enemy {
     Object.assign(this.cur, POSE0);
     this.phase2 = false; this.usedOnce = {};
     this.dmgShown = 0; this.dmgShowT = 0; this.barT = 0;
-    this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0;
+    this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0; this.tgt = null; this.tgtT = 0;
     this.hitList = null; this.alertT = 0; this.stuck = 0;
     this.cd = {};
     this.mat.transparent = false; this.mat.opacity = 1; this.mat.emissive.setHex(0xffffff); this.mat.emissiveIntensity = this.G.level?.enemyGlow ?? .08;
@@ -981,6 +985,12 @@ export class Enemy {
     for (const m of this.crown?.userData.mats || []) { m.transparent = m.userData.t ??= m.transparent; m.opacity = m.userData.o ??= m.opacity; }
     if (this.kn) { this.kn.anim.stop(); this.kn.trail.samples.length = 0; this.kn.k.mats.blade.emissiveIntensity = .5; this.kn.k.mats.wing.color.setHex(T.knight.wing); }
     this.makeChampion(rollChampion(this.G, this));
+    // An Umbral Realm's host (umbral.js): much hardier and harder-hitting, and dark about the edges.
+    if (s.umbral) {
+      this.maxHp = Math.round(this.maxHp * REALM.hp); this.hp = this.maxHp; this.maxKi = Math.round(this.maxKi * 1.4); this.ki = this.maxKi;
+      this.dmgMul *= REALM.hostDmg; this.name = `Umbral ${this.name}`; this.umbral = true;
+      this.mat.emissive.setHex(0x6a2aff); this.mat.emissiveIntensity = .3;
+    } else this.umbral = false;
   }
 
   // Champions (champions.js): hardier, named for their affixes, glowing in the first one's colour.
@@ -1068,6 +1078,18 @@ export class Enemy {
 
   // ------------------------------------------------ perception
   distToPlayer() { const p = this.G.player.pos; return Math.hypot(p.x - this.pos.x, p.z - this.pos.z); }
+  // Whom it fights: the knight, or a Kindred Spirit (kindred.js) walking with the knight.
+  foe() { const t = this.tgt; return t && t.alive ? t : this.G.player; }
+  // Now and then an aware foe weighs its targets: the nearer, and whoever hit it last, draw it.
+  retarget() {
+    const G = this.G, k = G.kindred, p = G.player;
+    this.tgtT = rand(2.2, 4.2);
+    if (!k?.alive) { this.tgt = null; return; }
+    if (this.state === 'attack') { this.tgtT = .5; return; }
+    const dp = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z), dk = Math.hypot(k.pos.x - this.pos.x, k.pos.z - this.pos.z);
+    const wk = (dk < dp ? 1.3 : .55) * (this.lastHitBy === k ? 1.8 : 1) * (dk > 18 ? .1 : 1), wp = (this.lastHitBy === p ? 1.5 : 1) * (dp > 18 ? .1 : 1);
+    this.tgt = Math.random() * (wk + wp) < wk ? k : null;
+  }
 
   canSee(d) {
     const G = this.G, p = G.player;
@@ -1148,24 +1170,28 @@ export class Enemy {
   takeHit(hit) {
     if (!this.alive || this.state === 'intro' || this.burrowed) return null;
     const G = this.G;
+    // Who struck: the knight, or a Kindred (hit.by). A Kindred's blows draw the foe's eye now and then.
+    const by = hit.by || G.player;
+    this.lastHitBy = by;
+    if (by !== G.player && this.aware && !this.boss && Math.random() < .3) { this.tgt = by; this.tgtT = rand(2, 4); }
     // A fencer turns quick cuts aside and answers at once. Heavies, Flashcuts and blows as it recovers get through.
     if (this.T.parry && this.state === 'engage' && !hit.crit && !hit.flash && !hit.heavy && this.parryCd < G.time) {
-      const from = yawTo(this.pos.x, this.pos.z, G.player.pos.x, G.player.pos.z);
+      const from = yawTo(this.pos.x, this.pos.z, by.pos.x, by.pos.z);
       if (Math.abs(angleDiff(this.yaw, from)) < 1.2 && Math.random() < this.T.parry * (this.phase2 ? 1.25 : 1)) {
         this.parryCd = G.time + 1.1;
         this.kplay('deflect', 1.1, .02);
         const sp = new THREE.Vector3(this.pos.x + Math.sin(this.yaw) * .7, this.height * .6, this.pos.z + Math.cos(this.yaw) * .7);
         G.fx.spark(sp, { x: -Math.sin(from), z: -Math.cos(from) }, 30, 0xdff4ff, 8); G.fx.flash(sp, 0xffffff, 2, .2, true);
         G.audio.sfx('deflect', { x: this.pos.x, z: this.pos.z });
-        G.player.recoil(this);
-        G.hud.toast('Parried', 'warn');
+        by.recoil(this);
+        if (by === G.player) G.hud.toast('Parried', 'warn');
         this.think = Math.min(this.think, .06); this.riposteNext = true;
         return null;
       }
     }
     // Shield wall: a guarded front turns blows aside (heavies wear the guard down faster).
     if (this.T.shield && ['engage', 'idle', 'patrol', 'alert'].includes(this.state) && !hit.crit && !hit.flash) {
-      const from = yawTo(this.pos.x, this.pos.z, G.player.pos.x, G.player.pos.z);
+      const from = yawTo(this.pos.x, this.pos.z, by.pos.x, by.pos.z);
       if (Math.abs(angleDiff(this.yaw, from)) < 1.05) {
         this.ki -= (hit.ki || 0) * (hit.heavy ? 1.6 : .9); this.kiT = 1.4; this.barT = 6;
         this.hp -= hit.dmg * .12; this.dmgShown += hit.dmg * .12; this.dmgShowT = 2.5;
@@ -1178,7 +1204,7 @@ export class Enemy {
         return 'blocked';
       }
     }
-    let dmg = hit.dmg * (this.state === 'down' ? 1.2 : 1);   // a floored foe takes more
+    let dmg = hit.dmg * (this.state === 'down' ? 1.2 : 1) * (G.kindred?.alive ? .78 : 1);   // a floored foe takes more; with a Kindred along, every foe is hardier
     this.lastHitT = G.time;
     if (this.ward > 0) {   // a Warded champion's ward takes the blow first
       const a = Math.min(this.ward, dmg); this.ward -= a; dmg -= a;
@@ -1334,7 +1360,7 @@ export class Enemy {
 
   // ------------------------------------------------ attacks
   pickAttack(d) {
-    const G = this.G, p = G.player;
+    const G = this.G, p = this.foe();
     const behind = Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z))) > 1.9;
     let list = this.T.attacks;
     if (this.phase2 && this.T.phase2) list = list.concat(this.T.phase2);
@@ -1390,17 +1416,17 @@ export class Enemy {
       G.audio.sfx('glint', { x: this.pos.x, z: this.pos.z, vol: .5 });
     }
     if (s.anim === 'leap' || s.burrow) {
-      const p = G.player.pos;
+      const p = this.foe().pos;
       this.leap = { x0: this.pos.x, z0: this.pos.z, x1: p.x, z1: p.z };
     }
     if (s.anim === 'roar') { G.audio.sfx('roar', { x: this.pos.x, z: this.pos.z }); }
   }
 
   updateAttack(dt) {
-    const G = this.G, p = G.player, s = this.step, D = this.stepDur;
+    const G = this.G, p = this.foe(), s = this.step, D = this.stepDur;
     this.pt += dt;
     const toP = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z);
-    const d = this.distToPlayer();
+    const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
     if (this.phase === 'windup') {
       this.faceYaw = toP; this.turnRate = s.anim === 'leap' ? 6 : (this.T.track || 6);
       if (s.burst) G.fx.burstAura(this.pos, 0xff2020, 2, this.height, this.radius);
@@ -1489,8 +1515,9 @@ export class Enemy {
   }
 
   tryHit(s) {
-    const G = this.G, p = G.player;
+    const G = this.G, bodies = (G.bodies?.() || [G.player]).filter(b => b.alive);
     const fwd = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) };
+    let landed = false;
     // Area shock at the weapon's landing point (or around the body).
     if (s.aoe) {
       const off = s.reach ? s.reach * .8 : 0;
@@ -1503,24 +1530,24 @@ export class Enemy {
       G.world.smash(c.x, c.z, s.aoe * .8);   // slams break whatever they land on
       if (s.frost) { G.projectiles.hazard(c.x, c.z, s.frost, 6, 40, 'frost'); G.fx.shatter({ x: c.x, y: .4, z: c.z }, 40); for (let i = 0; i < 10; i++) G.fx.spikes({ x: c.x + Math.sin(i / 10 * TAU) * s.aoe * .8, z: c.z + Math.cos(i / 10 * TAU) * s.aoe * .8 }, 1.4, 0xbfe6ff, 3, 1.2); }
       G.cam.shake(s.shake || .3, c);
-      const d = Math.hypot(p.pos.x - c.x, p.pos.z - c.z);
-      if (d <= s.aoe + p.radius) { this.hitDone = true; this.deliver(s, c); return; }
-      if (!s.reach) { this.hitDone = true; return; }
+      for (const p of bodies) if (Math.hypot(p.pos.x - c.x, p.pos.z - c.z) <= s.aoe + p.radius) { landed = true; this.deliver(s, c, p); }
+      if (landed || !s.reach) { this.hitDone = true; return; }
     }
-    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz);
-    const ang = Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz)));
     if (!s.aoe || s.reach) {
       const arcR = (s.arc || 100) * Math.PI / 360;
       const col = s.burst ? 0xff4030 : 0xfff4e0;
       if (s.anim === 'spin') G.fx.arc(this.pos, 0, s.reach, 359, col, this.height * .45);
       else if (s.anim !== 'thrust') G.fx.arc(this.pos, this.yaw, s.reach, s.arc || 100, col, this.height * (s.anim === 'overhead' ? .5 : .55), s.anim === 'overhead' ? 1.2 : 0);
-      if (d <= s.reach + p.radius && (ang <= arcR || d < this.radius + p.radius + .15)) { this.hitDone = true; this.deliver(s, this.pos); }
+      // A sweep catches everyone in its arc: the knight, and a Kindred beside it.
+      for (const p of bodies) {
+        const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz), ang = Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz)));
+        if (d <= s.reach + p.radius && (ang <= arcR || d < this.radius + p.radius + .15)) { this.hitDone = true; this.deliver(s, this.pos, p); }
+      }
     }
   }
 
-  deliver(s, from) {
-    const p = this.G.player;
-    const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1);
+  deliver(s, from, p = this.foe()) {
+    const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1) * (this.G.realmAt?.(this.pos) ? 1.15 : 1);   // an Umbral Realm's foes hit harder
     const res = p.receiveHit({
       dmg, from: this, burst: !!s.burst, poison: (s.poison || 0) + (this.has('blight') ? 30 : 0), chill: (s.chill || 0) + (this.has('rime') ? 22 : 0), heavy: s.dmg >= 60,
       dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe,
@@ -1528,14 +1555,14 @@ export class Enemy {
     this.hitDone = true;
     if (res === 'hit' && this.champion) {
       if (this.has('vampiric') && this.alive) { this.hp = Math.min(this.maxHp, this.hp + Math.max(dmg * .8, this.maxHp * .05)); this.G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xff3a5a, 10, .5, 1, .1, .7); }
-      if (this.has('ember')) this.G.projectiles.hazard(p.pos.x, p.pos.z, 1.3, 2.5, 30, 'fire');
+      if (this.has('ember') && p === this.G.player) this.G.projectiles.hazard(p.pos.x, p.pos.z, 1.3, 2.5, 30, 'fire');
     }
     return res;
   }
 
   // Vanish and reappear 7–11 m from the knight, somewhere open, in the same area and in sight.
   blinkAway(behind = false) {
-    const G = this.G, p = G.player, W = G.world, here = W.areaAt(this.pos.x, this.pos.z);
+    const G = this.G, p = this.foe(), W = G.world, here = W.areaAt(this.pos.x, this.pos.z);
     G.fx.motes({ x: this.pos.x, y: this.height * .5, z: this.pos.z }, 0xc9b4ff, 26, this.radius + .3, 2.5, .12, .7);
     G.fx.ring(this.pos, 0xc9b4ff, 2, .3);
     for (let i = 0; i < 20; i++) {
@@ -1594,8 +1621,11 @@ export class Enemy {
 
     if (this.state === 'dead') { this.updateDead(dt); this.integrate(dt); this.animate(dt); return; }
 
-    const d = this.distToPlayer();
-    const toP = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z);
+    // Unaware foes sense the knight; aware ones fight whoever they have turned on.
+    if (this.aware && this.state !== 'return' && (this.tgtT = (this.tgtT ?? 0) - dt) <= 0) this.retarget();
+    const f = this.aware && this.state !== 'return' ? this.foe() : p;
+    const d = Math.hypot(f.pos.x - this.pos.x, f.pos.z - this.pos.z);
+    const toP = yawTo(this.pos.x, this.pos.z, f.pos.x, f.pos.z);
     this.think -= dt;
     if (this.champion) this.championTick(dt, d);
 
@@ -1664,7 +1694,7 @@ export class Enemy {
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * .2 * dt);
         if (dd < .6) { this.state = this.spawn.patrol ? 'patrol' : 'idle'; this.hp = this.maxHp; this.ki = this.maxKi; }
         else this.steer(Math.atan2(dx, dz), this.T.run * .75 * Math.min(1, dd / 2 + .3));
-        if (this.think <= 0) { this.think = .3; if (d < 12 && this.stimulus(d) > .5) { this.state = 'engage'; this.st = 0; this.planT = 0; } }
+        if (this.think <= 0) { this.think = .3; if (d < 12 && this.stimulus(d) > .5) { this.state = 'engage'; this.st = 0; this.planT = 0; } else if (this.tgt?.alive && Math.hypot(this.tgt.pos.x - this.pos.x, this.tgt.pos.z - this.pos.z) < 8) { this.state = 'engage'; this.st = 0; this.planT = 0; } }
         break;
       }
     }
@@ -1731,7 +1761,7 @@ export class Enemy {
     }
 
     // Evasive types hop aside when the player swings at them.
-    if (T.evasive && G.player.isAttacking && d < 3 && (this.hopCd || 0) < G.time && Math.random() < T.evasive * dt * 4) {
+    if (T.evasive && this.foe().isAttacking && d < 3 && (this.hopCd || 0) < G.time && Math.random() < T.evasive * dt * 4) {
       this.hopCd = G.time + 2.5;
       const side = Math.random() < .5 ? -1 : 1, yaw = toP + side * Math.PI / 2;
       this.impulse.x += Math.sin(yaw) * 7; this.impulse.z += Math.cos(yaw) * 7;
@@ -1889,9 +1919,9 @@ export class Enemy {
     }
     // The head finds the knight whenever the foe is fighting.
     if (this.aware && this.state !== 'dead' && this.state !== 'down') {
-      const p = this.G.player;
+      const p = this.foe();
       tg.hYaw = clamp(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z)), -1.1, 1.1);
-      tg.hPi += clamp((this.height * .8 - 1.2 - p.pos.y) / Math.max(1, this.distToPlayer()), -.5, .5);
+      tg.hPi += clamp((this.height * .8 - 1.2 - p.pos.y) / Math.max(1, Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z)), -.5, .5);
     }
     // Locomotion: a gait driven by distance travelled, so feet don't skate; lean into speed and turns.
     this.gait += spd * dt / (.85 * this.size) * Math.PI;

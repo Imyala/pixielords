@@ -32,6 +32,7 @@ export function freshSave(ng = 0) {
     patrons: ['lantern'], patron: 'lantern',   // Patron Spirits freed, and the one pledged (patrons.js)
     petals: 0, market: null, vials: 0,   // Moonpetals held; the Hidden Market's night and what was bought; vials bought (market.js)
     dyes: [...FREE_DYES], look: freshLook(), looks: ['errant'],   // the Wardrobe: dyes owned, the look worn, sets whose look is known (wardrobe.js)
+    cups: 2,   // Moon Cups, to call Kindred Spirits at a Moonwell (kindred.js)
   };
 }
 
@@ -66,7 +67,7 @@ function migrate(d) {
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
   d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {}; d.side ||= null;
   d.abyss ||= freshAbyss();
-  d.petals ??= 0; d.vials ??= 0; d.dyes ||= [...FREE_DYES]; d.look ||= freshLook(); d.looks ||= ['errant'];
+  d.petals ??= 0; d.vials ??= 0; d.cups ??= 2; d.dyes ||= [...FREE_DYES]; d.look ||= freshLook(); d.looks ||= ['errant'];
   return d;
 }
 

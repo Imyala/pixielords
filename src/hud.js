@@ -26,7 +26,9 @@ export class HUD {
         <div class="weapon"><b>Fae Sword</b><small></small></div>
         <div class="charmrow"></div>
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="frozen" hidden>❄ Frostbitten</span><span class="pbuild"><i></i></span><span class="pbuild cbuild"><i></i></span></div>
+        <div class="kin" hidden><small></small><div class="kbar"><i></i></div></div>
       </div>
+      <div class="realm" hidden><b>UMBRAL REALM</b><small>stamina returns slower · foes hit harder · Faelight comes faster</small></div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
       <div class="artslot" hidden><i>◆</i><div><b></b><small></small></div></div>
       <div class="rangedslot" hidden><i>➶</i><div><b></b><small></small><s><u></u></s></div></div>
@@ -63,6 +65,7 @@ export class HUD {
       art: $('.artslot', el), artI: $('.artslot i', el), artB: $('.artslot b', el), artS: $('.artslot small', el),
       rng: $('.rangedslot', el), rngI: $('.rangedslot i', el), rngB: $('.rangedslot b', el), rngS: $('.rangedslot small', el), rngH: $('.rangedslot s', el), rngHI: $('.rangedslot u', el),
       ret: $('.reticle', el), retRing: $('.reticle b', el),
+      kin: $('.kin', el), kinN: $('.kin small', el), kinBar: $('.kin .kbar i', el), realm: $('.realm', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), msgH: $('.msg h3', el), msgE: $('.msg em', el), fade: $('.fade', el),
     };
     this.bars = new Map();
@@ -238,6 +241,15 @@ export class HUD {
     q.frozen.hidden = !(p.frozen > 0);
     q.cbuild.style.display = p.chill > 1 && !(p.frozen > 0) ? '' : 'none';
     q.cbuildI.style.transform = `scaleX(${p.chill / 100})`;
+    // A Kindred Spirit walking with you (kindred.js), and an Umbral Realm you stand in (umbral.js).
+    const K = G.kindred;
+    q.kin.hidden = !K || K.gone;
+    if (K && !K.gone) {
+      if (q.kinN.dataset.n !== K.name) { q.kinN.dataset.n = K.name; q.kinN.textContent = `Kindred · ${K.name}`; }
+      q.kinBar.style.transform = `scaleX(${Math.max(0, K.hp / K.maxHp)})`;
+      q.kin.classList.toggle('fallen', K.state === 'fallen');
+    }
+    q.realm.hidden = !G.inRealm;
     q.flaskN.textContent = p.elixirs;
     q.flask.classList.toggle('empty', p.elixirs <= 0);
     q.flaskKey.textContent = this.key('heal');
@@ -337,7 +349,7 @@ export class HUD {
       b._ki.style.transform = `scaleX(${Math.max(0, e.ki / e.maxKi)})`;
       b.classList.toggle('broken', e.state === 'broken');
       b.classList.toggle('warded', e.ward > 0);
-      if (b._cnFor !== e.name) { b._cnFor = e.name; b._cn.textContent = e.champion ? e.affixes.map(a => AFFIXES[a].name).join(' · ') : ''; b._cn.style.color = e.champion ? '#' + AFFIXES[e.affixes[0]].color.toString(16).padStart(6, '0') : ''; }
+      if (b._cnFor !== e.name) { b._cnFor = e.name; b._cn.textContent = e.umbral ? 'Umbral' : e.champion ? e.affixes.map(a => AFFIXES[a].name).join(' · ') : ''; b._cn.style.color = e.umbral ? '#c8a0ff' : e.champion ? '#' + AFFIXES[e.affixes[0]].color.toString(16).padStart(6, '0') : ''; }
       b._dmg.textContent = e.dmgShown > 0 ? Math.round(e.dmgShown) : '';
     }
 

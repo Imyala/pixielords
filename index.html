@@ -327,6 +327,16 @@
   .gfoot.petals{justify-content:center;font:600 16px var(--serif);color:#ffb8d8;letter-spacing:.04em}
   .dyebig{height:56px;border-radius:6px;margin:10px 0 4px;border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 0 20px rgba(0,0,0,.4)}
   @media (max-width:760px){.wpanel{left:3vw;width:94vw}}
+  #hud .kin{width:min(15vw,220px);margin-top:4px;font:600 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:#9fe8ff;text-shadow:0 1px 3px #000}
+  #hud .kin .kbar{height:5px;margin-top:3px;background:rgba(0,0,0,.55);border:1px solid rgba(159,232,255,.35)} #hud .kin .kbar i{display:block;height:100%;background:linear-gradient(90deg,#4ab8ff,#9fe8ff);transform-origin:left}
+  #hud .kin.fallen{color:#ff9a8a} #hud .kin.fallen .kbar{border-color:rgba(255,120,120,.4)}
+  #hud .realm{position:absolute;left:50%;top:9vh;transform:translateX(-50%);text-align:center;pointer-events:none;animation:realmPulse 3s ease-in-out infinite}
+  #hud .realm b{display:block;font:600 15px var(--serif);letter-spacing:.4em;color:#d8b0ff;text-shadow:0 0 14px rgba(150,70,255,.8),0 2px 4px #000}
+  #hud .realm small{font:italic 14px var(--script);color:#c8b8e0;text-shadow:0 1px 3px #000}
+  @keyframes realmPulse{50%{opacity:.7}}
+  .kinbox{background:linear-gradient(90deg,rgba(8,24,40,.3),rgba(8,18,30,.92) 18%);border-left-color:rgba(120,210,255,.55);box-shadow:0 0 60px rgba(60,160,255,.12)}
+  .kinbox .gk{color:#8fd8ff} .kinbox h2{color:#e8f6ff;text-shadow:0 0 16px rgba(80,170,255,.45)} .kinbox .gr{border-bottom-color:rgba(120,200,255,.16)} .kinbox .gr.sp b{color:#bfe6ff}
+  .toast.realm{color:#d8b0ff;text-shadow:0 0 12px rgba(150,70,255,.7),0 2px 4px #000}
   .toast.petal{color:#ffb8d8;text-shadow:0 0 12px rgba(255,120,190,.55),0 2px 4px #000;text-transform:none;letter-spacing:1px}
   @media (max-width:760px){.gravebox{position:static;transform:none;width:auto;margin:14vh 4vw 0}}
   #menu .ntitle{position:absolute;left:6.5vw;top:12vh;font:700 clamp(40px,6vw,78px) var(--serif);letter-spacing:.14em;color:var(--ink);text-shadow:0 0 30px rgba(143,240,255,.25),0 4px 18px #000;margin:0}
