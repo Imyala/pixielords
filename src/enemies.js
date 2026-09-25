@@ -1032,7 +1032,7 @@ export class Enemy {
   }
 
   // ------------------------------------------------ taking damage
-  // hit: {dmg, ki, poise, dir: yaw from attacker, heavy, crit}
+  // hit: {dmg, ki, poise, dir: yaw from attacker, heavy, crit, kb (knockback override; negative pulls toward the attacker)}
   takeHit(hit) {
     if (!this.alive || this.state === 'intro' || this.burrowed) return null;
     const G = this.G;
@@ -1080,7 +1080,7 @@ export class Enemy {
     if (!this.aware && !this.boss) { this.alert(); this.state = 'engage'; this.st = 0; this.think = .15; }
     // Knockback as an impulse, plus a jolt through the pose springs.
     if (this.state !== 'grappled') {
-      const kb = (hit.heavy ? 4.5 : 2) * (this.boss ? .15 : this.elite ? .35 : 1);
+      const kb = (hit.kb ?? (hit.heavy ? 4.5 : 2)) * (this.boss ? .15 : this.elite ? .35 : 1);
       this.impulse.x += Math.sin(hit.dir) * kb; this.impulse.z += Math.cos(hit.dir) * kb;
       this.pulseAnim(hit.heavy ? 'heavy' : 'hit', this.boss ? .4 : this.elite ? .6 : 1);
     }
@@ -1104,11 +1104,12 @@ export class Enemy {
   }
 
   // Launchers throw ordinary foes into the air; gatekeepers, warlords and armoured swings stand firm.
-  launch(v) {
+  // quiet: a trip or a pop from a strike, which says nothing when a heavy foe shrugs it off.
+  launch(v, quiet = false) {
     if (this.boss || this.elite || !this.alive || this.state === 'grappled' || this.state === 'dead') return false;
     if (this.state === 'attack' && this.step?.hyper && this.phase !== 'recover') return false;
     // Heavy foes stand firm until their stamina is spent.
-    if (this.T.poise >= 30 && this.state !== 'broken' && this.ki > this.maxKi * .4) { this.G.hud.toast('Too heavy — wear it down first'); return false; }
+    if (this.T.poise >= 30 && this.state !== 'broken' && this.ki > this.maxKi * .4) { if (!quiet) this.G.hud.toast('Too heavy — wear it down first'); return false; }
     this.endAttack();
     this.air = { vy: this.state === 'air' ? Math.max(this.air.vy, v) : v, hang: 0, slam: false };
     this.state = 'air'; this.st = 0;

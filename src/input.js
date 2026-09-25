@@ -15,6 +15,7 @@ const BIND = {
   nextTarget: ['Tab', 'WheelDown', 'Pad15'],
   prevTarget: ['WheelUp'],
   swap:     ['KeyV', 'Pad14'],
+  slide:    ['KeyZ', 'Pad10'],   // also: guard while sprinting
   up:    ['KeyW', 'ArrowUp', 'Pad12'],
   down:  ['KeyS', 'ArrowDown', 'Pad13'],
   left:  ['KeyA', 'ArrowLeft', 'Pad14'],   // menus only (in play the d-pad's left and right are swap and next target)
@@ -30,11 +31,11 @@ const BIND = {
 
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
-  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V',
+  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V', slide: 'Z',
 };
 export const PAD_LABEL = {
   light: 'RB', heavy: 'RT', guard: 'LB', dodge: 'B', burst: 'LT', lock: 'R3', heal: 'X',
-  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓', swap: 'D-pad ←',
+  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓', swap: 'D-pad ←', slide: 'L3',
 };
 
 export class Input {

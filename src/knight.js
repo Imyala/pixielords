@@ -17,7 +17,7 @@ const CH = [
   'twoHand', 'wings', 'vial',
   'lbYaw', 'lbPitch', 'lbRoll',   // the off-hand blade (Twin Fangs), chest space
 ];
-const IDX = Object.fromEntries(CH.map((c, i) => [c, i]));
+export const IDX = Object.fromEntries(CH.map((c, i) => [c, i]));
 const N = CH.length;
 const LEGS = ['lift', 'thLx', 'thLz', 'knL', 'thRx', 'thRz', 'knR'].map(c => IDX[c]);
 
@@ -61,8 +61,17 @@ export const P = {
 };
 
 // Actions: duration + keyframes [t, partialPose]. Channels not given fall back to the running pose.
-const K = (t, o) => [t, pose(o)];
-const LUNGE = { thLx: -.55, knL: .5, thRx: .45, knR: .35, lift: -.08 };
+export const K = (t, o) => [t, pose(o)];
+export const LUNGE = { thLx: -.55, knL: .5, thRx: .45, knR: .35, lift: -.08 };
+// A variant of an action: retimed to dur, with offsets added where a key sets a channel and values set on every key.
+export function vary(src, { dur = src.dur, add = {}, set = {}, spinX = src.spinX, spinY = src.spinY } = {}) {
+  return { dur, spinX, spinY, loop: src.loop, keys: src.keys.map(([t, p]) => {
+    const q = p.slice();
+    for (const [k, v] of Object.entries(add)) if (!Number.isNaN(q[IDX[k]])) q[IDX[k]] += v;
+    for (const [k, v] of Object.entries(set)) q[IDX[k]] = v;
+    return [t * dur / src.dur, q];
+  }) };
+}
 export const ACTIONS = {
   light1: { dur: .62, keys: [
     K(0, { hiltA: -1.3, hiltR: .42, hiltH: .12, bladeYaw: -2.3, bladePitch: .15, bladeRoll: -1.57, chestRy: -.55, ...LUNGE }),
@@ -287,8 +296,8 @@ export const ACTIONS = {
 };
 
 // ---- Air combat: the launcher, strikes with the legs tucked, the Starfall plunge and its landing.
-const TUCK = { thLx: -1.1, knL: 1.5, thRx: -.5, knR: 1.3, lift: 0, wings: 1.9 };
-const airVariant = (src, dur) => ({ dur, spinY: src.spinY, keys: src.keys.map(([t, p]) => {
+export const TUCK = { thLx: -1.1, knL: 1.5, thRx: -.5, knR: 1.3, lift: 0, wings: 1.9 };
+export const airVariant = (src, dur) => ({ dur, spinY: src.spinY, keys: src.keys.map(([t, p]) => {
   const q = p.slice();
   for (const [k, v] of Object.entries(TUCK)) q[IDX[k]] = v;
   return [t * dur / src.dur, q];
@@ -320,7 +329,7 @@ Object.assign(ACTIONS, {
 });
 
 // ---- Twin Fangs: quick alternating cuts, a crossing slash, spinning flurries.
-const SOFT = { thLx: -.4, knL: .45, thRx: .35, knR: .35, lift: -.07 };
+export const SOFT = { thLx: -.4, knL: .45, thRx: .35, knR: .35, lift: -.07 };
 Object.assign(ACTIONS, {
   f_slash1: { dur: .44, keys: [
     K(0, { hiltA: -1.1, hiltR: .4, hiltH: .1, bladeYaw: -1.9, bladePitch: .1, bladeRoll: -1.57, chestRy: -.45, lhX: .25, lhY: -.05, lhZ: .3, lbYaw: 2.6, lbPitch: -.3, twoHand: 0, ...SOFT }),
@@ -654,6 +663,9 @@ function orientHand(arm, dir, edge) {
 }
 
 // ---------------------------------------------------------------- animator
+// Channels that are pure angles (a weapon twirled through whole turns): blends between poses take the short way.
+const ANGLES = new Set([IDX.hiltA, IDX.bladeYaw, IDX.lbYaw]);
+const wrapPi = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 const _hilt = new THREE.Vector3(), _blade = new THREE.Vector3(), _edge = new THREE.Vector3(), _lh = new THREE.Vector3(), _grip = new THREE.Vector3();
 const POLE_R = new THREE.Vector3(-.6, -.4, -.7), POLE_L = new THREE.Vector3(.6, -.4, -.7);
 
@@ -722,7 +734,9 @@ export class KnightAnimator {
           const v = this.act[c];
           if (Number.isNaN(v)) continue;
           // Whole-body spins take the key value outright so they never unwind backwards.
-          out[c] = (c === IDX.bodyRx && A.spinX) || (c === IDX.bodyRy && A.spinY) ? v : lerp(out[c], v, w);
+          if ((c === IDX.bodyRx && A.spinX) || (c === IDX.bodyRy && A.spinY)) out[c] = v;
+          else if (ANGLES.has(c)) out[c] = v - wrapPi(v - out[c]) * (1 - w);
+          else out[c] = lerp(out[c], v, w);
         }
       }
     }
@@ -736,7 +750,7 @@ export class KnightAnimator {
     const cur = this.cur, k = 1 - Math.exp(-dt * 34), A = this.action;
     for (let c = 0; c < N; c++) {
       if ((c === IDX.bodyRx && A?.spinX) || (c === IDX.bodyRy && A?.spinY)) { cur[c] = out[c]; continue; }
-      cur[c] = lerp(cur[c], out[c], k);
+      cur[c] = ANGLES.has(c) ? cur[c] + wrapPi(out[c] - cur[c]) * k : lerp(cur[c], out[c], k);
     }
     const wrap = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     if (!A?.spinX) cur[IDX.bodyRx] = wrap(cur[IDX.bodyRx]);

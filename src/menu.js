@@ -1,7 +1,8 @@
 // Full-screen menus: title, pause, shrine (rest, level up, travel), charms, the Fae Crossroads map overlay,
-// controls, settings and the cleared / ending screens.
+// controls, movesets, the Journal, settings and the cleared / ending screens.
 // Mouse, keyboard (arrows + Enter/Esc) and gamepad (d-pad + A/B) all work.
-import { derive } from './player.js';
+import { derive, ATK, WEAPONS } from './player.js';
+import { FORMS, KIT } from './movesets.js';
 import { levelCost } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
@@ -21,6 +22,8 @@ const CONTROLS = [
   ['Strike  ·  strike hard', 'Left click  ·  right click', 'RB  ·  RT'],
   ['Guard  ·  tap as a blow lands to Deflect', 'Shift', 'LB'],
   ['Dash  ·  hold to sprint', 'Space', 'B'],
+  ['Slide (at a sprint)  ·  from a slide: Wingleap', 'Shift or Z  ·  Space', 'LB or L3  ·  B'],
+  ['Glide (falling)', 'Hold Space', 'Hold B'],
   ['Stance: High / Mid / Low', '1  2  3  (or C / X)', 'D-pad ↑ / ↓'],
   ['Switch weapon  ·  as a strike ends: Switch Strike', 'V', 'D-pad ←'],
   ['Charge a heavy (Moonglaive)', 'Hold right click', 'Hold RT'],
@@ -132,6 +135,8 @@ export class Menu {
       case 'setout': G.overworld.enter(b.dataset.id); break;
       case 'charms': this.push('charms'); break;
       case 'journal': this.push('journal'); break;
+      case 'moves': this.push('moves', { w: G.player.weapon }); break;
+      case 'movesW': this.top.data = { w: b.dataset.w }; this.render(); break;
       case 'letter': { const y = this.el.querySelector('.map')?.scrollTop || 0; this.top.scroll = y; this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break; }
       case 'charm': { const f = this.focus; if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); const y = this.el.querySelector('.map')?.scrollTop || 0; this.render(); this.focus = f; this.paint(); const m = this.el.querySelector('.map'); if (m) m.scrollTop = y; break; }
     }
@@ -164,7 +169,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
@@ -172,7 +177,8 @@ export class Menu {
         <div class="tips">
           <p><b>Stamina</b> fuels strikes, dashes and blocked blows. Run dry and you stagger, out of breath.</p>
           <p><b>Resonance</b>: as a strike ends, blue light gathers around you. Tap guard then and the stamina you spent flows back. Change stance in that moment for a Resonant Shift.</p>
-          <p><b>Stances</b>: High hits hardest and slams from the air, Mid is balanced, Low is quick and ends in a dashing thrust.</p>
+          <p><b>Forms</b>: every weapon fights its own way in each stance (High hits hardest, Mid is balanced, Low is quick). Strike standing still and strike on the move for two different chains. Two strikes in, wait for the blade to glint, then strike: the form's <b>pause combo</b>. Strike then heavy for a <b>finisher</b>, chosen by how many strikes came first; it spends the combo counter for extra damage. See <b>Movesets</b> for every form.</p>
+          <p><b>Movement</b>: at a sprint, guard to <b>slide</b> (strike for a slide attack), dash out of the slide to <b>Wingleap</b>, and hold dash while falling to <b>glide</b>. Chains carry on through dashes.</p>
           <p><b>Deflect</b> by tapping guard just as a blow lands. Strike straight after for a <b>Flashcut</b>, one cut that fells ordinary foes and chains from one to the next.</p>
           <p><b>Moonstep</b>: dash at the last instant and the world slows around you. Strike straight after for a <b>Moonstep Riposte</b>: you blink behind the attacker and cut.</p>
           <p><b>Weapons</b>: switch as a strike ends for a <b>Switch Strike</b>, a wheeling cut with the weapon you draw. The Moonglaive reaches further and hits posture harder; hold a heavy to charge it. The Twin Fangs are quickest: flurries hit again and again, and every hit builds <b>Frenzy</b> (faster, harder strikes while it lasts).</p>
@@ -212,6 +218,7 @@ export class Menu {
         <div class="btns">
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
+          <button class="btn" data-act="moves">Movesets <small>each weapon's forms, combos and finishers</small></button>
           <button class="btn" data-act="journal">Journal <small>${sv.data.letters.length} letters · ${sv.data.pixies.length} Lost Pixies freed</small></button>
           ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
           <button class="btn" data-act="leave">Rise</button>
@@ -260,6 +267,25 @@ export class Menu {
       }).join('');
       h = `<div class="panel wide missions journal"><div class="kicker">Journal · ${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed (+${d.pixies.length}% health and stamina)</div><h2>What the paths remember</h2>
         <div class="map">${rows}</div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'moves') {
+      // Every weapon carried: its three forms (standing, moving and pause strings), finishers, slide and air.
+      const arms = G.player.arms, w = arms.includes(data.w) ? data.w : arms[0], Wp = WEAPONS[w], K = KIT[w];
+      const nm = k => esc(ATK[k]?.name || k);
+      const tabs = arms.map(id => `<button class="btn tab${id === w ? ' on' : ''}" data-act="movesW" data-w="${id}">${esc(WEAPONS[id].name)}</button>`).join('');
+      const forms = ['high', 'mid', 'low'].map(s => {
+        const F = FORMS[w][s];
+        return `<div class="form ${s}"><div class="fh"><i>${{ high: '▲', mid: '◆', low: '▼' }[s]}</i><b>${esc(F.name)}</b><small>${{ high: 'High', mid: 'Mid', low: 'Low' }[s]} stance</small></div>
+          <p><em>Standing</em>${F.neutral.map(nm).join(' → ')}</p>
+          <p><em>Moving</em>${F.forward.map(nm).join(' → ')}</p>
+          <p><em>Pause</em>two strikes, wait for the glint, strike: <b>${nm(F.pause)}</b></p>
+          <p><em>Heavy</em>${nm(Wp.heavy[s])}</p></div>`;
+      }).join('');
+      h = `<div class="panel wide moves"><div class="kicker">Movesets</div><h2>${esc(Wp.name)}</h2><div class="tabs">${tabs}</div>
+        <div class="forms">${forms}</div>
+        <div class="kit"><p><em>Finishers</em>strike then heavy: <b>${nm(K.fin[0])}</b> · two strikes then heavy: <b>${nm(K.fin[1])}</b> · three or more: <b>${nm(K.fin[2])}</b>. A finisher spends the combo counter: the more hits counted, the harder it lands (up to 1.8×).</p>
+          <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} (the chain carries on through dashes) · from a slide: <b>${nm(K.slide)}</b></p>
+          <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'letter') {
       const L = G.LEVELS[data.m], l = (L.letters || []).find(x => x.id === data.id);

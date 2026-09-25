@@ -22,6 +22,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Strike · strike hard | Left click · right click | RB · RT |
 | Guard (tap as a blow lands to Deflect) | Shift | LB |
 | Dash (hold to sprint) | Space | B |
+| Slide (at a sprint) · from a slide: Wingleap | Shift or Z · Space | LB or L3 · B |
+| Glide (while falling) | Hold Space | Hold B |
 | Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
 | Switch weapon (as a strike ends: Switch Strike) | V | D-pad left |
 | Charge a heavy (Moonglaive) | Hold right click | Hold RT |
@@ -36,17 +38,40 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 
 ## How it plays
 
-- **Stances.** High hits hardest and its heavy is a leaping slam. Mid is balanced. Low is quick, dashes
-  further, and its heavy is a dashing thrust. Four strikes chain into a spinning cut.
-- **Two weapons.** The Fae Sword is quick and close. The **Moonglaive**, found in the Gnawing Halls, is a
-  polearm: long reach, wide sweeps, heavy posture damage, and heavies you can hold to charge (up to 1.8×).
-  Its chain runs thrust, sweep, one-handed wheel and a vaulting slam; its heavies are the Crescent (Mid), the
-  Moonfall pole-vault (High) and the Piercing Rush (Low). The **Twin Fangs**, found in Grubnest in the
-  Rotwood, are a curved blade in each hand: the quickest and lightest on stamina, with flurries that strike
-  again and again, a Whirlwind (Mid), a Crossfall leap (High) and a Viper Dash that slips straight through a
-  foe (Low). Every hit with the Fangs builds **Frenzy**, up to six stacks, each one 5% faster and 4% harder
-  while you keep cutting. Switch weapons as a strike ends for a **Switch Strike**, a wheeling cut with the
-  weapon you draw, which also counts as Resonance if the window is open.
+- **Stances.** High hits hardest and breaks posture, Mid is balanced, Low is quick and dashes further.
+- **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: nine forms in
+  all, each with its own strikes. Each form has three strings:
+  - **Standing**: strike standing still (or circling a locked foe).
+  - **Moving**: strike on the move and a different chain comes out.
+  - **Pause combo**: two strikes in, let the blade rest a beat. A glint and a chime mark the moment; strike
+    then and the form's pause combo comes out instead of the next strike.
+
+  | | High | Mid | Low |
+  |---|---|---|---|
+  | **Fae Sword** | *Falling Star*: two-handed cleaves, a wheel, a hop-and-slam; pause: the Sundering Blow, which throws a crescent of moonlight | *Moonlit Path*: the flowing four-cut chain, a stepping thrust, a rising cut that trips; pause: Triple Moon | *Crescent Tide*: hip draws, backhands, flurries, an ankle sweep; pause: Petal Storm |
+  | **Moonglaive** | *Moonreaper*: overhead chops, butt-and-blade, reaping cuts that drag foes in; pause: the Reaping Cyclone | *Tide of the Moon*: thrust, sweep, wheel, vault, a twin thrust, the overhead Moon Helix; pause: Twin Tides | *Tidesweep*: sweeps that trip, low thrusts, a flick that lifts; pause: the Undertow |
+  | **Twin Fangs** | *Falcon Dive*: crossing cuts from above, a somersault that throws foes up, a plunging double stab; pause: Skyrend | *Swallow's Dance*: alternating cuts, a twin step, a corkscrew; pause: a Hundred Cuts | *Serpent Coil*: reverse-grip hooks, stab flurries, a darting cut straight through; pause: the Venom Tornado |
+
+  Strikes do different things, not just look different: some trip ordinary foes off their feet, some throw
+  them up for air combos, reaping cuts pull foes in, wheels knock them back, and a few throw moonlight on.
+- **Finishers.** Strike then heavy is a finisher, chosen by how many strikes came first (as in NieR): one,
+  two, or three and more, three per weapon (the sword's Moonrise, Wheel of Thorns and Moonpiercer, for
+  example). The chain carries on through dashes, so you can dodge mid-combo and keep going.
+- **Combo counter.** Hits in a row build a counter (right of screen). Every 12 add 6% damage, up to +24%.
+  A finisher spends it: the more hits counted, the harder it lands, up to 1.8×. A blow taken halves the
+  count; four seconds without a hit clears it. **Movesets** (pause menu or any Moonwell) lists every form.
+- **Weapons.** The Fae Sword is quick and close. The **Moonglaive**, found in the Gnawing Halls, is a
+  polearm: long reach, wide sweeps, heavy posture damage, and heavies you can hold to charge (up to 1.8×):
+  the Crescent (Mid), the Moonfall pole-vault (High) and the Piercing Rush (Low). The **Twin Fangs**, found
+  in Grubnest in the Rotwood, are a curved blade in each hand: the quickest and lightest on stamina, with
+  flurries that strike again and again, a Whirlwind (Mid), a Crossfall leap (High) and a Viper Dash that
+  slips straight through a foe (Low). Every hit with the Fangs builds **Frenzy**, up to six stacks, each one
+  5% faster and 4% harder while you keep cutting. Switch weapons as a strike ends for a **Switch Strike**, a
+  wheeling cut with the weapon you draw, which also counts as Resonance if the window is open.
+- **Movement.** Hold dash to sprint and strike for a running attack. At a sprint, guard (or Z / L3) drops
+  into a **slide**; strike from it for the weapon's slide attack, or dash for a **Wingleap**, a long dive up
+  and forward that carries its speed into the air. Air strikes, the air dash and the Starfall all work from a
+  Wingleap. Hold dash while falling to **glide** on spread wings for a few seconds.
 - **Turning.** The knight leans into turns rather than snapping round: a quick reversal at a run takes about
   half a second and a sprint carves a wider arc, while lock-on keeps turns tight.
 - **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
@@ -190,9 +215,11 @@ the world with the engine's builders. A mission's `boss` can name one warlord or
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
-src/player.js     the knight's controller: weapons and stances, chains, charge, Frenzy, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
+src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
+src/movesets.js   the nine stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
+src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
-src/knight.js     the knight and all three weapons, built from primitives, with pose blending and two-bone IK for both arms and blades
+src/knight.js     the knight and all three weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order

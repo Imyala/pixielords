@@ -176,6 +176,11 @@ export class Audio {
         this.noiseBurst(g, t, .25, { type: 'highpass', f0: 4000, f1: 8000, peak: .25 }); break;
       }
       case 'roll': this.noiseBurst(d(.45, .2), t, .32, { type: 'lowpass', f0: 700, f1: 200, a: .04, peak: .9 }); break;
+      // Movement and combos: a slide's scrape, the Wingleap, a thrown crescent of moonlight, the pause-combo cue.
+      case 'slide': { const g = d(.5, .2); this.noiseBurst(g, t, .55, { type: 'bandpass', f0: 1800, f1: 500, q: .7, a: .02, peak: .8 }); this.noiseBurst(g, t, .3, { type: 'lowpass', f0: 400, f1: 150, peak: .6 }); break; }
+      case 'leap': { const g = d(.6, .7); this.noiseBurst(g, t, .45, { f0: 500, f1: 2600, q: .9, a: .03, peak: .7 }); this.tone(g, t, .5, { type: 'sine', f0: 330, f1: 990, a: .03, peak: .18 }); break; }
+      case 'wave': { const g = d(.7, 1); this.noiseBurst(g, t, .5, { type: 'highpass', f0: 2500, f1: 7000, a: .01, peak: .5 }); this.tone(g, t, .6, { type: 'triangle', f0: 1400, f1: 500, peak: .2, a: .005 }); break; }
+      case 'cue': { const g = d(.4, 1); this.tone(g, t, .3, { type: 'sine', f0: 1760, peak: .22, a: .002 }); this.tone(g, t + .05, .35, { type: 'sine', f0: 2637, peak: .16, a: .002 }); break; }
       case 'step': this.noiseBurst(d(.12 + R() * .06, .1), t, .07, { type: 'lowpass', f0: 500 + R() * 300, f1: 150, peak: 1 }); break;
       case 'growl': {
         const g = d(.5, .5), f = (o.pitch || 1) * (70 + R() * 30);

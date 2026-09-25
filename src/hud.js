@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { KEY_LABEL, PAD_LABEL } from './input.js';
 import { CHARMS } from './charms.js';
+import { COMBO } from './movesets.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,6 +23,7 @@ export class HUD {
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
+      <div class="combo"><b>0</b><small>hits</small></div>
       <div class="lock"></div>
       <div class="ebars"></div>
       <div class="boss" hidden></div>
@@ -46,6 +48,7 @@ export class HUD {
       boss: $('.boss', el),
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
+      combo: $('.combo', el), comboN: $('.combo b', el), comboS: $('.combo small', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), msgH: $('.msg h3', el), msgE: $('.msg em', el), fade: $('.fade', el),
     };
     this.bars = new Map();
@@ -126,7 +129,7 @@ export class HUD {
     el.querySelector('b').textContent = { sword: 'Fae Sword', glaive: 'Moonglaive', fangs: 'Twin Fangs' }[id] || id;
     el.dataset.w = id;
     const fz = id === 'fangs' && p.frenzy.n ? `  ·  Frenzy ${p.frenzy.n}` : '';
-    el.querySelector('small').textContent = (p.arms.length > 1 ? `${this.key('swap')} ⇄` : '') + fz;
+    el.querySelector('small').textContent = `${p.form?.name || ''}` + (p.arms.length > 1 ? `  ${this.key('swap')} ⇄` : '') + fz;
   }
 
   floatText(e, text, cls) {
@@ -219,7 +222,18 @@ export class HUD {
     q.flaskKey.textContent = this.key('heal');
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
-    const wk = `${p.weapon}|${p.arms.length}|${this.key('swap')}|${p.frenzy.n}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
+    const wk = `${p.weapon}|${p.stance}|${p.arms.length}|${this.key('swap')}|${p.frenzy.n}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
+    // Combo counter: shown from three hits; every tier adds damage, and a finisher spends it.
+    const cn = p.combo?.n || 0, on = cn >= 3;
+    if (cn !== this.comboShown) {
+      const tier = Math.min(COMBO.tiers, Math.floor(cn / COMBO.tier));
+      if (cn > (this.comboShown || 0)) { q.combo.classList.remove('bump'); void q.combo.offsetWidth; q.combo.classList.add('bump'); }
+      this.comboShown = cn;
+      q.comboN.textContent = cn;
+      q.comboS.textContent = tier ? `hits  ×${(1 + tier * COMBO.per).toFixed(2)}` : 'hits';
+      q.combo.dataset.tier = tier;
+    }
+    q.combo.classList.toggle('on', on);
     const ck = [...(p.charms || [])].join(',');
     if (this.charmsShown !== ck) {
       this.charmsShown = ck;
