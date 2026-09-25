@@ -38,6 +38,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Drink Moondew | R | X |
 | Interact · read a letter | E | A |
 | Fae Shift (Faelight full) | G | Y |
+| Soul Core skills: first · second | Hold G + left click · hold G + right click | Hold Y + RB · hold Y + RT |
+| Side missions (on the Crossroads map) | G | Y |
 | Pause | Esc | Start |
 
 ## How it plays
@@ -105,6 +107,17 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   **sets**, one per mission plus the Knight-Errant's you start in, and two or four pieces of one set wake its
   bonuses; the knight takes on the colours of the set its mail belongs to. Equip it under **Gear** (pause
   menu or any Moonwell) and dismantle what you won't wear for Glimmer.
+- **Soul Cores.** As in Nioh 2, a fallen foe sometimes leaves the core of what it was: a violet beam where it
+  fell. Ordinary foes leave one now and then, elites often, and every gatekeeper, warlord and Revenant always.
+  There are 24, one for each kind of foe (a Scout's, a Brute's, a Shaman's...) and one for each gatekeeper and
+  warlord. Set two under **Gear** (the Soul Cores tab). Each lends a **passive** from the gear pool (Brute: +30
+  health; Silkclaw: +20% damage from behind) and a **skill**: hold Fae Shift and strike for the first core's,
+  strike hard for the second's. Skills cost Faelight. Among them: a fan of thrown knives, a phantom spear, a
+  firebomb, a blight cloud, a leap and slam, Shadow Step (blink behind a foe and cut), seeking hex orbs, a
+  bola, a Blood Frenzy (harder strikes, no stagger), ice waves, the Gatewarden's gate-breaking hammer, Brakka's
+  thrown axes, Grimtusk's ring of fire, Varkh's lance, the Rime Knight's crescents and the Frost-Hexer's nova.
+  A tap of Fae Shift still shifts. A core found again **fuses** into the one you hold, up to +4: each step
+  makes its skill hit harder and its passive stronger.
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
   to +10; each rank is 5% more damage with it.
@@ -325,6 +338,32 @@ eleven bones when a model loads: a chest and head over the waist, an elbow in ea
 leg, placed and weighted from the vertex layout. That lets foes stride with bending knees and swinging
 arms, turn their heads to track you, sidestep when strafing, and wind blows up through the torso.
 
+### Side missions
+
+Once a mission is cleared its landmark on the Crossroads offers three **side missions** (G or Y on the map, or
+the "Side missions" button), each replayable, as Nioh's sub-missions and Twilight missions are:
+
+- **Twilight**: the whole mission again under a blood moon, the fog and light gone red. Every foe has 1.6×
+  the health and hits harder, drops more Glimmer, and drops gear 8 levels higher and rarer. Felling the warlord
+  ends it.
+- **Hunt**: the mission's gatekeeper has come back, with more than twice the health, harder blows and more
+  stamina, guarded only by the foes at its gate. You start at the mission's second Moonwell, the gate already
+  open behind the quarry.
+- **Duel**: a **Revenant** waits in the warlord's arena: the echo of a fae knight who fell there before you,
+  built from your own knight and fighting with the weapon it carried, stroke for stroke with your own moves.
+  **Sir Aldric Thornwake** (the Grubhold) swings a greatblade in wide tides and leaping cleaves; **Sister
+  Hollowmoon** (the Rotwood) draws and cuts with a katana and parries often; **Brother Emberlight** (the Deep)
+  beats a hammer's rhythm and lands in fire; **Dame Ysolde of the Wane** (the Moonspire) feints, lunges and
+  flèches with a rapier and parries more than any; **the Lanternless Knight** (the Frostmere) dances with twin
+  fangs. The way to the arena is quiet; cross the Briar Seal and the Revenant rises, and at half health it
+  burns brighter.
+
+A side run keeps its own Moonwells and fallen foes and leaves the mission's own as they were (its items
+already taken). Its end gathers whatever gear still lies on the ground and pays out: Glimmer, and a piece of
+Rare or Fabled gear (Moonlit, the first time through the Frostmere's hardest). The first run of each pays
+double Glimmer and an extra piece. Hunts and Duels always leave their foe's Soul Core. Abandon a side run from
+the pause menu, or set out elsewhere from any Moonwell.
+
 Missions are data. Each file in `src/levels/` describes one: where it sits on the Fae Crossroads, its areas,
 fog and light, Moonwells, foes, items (an item can wait inside a breakable), letters, Lost Pixies, gate,
 seal and exit (and, for a fight whose arena gives way, where the ice breaks), plus a `build()` that dresses
@@ -335,7 +374,7 @@ the world with the engine's builders. A mission's `boss` can name one warlord or
 ```
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
-src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
+src/main.js       boot, game loop, missions and level switching, side runs (a duel's Revenant, a hunt's quarry, spoils), Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
 src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
 src/movesets.js   the first five weapons' stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
 src/arts.js       the Fae Arts: darts, pixie bombs and the three brands
@@ -346,13 +385,15 @@ src/skills.js     weapon skills: the skill tree, mastery and points, and every w
 src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thunder Cannon; aiming, firing, ammunition, shots in flight, headshots
 src/rangedmodels.js  their models (the bow's string follows the draw hand)
 src/gear.js       gear: rarities, the effect pool, armour sets and their bonuses, item generation, names, damage and defence
-src/loot.js       loot on the ground: what fallen foes drop, the beams, walking over it to take it
+src/loot.js       loot on the ground: what fallen foes drop (gear and Soul Cores), the beams, walking over it to take it
+src/cores.js      Soul Cores: the 24 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
+src/sides.js      side missions: Twilight, Hunts and Duels for each mission, their foes, difficulty, loot and spoils
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
@@ -360,7 +401,7 @@ src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, w
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear, Skills, movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

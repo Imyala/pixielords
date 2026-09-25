@@ -9,6 +9,8 @@ import { roman } from './overworld.js';
 import { RANGED } from './ranged.js';
 import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue } from './gear.js';
 import { PACK } from './loot.js';
+import { CORES, CORE_MAX } from './cores.js';
+import { SIDES, sidesOf } from './sides.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -42,6 +44,8 @@ const CONTROLS = [
   ['Drink Moondew', 'R', 'X'],
   ['Interact', 'E', 'A'],
   ['Fae Shift (Faelight full)', 'G', 'Y'],
+  ['Soul Core skills: first  ·  second', 'Hold G + left click  ·  hold G + right click', 'Hold Y + RB  ·  hold Y + RT'],
+  ['Side missions (on the Crossroads map)', 'G', 'Y'],
   ['Pause', 'Esc', 'Start'],
 ];
 
@@ -93,6 +97,7 @@ export class Menu {
       const O = this.G.overworld;
       if (!O.entering) for (const d of ['left', 'right', 'up', 'down']) if (inp.hit(d)) O.step(d);
       if (inp.hit('confirm')) this.el.querySelector('.owpanel [data-act=setout]:not([disabled])')?.click();
+      if (inp.hit('shift') && !O.entering) this.el.querySelector('.owpanel [data-act=sides]:not([disabled])')?.click();
       if (inp.hit('back') && ['shrine', 'title'].includes(this.top.data?.from) && !O.entering) { this.G.audio.sfx('ui'); this.pop(); }
       return;
     }
@@ -112,7 +117,7 @@ export class Menu {
       if (inp.hit('right')) { cur.value = +cur.value + step; cur.dispatchEvent(new Event('input', { bubbles: true })); }
     }
     if (inp.hit('confirm') && cur) { cur.click(); }
-    const fixed = ['title', 'ending', 'cleared'].includes(this.top?.screen);
+    const fixed = ['title', 'ending', 'cleared', 'sidecleared'].includes(this.top?.screen);
     if (inp.hit('back') && !fixed) {
       this.G.audio.sfx('ui');
       if (this.top.screen === 'shrine') this.run('leave'); else this.pop();
@@ -141,6 +146,9 @@ export class Menu {
       case 'mission': G.startMission(b.dataset.id); break;
       case 'node': G.overworld.select(b.dataset.id); break;
       case 'setout': G.overworld.enter(b.dataset.id); break;
+      case 'sides': this.push('sides', { m: b.dataset.id, from: this.top.data?.from }); break;
+      case 'side': this.pop(); G.overworld.enter(b.dataset.m, b.dataset.id); break;
+      case 'abandon': G.abandonSide(); break;
       case 'charms': this.push('charms'); break;
       case 'journal': this.push('journal'); break;
       case 'moves': this.push('moves', { w: G.player.weapon }); break;
@@ -156,6 +164,7 @@ export class Menu {
       case 'gearSlot': Object.assign(this.top.data, { slot: b.dataset.slot }); this.render(); break;
       case 'equipGear': { const f = this.focus; G.equipGear(+b.dataset.uid); this.render(); this.focus = f; this.paint(); break; }
       case 'dismantle': { const f = this.focus, got = G.dismantleGear([+b.dataset.uid]); if (got) G.hud.toast(`Dismantled for ${got} Glimmer`, 'item'); this.render(); this.focus = Math.min(f, this.items().length - 1); this.paint(); break; }
+      case 'setCore': { const f = this.focus; G.setCore(+b.dataset.slot, b.dataset.core || null); this.render(); this.focus = f; this.paint(); break; }
       case 'dismantleBelow': { const got = G.dismantleBelow(+b.dataset.rar); G.hud.toast(got ? `Dismantled for ${got.toLocaleString()} Glimmer` : 'Nothing to dismantle', 'item'); this.render(); break; }
       case 'skillsW': this.top.data = { w: b.dataset.w }; this.render(); break;
       case 'learn': { const f = this.focus; if (!G.learnSkill(b.dataset.w, b.dataset.id)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
@@ -167,7 +176,7 @@ export class Menu {
   render() {
     const { screen, data } = this.top, G = this.G;
     this.el.className = 'on ' + screen;
-    G.overworld?.setActive(screen === 'map');
+    G.overworld?.setActive(screen === 'map' || screen === 'sides');
     let h = '';
     if (screen === 'title') {
       const has = G.save.exists, ready = G.ready;
@@ -191,7 +200,8 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button>${G.sideDef() ? '<button class="btn" data-act="abandon">Abandon side mission</button>' : ''}<button class="btn" data-act="quit">Quit to title</button></div>
+        ${G.sideDef() ? `<p class="dim">${esc(G.sideDef().name)}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.</p>` : ''}
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
@@ -202,6 +212,8 @@ export class Menu {
           <p><b>Forms</b>: every weapon fights its own way in each stance (High hits hardest, Mid is balanced, Low is quick). Strike standing still and strike on the move for two different chains. Two strikes in, wait for the blade to glint, then strike: the form's <b>pause combo</b>. Strike then heavy for a <b>finisher</b>, chosen by how many strikes came first; it spends the combo counter for extra damage. See <b>Movesets</b> for every form.</p>
           <p><b>Arsenal</b>: you carry two weapons at a time; choose them in the Arsenal (pause menu or any Moonwell), and forge them stronger at a Moonwell. The <b>Thornhammer</b> is Stalwart (blows can't stagger its swings); the <b>Starfists</b> punch and kick, and every hit wins back stamina.</p>
           <p><b>Gear</b>: foes drop weapons and armour, marked by beams of light in their rarity's colour; walk over them to take them. Rarer pieces carry more effects, and two or four pieces of one armour set wake its bonuses. Equip under Gear; dismantle the rest for Glimmer.</p>
+          <p><b>Soul Cores</b>: fallen foes sometimes leave a violet core (elites often, gatekeepers, warlords and Revenants always). Set two under Gear: each lends a passive and a skill. Hold Fae Shift and strike for the first, strike hard for the second; skills cost Faelight. A core found again fuses into the one you hold and grows stronger.</p>
+          <p><b>Side missions</b>: a cleared mission offers three more on the Crossroads map. <b>Twilight</b> runs the whole mission under a blood moon, every foe hardier and its gear better; a <b>Hunt</b> sends you after its gatekeeper, returned stronger; a <b>Duel</b> sets you against a <b>Revenant</b>, a fallen fae knight who fights with your own weapons. Each can be run again for more spoils.</p>
           <p><b>Skills</b>: every weapon learns from use. Blows landed earn it mastery and skill points; spend them under Skills on new moves (a Backstep Strike, a Guard Counter, an Air Finisher, the weapon's own Weapon Skill on guard + heavy) and on mastery of its ways.</p>
           <p><b>Ranged weapons</b>: aim to bring the camera over your shoulder, strike to fire. The Wisp Pod needs no ammunition but overheats; the Moonbow draws while you hold strike; the rifle and hand cannon hit hardest but reload slowly. Shots to the head hit harder. Ammunition refills at every Moonwell.</p>
           <p><b>Fae Arts</b>: thrown darts and pixie bombs, and brands that set your weapon burning, crackling or frosting for thirty seconds. Their uses return at every Moonwell.</p>
@@ -280,10 +292,28 @@ export class Menu {
           ${opening ? '<div class="kicker">A new path opens</div>' : ''}
           <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
           ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span></div>` : ''}
-          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${back}</div>
+          ${st === 'cleared' && !opening ? `<div class="owsides">${sidesOf(id).map(S => `<span class="mtag ${d.sides?.[S.id] ? 'cleared' : 'new'}" title="${esc(S.name)}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('')}</div>` : ''}
+          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${st === 'cleared' && !opening ? `<button class="btn" data-act="sides" data-id="${id}">Side missions <small>${esc(G.hud.key('shift'))}</small></button>` : ''}${back}</div>
           <div class="foot">${keys}</div>
         </div>
         <div class="owfade"></div>`;
+    } else if (screen === 'sides') {
+      // A cleared mission's side missions (sides.js), over the Crossroads.
+      const d = G.save.data, L = G.LEVELS[data.m];
+      const rows = sidesOf(data.m).map(S => {
+        const n = d.sides?.[S.id] || 0, lv = L.level + S.lvl + d.ng * 20;
+        return `<button class="btn side" data-act="side" data-m="${data.m}" data-id="${S.id}"><span class="kicker">${esc(S.kindName)} · Lv ${lv}+${n ? ` · done ×${n}` : ' · first run: double Glimmer and an extra piece'}</span><b>${esc(S.name.replace(/^[^:]*: /, ''))}</b><small>${esc(S.desc)}</small></button>`;
+      }).join('');
+      h = `<div class="panel wide sides"><div class="kicker">${esc(L.name)} · side missions</div><h2>Side Missions</h2>
+        <div class="map">${rows}</div>
+        <p class="dim">A side run keeps its own Moonwells and leaves the mission's own as they were. Spoils: Glimmer and gear of Rare or better; its gatekeeper or Revenant always leaves its Soul Core.</p>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'sidecleared') {
+      const S = SIDES[data.id], g = G.save.data.gear, got = data.spoils.map(uid => g.items.find(it => it.uid === uid)).filter(Boolean);
+      h = `<div class="panel ending"><div class="kicker">Side mission complete${data.first ? ' · first time' : ''}</div><h1>${esc(S.name.replace(/^[^:]*: /, '').toUpperCase())}</h1>
+        <p>${esc(S.desc)}</p>
+        <div class="lv"><div><small>Spoils</small><b class="gold">${data.gl.toLocaleString()} Glimmer</b></div>${got.map(it => `<div><small>${esc(RARITY[it.rar].name)} · Lv ${it.lvl}</small><b style="color:#${RARITY[it.rar].color.toString(16).padStart(6, '0')}">${esc(itemName(it, w => WEAPONS[w]?.name || w))}</b></div>`).join('')}</div>
+        <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>`;
     } else if (screen === 'journal') {
       // Letters found, mission by mission, and the Lost Pixies freed.
       const d = G.save.data;
@@ -356,7 +386,19 @@ export class Menu {
       };
       const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
       let body = '', tabs2 = '';
-      if (data.tab === 'weapons') {
+      if (data.tab === 'cores') {
+        const slots = d.coreSlots || [null, null], owned = Object.keys(d.cores || {}).filter(id => CORES[id]);
+        const keyOf = i => `${G.hud.key('shift')} + ${G.hud.key(i ? 'heavy' : 'light')}`;
+        const pas = id => { const C = CORES[id], gr = Math.min(CORE_MAX, d.cores[id]); return fxText(C.fx[0], Math.round(C.fx[1] * (1 + (gr - 1) * .15))); };
+        body = `<div class="gsum">${slots.map((id, i) => `<small>Slot ${i + 1} · <b>${esc(keyOf(i))}</b> · ${id ? `<span class="on">${esc(CORES[id].name)}</span>: ${esc(CORES[id].skillName)} (${CORES[id].cost} Faelight)` : '<span class="dim">empty</span>'}</small>`).join('')}</div>`
+          + (owned.length ? owned.sort((a, b) => slots.includes(b) - slots.includes(a)).map(id => {
+            const C = CORES[id], gr = Math.min(CORE_MAX, d.cores[id]), at = slots.indexOf(id);
+            return `<div class="arm ${at >= 0 ? 'hand' : ''}"><div class="ainfo"><b style="color:#c89aff">${esc(C.name)}${gr > 1 ? ` <span class="rank">+${gr - 1}</span>` : ''}</b>
+              <span class="mtag ${at >= 0 ? 'cleared' : 'sealed'}">${at >= 0 ? `Set in slot ${at + 1}` : 'Held'} · ${C.cost} Faelight</span>
+              <small><b>${esc(C.skillName)}</b>: ${esc(C.desc)}.</small><small>Passive: ${esc(pas(id))}</small></div>
+              <div class="abtns">${[0, 1].map(i => `<button class="btn small" data-act="setCore" data-slot="${i}" data-core="${id}" ${slots[i] === id ? 'disabled' : ''}>Set in slot ${i + 1}</button>`).join('')}${at >= 0 ? `<button class="btn small" data-act="setCore" data-slot="${at}" data-core="">Take out</button>` : ''}</div></div>`;
+          }).join('') : '<p class="dim">No Soul Cores yet. Foes leave them sometimes, elites often, and every gatekeeper and warlord always.</p>');
+      } else if (data.tab === 'weapons') {
         const w = d.arms.includes(data.w) ? data.w : d.arms[0];
         tabs2 = d.arms.map(id => `<button class="btn tab${id === w ? ' on' : ''}" data-act="gearW" data-w="${id}">${esc(wn(id))} <span class="dim">${g.items.filter(it => it.type === id).length}</span></button>`).join('');
         const list = g.items.filter(it => it.type === w).sort(sort);
@@ -367,8 +409,8 @@ export class Menu {
         const sets = Object.entries(st.sets).map(([id, n]) => `<small><b>${esc(SETS[id].name)}</b> ${n} / 4 · two: <span class="${n >= 2 ? 'on' : 'dim'}">${esc(SETS[id].two)}</span> · four: <span class="${n >= 4 ? 'on' : 'dim'}">${esc(SETS[id].four)}</span></small>`).join('');
         body = `<div class="gsum"><small>Defence <b>${st.def}</b> · blows land for ${Math.round(defReduce(st.def) * 100)}% less</small>${sets}</div>` + g.items.filter(it => it.slot === slot).sort(sort).map(row).join('');
       }
-      h = `<div class="panel wide arsenal gear"><div class="kicker">Gear · pack ${g.items.length} / ${PACK}</div><h2>${data.tab === 'weapons' ? 'Weapons' : 'Armour'}</h2>
-        <div class="tabs"><button class="btn tab${data.tab === 'armor' ? ' on' : ''}" data-act="gearTab" data-tab="armor">Armour</button><button class="btn tab${data.tab === 'weapons' ? ' on' : ''}" data-act="gearTab" data-tab="weapons">Weapons</button></div>
+      h = `<div class="panel wide arsenal gear"><div class="kicker">Gear · pack ${g.items.length} / ${PACK}</div><h2>${{ weapons: 'Weapons', cores: 'Soul Cores' }[data.tab] || 'Armour'}</h2>
+        <div class="tabs"><button class="btn tab${data.tab === 'armor' ? ' on' : ''}" data-act="gearTab" data-tab="armor">Armour</button><button class="btn tab${data.tab === 'weapons' ? ' on' : ''}" data-act="gearTab" data-tab="weapons">Weapons</button><button class="btn tab${data.tab === 'cores' ? ' on' : ''}" data-act="gearTab" data-tab="cores">Soul Cores</button></div>
         <div class="tabs sub">${tabs2}</div>
         <div class="map">${body || '<p class="dim">Nothing here yet.</p>'}</div>
         <div class="btns row"><button class="btn small" data-act="dismantleBelow" data-rar="0">Dismantle all Common</button><button class="btn small" data-act="dismantleBelow" data-rar="1">Dismantle all Common and Fine</button></div>

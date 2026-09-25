@@ -14,7 +14,7 @@ import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
-import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear } from './save.js';
+import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear, freshMission } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
@@ -22,6 +22,8 @@ import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
 import { Loot, PACK } from './loot.js';
 import { RARITY, itemName, dismantleValue } from './gear.js';
+import { CORES, CORE_MAX } from './cores.js';
+import { SIDES } from './sides.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -33,6 +35,9 @@ for (const [m, list] of Object.entries(ARMORY_ITEMS)) for (const w of [].concat(
 // Weapons won from a mission's gatekeeper ('gate') or warlord ('boss').
 const armoryFrom = (kind, mission) => Object.keys(ARMORY).filter(id => ARMORY[id].source[kind] === mission);
 const rangedFrom = (kind, mission) => Object.keys(RANGED).filter(id => RANGED[id].source?.[kind] === mission);
+// The side mission under way (sides.js), or null.
+const sideDef = () => SIDES[G.save.data.side] || null;
+G.sideDef = sideDef; G.SIDES = SIDES;
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -149,6 +154,12 @@ function applyLevelLook() {
   scene.fog.color.setHex(L.fog.color); scene.background.setHex(L.fog.color); scene.fog.density = L.fog.base;
   hemi.color.setHex(lt.sky ?? 0x7d8fc4); hemi.groundColor.setHex(lt.ground ?? 0x2a2016); hemi.intensity = lt.hemi ?? 1.35;
   moon.color.setHex(lt.moonColor ?? 0xb4c4ff); moon.intensity = lt.moon ?? 1.9;
+  // Twilight: a blood moon, and a redder dark.
+  if (sideDef()?.kind === 'twilight') {
+    const tint = (hex, to, k) => new THREE.Color(hex).lerp(new THREE.Color(to), k).getHex();
+    scene.fog.color.setHex(tint(L.fog.color, 0x3a0e1c, .55)); scene.background.copy(scene.fog.color);
+    hemi.color.setHex(tint(lt.sky ?? 0x7d8fc4, 0xc4586a, .5)); moon.color.setHex(0xff7a5a); moon.intensity *= .9;
+  }
 }
 
 async function loadEnemies() {
@@ -158,6 +169,7 @@ async function loadEnemies() {
   G.loadProgress = 0;
   await Promise.all(types.map(t => loadModel(t).then(() => { done++; G.loadProgress = done / types.length; if (G.menu.top?.screen === 'title') G.menu.render(); })));
   G.enemies = await Promise.all(all.map(s => Enemy.create(G, s)));
+  G.sideFoe = null;
   for (const e of G.enemies) if (e.spawn.add) e.kill();
   // A mission's warlord may be one foe or a pair fought together.
   G.bosses = bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
@@ -196,20 +208,28 @@ async function load() {
 
 // ---------------------------------------------------------------- flow
 function applyWorldState() {
-  const d = G.save.data, m = G.save.m, L = G.level;
+  const d = G.save.data, m = G.save.m, L = G.level, S = sideDef();
+  syncSide();
   G.player.lock = null;
-  G.ngMul = 1 + d.ng * .5;
+  G.ngMul = (1 + d.ng * .5) * (S?.hard || 1);
   for (const e of G.enemies) {
     e.reset();
     if (e.spawn.add || m.dead.includes(e.id)) e.kill();
   }
-  if (L.gate) { if (m.dead.includes(L.gate.guardian)) G.world.openPortcullis(true); else G.world.closePortcullis(); }
-  const bossDead = bossIds(L).every(id => m.dead.includes(id));
+  // A hunt's quarry comes back stronger, and faces the way you come (its gate stands open behind you).
+  const q = S?.kind === 'hunt' && G.sideTarget;
+  if (q?.alive) {
+    q.maxHp = Math.round(q.maxHp * S.hp); q.hp = q.maxHp; q.dmgMul *= S.dmg; q.maxKi = Math.round(q.maxKi * 1.3); q.ki = q.maxKi;
+    q.yaw = q.home.yaw = 0; q.outer.rotation.y = 0;
+  }
+  if (L.gate) { if (m.dead.includes(L.gate.guardian) || S?.kind === 'hunt') G.world.openPortcullis(true); else G.world.closePortcullis(); }
+  const bossDead = G.bosses.every(b => m.dead.includes(b.id));
   G.world.setBreaks(false);
   G.world.setFogGate(!bossDead);
-  G.world.setExit(bossDead);
+  G.world.setExit(bossDead && !S);
   G.world.resetBreakables();
-  for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, m.items.includes(it.id));
+  // A side run finds the mission's items already taken (they were, the first time through).
+  for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, !!S || m.items.includes(it.id));
   for (const l of G.world.letters) G.world.setLetterRead(l.id, d.letters.includes(L.id + ':' + l.id));
   for (const px of G.world.pixieList) G.world.setPixie(px.id, d.pixies.includes(L.id + ':' + px.id));
   for (const s of Object.values(L.shrines)) s.fx.lit = m.kindled.includes(s.id) ? 1 : 0;
@@ -218,13 +238,52 @@ function applyWorldState() {
   G.attackTokens = 0;
   G.bossFight = false;
   G.hud.setBoss(null);
+  G.hud.objective(S && S.kindName, S && (S.kind === 'twilight' ? `Fell ${G.bosses.map(b => b.name.split(',')[0]).join(' and ')}` : `Fell ${(G.sideTarget?.name || '').split(',')[0]}`));
   updateGrave();
 }
 
+// A duel's Revenant joins the mission's foes while the side run lasts, in the warlord's place; leaving the
+// run sends it away. Hunts mark their quarry, the gatekeeper.
+async function prepareSide() {
+  const S = sideDef(), L = G.level, want = S?.kind === 'duel' ? S.foe : null;
+  syncSide();
+  if (want && !G.sideFoe) {
+    const b = L.spawns.find(s => s.id === bossIds(L)[0]);
+    const e = G.sideFoe = await Enemy.create(G, { id: 'revenant', type: want, x: 0, z: b.z, yaw: b.yaw ?? Math.PI });
+    e.boss = true;   // it waits behind the Briar Seal and wakes when you cross, as a warlord does
+    G.enemies.push(e);
+  }
+  syncSide();
+}
+function syncSide() {
+  const S = sideDef(), L = G.level;
+  if (G.sideFoe && G.sideFoe.spawn.type !== (S?.kind === 'duel' ? S.foe : null)) { G.sideFoe.dispose(); G.enemies.splice(G.enemies.indexOf(G.sideFoe), 1); G.sideFoe = null; }
+  G.bosses = G.sideFoe ? [G.sideFoe] : bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
+  G.boss = G.bosses[0];
+  G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
+  G.sideTarget = S?.kind === 'hunt' ? G.gatekeeper : S?.kind === 'duel' ? G.sideFoe : null;
+}
+// A side run's start: twilight from the first Moonwell with every foe; a hunt from the second, with only the
+// foes that guard the gate; a duel from the second, the way to the arena quiet.
+function beginSide(S, m) {
+  const L = G.level, ids = Object.keys(L.shrines), gz = L.gate?.z ?? Infinity;
+  m.shrine = S.kind === 'twilight' ? firstShrine() : ids[1] || ids[0];
+  m.kindled = [m.shrine]; m.dead = [];
+  if (S.kind === 'twilight') return;
+  const t = G.sideTarget;
+  for (const e of G.enemies) {
+    if (e === G.sideFoe || e === t || e.spawn.add) continue;
+    const guard = S.kind === 'hunt' && t && !G.bosses.includes(e) && e.spawn.z < gz && Math.hypot(e.spawn.x - t.spawn.x, e.spawn.z - t.spawn.z) < 20;
+    if (!guard) m.dead.push(e.id);
+  }
+}
+
 G.updateGrave = () => updateGrave();
+// An Echo lies in the mission, or side run, where the knight fell.
+const graveHere = g => !!g && g.mission === G.level.id && (g.side || null) === (G.save.data.side || null);
 function updateGrave() {
   const g = G.save.data.grave;
-  grave.visible = !!g && g.mission === G.level.id;
+  grave.visible = graveHere(g);
   if (g) grave.position.set(g.x, 0, g.z);
 }
 
@@ -259,8 +318,11 @@ async function startRun() {
     await setLevel(G.save.data.mission);
     G.hud.loading(false);
   }
-  const m = G.save.m;
-  if (!m.shrine) { m.shrine = firstShrine(); m.kindled.push(m.shrine); }
+  applyLevelLook();
+  await prepareSide();
+  const m = G.save.m, S = sideDef();
+  if (!m.shrine) { if (S) beginSide(S, m); else { m.shrine = firstShrine(); m.kindled.push(m.shrine); } }
+  G.sideEnding = false;
   grantTrophies();
   applyWorldState();
   placeAtShrine(m.shrine);
@@ -289,14 +351,23 @@ G.openMap = (from = 'title', focus) => {
 };
 G.startMission = async id => {
   const d = G.save.data, fresh = !G.save.mission(id).shrine;
-  d.mission = id; G.save.write();
+  d.mission = id; d.side = null; d.sideRun = null; G.save.write();
   await startRun();
   if (fresh) missionIntro();
+};
+// A side mission (sides.js), open once its mission is cleared. Each run starts afresh.
+G.startSide = async id => {
+  const d = G.save.data, S = SIDES[id];
+  if (!S || !d.missions[S.mission]?.cleared) return false;
+  d.mission = S.mission; d.side = id; d.sideRun = freshMission(); G.save.write();
+  await startRun();
+  G.after(1.2, () => G.hud.big(S.name, 'intro side', 5.5, S.desc));
+  return true;
 };
 G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
-    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip };
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -331,7 +402,7 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
   const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
-  G.loot.dropFrom(e);
+  G.loot.dropFrom(e, e === G.sideTarget);
   G.save.glimmer += amt;
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
@@ -341,8 +412,9 @@ G.onEnemyKilled = (e, hit = {}) => {
   const life = big ? 4 * big : (Math.random() < .6 ? 1 : 0) + (hit.flash ? 1 : 0), fae = big ? 3 * big : Math.random() < .5 ? 1 : 0;
   G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
-  if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else bossDefeated(); }
-  else if (e === G.gatekeeper) gatekeeperDefeated();
+  const S = sideDef();
+  if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else if (S) sideComplete(S); else bossDefeated(); }
+  else if (e === G.gatekeeper) { if (S?.kind === 'hunt') sideComplete(S); else gatekeeperDefeated(); }
 };
 
 // ---------------------------------------------------------------- breakables, letters and Lost Pixies
@@ -448,7 +520,7 @@ G.readyRanged = id => { readyRanged(id); G.audio.sfx('stance', { pitch: 1.2 }); 
 function grantTrophies() {
   const d = G.save.data;
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[0]; d.mastery ||= {};
-  d.gear ||= freshGear();
+  d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {};
   for (const L of Object.values(LEVELS)) {
     const dead = G.save.mission(L.id).dead;
     const gateDown = L.gate && dead.includes(L.gate.guardian), bossDown = bossIds(L).every(id => dead.includes(id));
@@ -519,6 +591,45 @@ function bossDefeated() {
   G.after(5.2, () => { G.world.setFogGate(false); G.world.setExit(true); G.hud.toast(G.level.exitToast || 'A Pixie Gate opens'); G.audio.sfx('rest'); G.audio.music('explore'); });
 }
 
+// A side mission done: the spoils (Glimmer and gear, twice the Glimmer and an extra piece the first time),
+// whatever still lies on the ground, and back to the Crossroads.
+function sideComplete(S) {
+  if (G.sideEnding) return;
+  G.sideEnding = true;
+  const d = G.save.data, p = G.player, m = G.save.m;
+  for (const e of [G.sideTarget, ...G.bosses]) if (e && !m.dead.includes(e.id)) m.dead.push(e.id);
+  const first = !d.sides[S.id];
+  d.sides[S.id] = (d.sides[S.id] || 0) + 1;
+  const gl = Math.round(S.glimmer * (1 + d.ng * .5) * (first ? 2 : 1));
+  const spoils = [G.loot.roll(1.5, first && S.moonlit ? 4 : S.minRar)];
+  if (first) spoils.push(G.loot.roll(1.5, S.minRar));
+  G.save.write();
+  p.iframesT = 99;
+  G.slowmo = 1.4;
+  G.audio.music('none');
+  for (const e of G.enemies) if (e.spawn.add && e.alive) e.die({});
+  G.after(1.4, () => {
+    G.hud.big(S.banner, 'gold felled', 5, S.name);
+    G.audio.sfx('felled');
+    G.hud.setBoss(null); G.hud.objective(null);
+    G.bossFight = false;
+  });
+  G.after(3.2, () => { G.save.glimmer += gl; G.hud.addGlimmer(gl); G.hud.toast(`${S.kindName} spoils: ${gl.toLocaleString()} Glimmer`, 'item'); G.audio.sfx('glimmer'); });
+  spoils.forEach((it, i) => G.after(4 + i * .9, () => { if (!G.takeGear(it)) { G.save.glimmer += dismantleValue(it); G.hud.addGlimmer(dismantleValue(it)); } }));
+  G.after(8.5, () => {
+    G.loot.gather();
+    G.state = 'ending'; G.controlsOn = false;
+    G.hud.fadeTo(true, 1.4);
+    G.after(1.5, () => {
+      d.side = null; d.sideRun = null; G.save.write();
+      G.hud.show(false); G.input.releaseLock();
+      G.menu.show('sidecleared', { id: S.id, gl, spoils: spoils.map(it => it.uid), first });
+    });
+  });
+}
+// Leave a side run for the mission itself.
+G.abandonSide = () => { const d = G.save.data; if (!d.side) return; G.startMission(d.mission); };
+
 G.onBossPhase2 = (boss) => {
   G.hud.toast(boss.T.phase2Line || G.level.phase2Line || 'The warlord rages', 'warn');
   if (!G.bosses.includes(boss)) return;   // a gatekeeper's second wind brings no one with it
@@ -529,6 +640,7 @@ G.onBossPhase2 = (boss) => {
     G.cam.shake(.7); G.audio.sfx('shatter');
     G.hud.toast('The ice breaks', 'frost');
   }
+  if (sideDef()?.kind === 'duel') return;   // a Revenant fights alone
   let i = 0;
   for (const e of G.enemies) {
     if (!e.spawn.add) continue;
@@ -557,7 +669,7 @@ G.onPlayerDeath = () => {
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
   d.deaths++;
-  d.grave = d.glimmer > 0 ? { mission: G.level.id, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
+  d.grave = d.glimmer > 0 ? { mission: G.level.id, side: d.side || null, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
   d.glimmer = 0;
   G.save.write();
   G.audio.music('none');
@@ -633,6 +745,29 @@ G.takeGear = it => {
   if (it.rar >= 3) G.fx.ring(p.pos, R.color, 2, .35);
   if (!d.gearTip) { d.gearTip = true; G.tipAfter(1, 'Gear: foes drop weapons and armour, better from elites and warlords. Each has a rarity, a level and effects, and armour of one set wakes bonuses when two or four pieces are worn. Equip it under Gear (pause menu or any Moonwell); dismantle what you won\'t wear for Glimmer.'); }
   G.save.write();
+  return true;
+};
+// A Soul Core: new ones are set straight into an empty slot; one already held fuses into it.
+G.takeCore = id => {
+  const d = G.save.data, p = G.player, C = CORES[id];
+  d.cores ||= {}; d.coreSlots ||= [null, null];
+  const n = d.cores[id] || 0;
+  if (n >= CORE_MAX) { G.save.glimmer += 600; G.hud.addGlimmer(600); G.hud.toast(`${C.name} (fully fused): 600 Glimmer`, 'loot r3'); G.save.write(); return; }
+  d.cores[id] = n + 1;
+  if (!n) { const i = d.coreSlots.indexOf(null); if (i >= 0) d.coreSlots[i] = id; }
+  p.applyGear();
+  G.hud.toast(n ? `${C.name} fused: +${n}` : `Soul Core: ${C.name}`, 'loot r3');
+  G.audio.sfx('magic'); G.fx.ring(p.pos, 0xb07aff, 2.2, .4);
+  if (!d.coreTip) { d.coreTip = true; G.tipAfter(1, `Soul Cores: what a fallen foe was. Two can be set at once (under Gear). Each lends a passive, and a skill: hold ${G.hud.key('shift')} and strike for the first, strike hard for the second. Skills cost Faelight. A core found again fuses into the one you hold, and grows stronger.`); }
+  G.save.write();
+};
+G.setCore = (slot, id) => {
+  const d = G.save.data;
+  if (id && !d.cores?.[id]) return false;
+  const other = d.coreSlots.indexOf(id);
+  if (id && other >= 0 && other !== slot) d.coreSlots[other] = d.coreSlots[slot];
+  d.coreSlots[slot] = id || null;
+  G.player.applyGear(); G.audio.sfx('stance', { pitch: .8 }); G.save.write();
   return true;
 };
 G.equipGear = uid => {
@@ -859,7 +994,7 @@ function step(dt, rdt) {
     if (it && inp.hit('interact')) { interact(it); G.hud.prompt(null); }
   } else G.hud.prompt(null);
   const gd = G.save.data.grave;
-  if (gd && gd.mission === G.level.id && p.alive && G.state === 'play' && Math.hypot(p.pos.x - gd.x, p.pos.z - gd.z) < 1.3) {
+  if (graveHere(gd) && p.alive && G.state === 'play' && Math.hypot(p.pos.x - gd.x, p.pos.z - gd.z) < 1.3) {
     G.save.glimmer += gd.amount; G.hud.addGlimmer(gd.amount);
     G.fx.wisps({ x: gd.x, y: 1, z: gd.z }, 16, () => ({ x: p.pos.x, y: 1.1, z: p.pos.z }), () => G.audio.sfx('glimmer', { vol: .5 }), 0x9dff9a);
     G.hud.toast('Echo reclaimed', 'item');

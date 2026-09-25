@@ -6,6 +6,7 @@ import { COMBO } from './movesets.js';
 import { WEAPONS } from './player.js';
 import { ARTS } from './arts.js';
 import { RANGED } from './ranged.js';
+import { CORES } from './cores.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -28,6 +29,8 @@ export class HUD {
       <div class="artslot" hidden><i>◆</i><div><b></b><small></small></div></div>
       <div class="rangedslot" hidden><i>➶</i><div><b></b><small></small><s><u></u></s></div></div>
       <div class="reticle" hidden><i></i><b></b></div>
+      <div class="coreslots"></div>
+      <div class="objective" hidden><small></small><b></b></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
       <div class="combo"><b>0</b><small>hits</small></div>
       <div class="lock"></div>
@@ -67,6 +70,13 @@ export class HUD {
   }
 
   show(on) { this.el.classList.toggle('on', on); }
+
+  // A side mission's aim, top right: kind (Twilight, Hunt, Duel) and what to do; null hides it.
+  objective(kind, text) {
+    const o = this.el.querySelector('.objective');
+    o.hidden = !kind; if (!kind) return;
+    o.querySelector('small').textContent = kind; o.querySelector('b').textContent = text;
+  }
 
   key(a) { return this.G.input.usingPad ? PAD_LABEL[a] : KEY_LABEL[a]; }
 
@@ -237,6 +247,12 @@ export class HUD {
       q.artI.style.color = A.color; q.artB.textContent = `${A.name} ×${p.artUses[p.art] ?? 0}`;
       q.artS.textContent = `${this.key('art')}${p.arts.length > 1 ? `  ·  ${this.key('artNext')} to change` : ''}`;
       q.art.classList.toggle('empty', !(p.artUses[p.art] > 0));
+    }
+    // Soul Cores set: each skill, its keys, and whether there is Faelight enough.
+    const cs = G.save.data.coreSlots || [], cks = cs.map(id => id ? `${id}:${p.anima >= CORES[id].cost}` : '').join('|') + this.key('shift') + this.key('light');
+    if (cks !== this.coreShown) {
+      this.coreShown = cks;
+      this.el.querySelector('.coreslots').innerHTML = cs.map((id, i) => id ? `<div class="${p.anima >= CORES[id].cost ? 'ready' : ''}"><i>◈</i><b>${esc(CORES[id].skillName)}</b><small>${esc(this.key('shift'))}+${esc(this.key(i ? 'heavy' : 'light'))} · ${CORES[id].cost}</small></div>` : '').join('');
     }
     // The ranged weapon: its ammunition (or the pod's heat), and the reticle while aimed.
     const R = RANGED[p.rangedSel];

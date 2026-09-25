@@ -67,6 +67,9 @@
   .rangedslot s{display:block;width:120px;height:4px;margin-top:4px;background:rgba(255,255,255,.12);text-decoration:none}
   .rangedslot s[hidden]{display:none}
   .rangedslot s u{display:block;height:100%;width:0;background:#cff6ff;text-decoration:none}.rangedslot s.hot u{background:#ff8a6a}
+  .coreslots{position:absolute;left:130px;bottom:118px;display:flex;flex-direction:column;gap:3px;text-shadow:0 2px 6px #000}
+  .coreslots div{display:flex;align-items:baseline;gap:6px;opacity:.5}.coreslots div.ready{opacity:1}
+  .coreslots i{font-style:normal;color:#c89aff;font-size:14px}.coreslots b{font:600 12px var(--serif);letter-spacing:.05em;color:#e8d8ff}.coreslots small{font:10px var(--sans);color:var(--dim)}
   .reticle{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
   .reticle i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#e8f4ff;box-shadow:0 0 6px #9ff3ff}
   .reticle b{position:absolute;left:0;top:0;width:26px;height:26px;border:1.5px solid rgba(232,244,255,.75);border-radius:50%;transform:translate(-50%,-50%)}
@@ -78,6 +81,9 @@
   .elixir b{font:700 26px var(--serif);text-shadow:0 2px 6px #000}
   .elixir .key{font:11px var(--sans);color:var(--dim);margin-bottom:6px}
   .glimmer{position:absolute;right:30px;bottom:28px;text-align:right}
+  .objective{position:absolute;right:30px;top:26px;text-align:right;text-shadow:0 2px 6px #000;max-width:40vw}
+  .objective small{display:block;font:600 11px var(--sans);letter-spacing:.24em;text-transform:uppercase;color:#ff9a8a}
+  .objective b{font:400 17px var(--serif);letter-spacing:.04em}
   .combo{position:absolute;right:34px;top:38%;text-align:right;opacity:0;transition:opacity .4s;pointer-events:none}
   .combo.on{opacity:1}
   .combo b{display:block;font:600 34px var(--serif);color:#e8f2ff;text-shadow:0 0 12px rgba(127,240,255,.5);line-height:1}
@@ -294,6 +300,14 @@
   .owstats{display:flex;flex-wrap:wrap;gap:14px;font:12px var(--sans);color:var(--dim);align-items:center}
   .owstats .mtag{font:600 11px var(--serif);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
   .owstats .mtag.cleared{color:var(--gold)}
+  .owsides{display:flex;gap:10px;margin-top:8px;font:600 11px var(--serif);letter-spacing:.14em;text-transform:uppercase}
+  .owsides .mtag{color:#ff9a8a}.owsides .mtag.cleared{color:var(--gold)}
+  #menu.sides{background:radial-gradient(ellipse at 50% 40%,rgba(5,6,10,.2) 30%,rgba(5,6,10,.75))}
+  .panel.sides{background:linear-gradient(160deg,rgba(10,10,18,.94),rgba(10,10,18,.84));border:1px solid var(--line);padding:22px 26px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .sides .btn.side{display:block;width:100%;text-align:left;margin:0 0 8px;padding:10px 14px}
+  .sides .btn.side .kicker{display:block;font:600 10px var(--sans);letter-spacing:.2em;color:#ff9a8a;margin:0 0 2px}
+  .sides .btn.side b{display:block;font:400 18px var(--serif)}
+  .big.side span{color:#ffb4a4}
   .owpanel .btns{flex-direction:row;gap:8px;margin:14px 0 8px}
   .owpanel .btn{width:auto;font-size:18px;padding:8px 16px}
   .owfade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .7s}
@@ -311,7 +325,7 @@
   .ending .btn{text-align:center}
   .error{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#300;border:1px solid #a33;padding:10px 16px;font-size:14px;max-width:90vw}
   @media (max-width:700px){
-    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.artslot{left:104px;bottom:18px}.rangedslot{left:104px;bottom:56px}.combo{right:16px}.glimmer{right:16px;bottom:16px}
+    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.artslot{left:104px;bottom:18px}.rangedslot{left:104px;bottom:56px}.coreslots{left:104px;bottom:100px}.combo{right:16px}.glimmer{right:16px;bottom:16px}.objective{right:16px;top:16px}
     #menu.title,#menu.shrine{padding-left:16px;background:rgba(5,6,10,.8)}
   }
 </style>

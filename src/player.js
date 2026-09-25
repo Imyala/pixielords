@@ -15,6 +15,7 @@ import { SIG_MOVES, SIG_KITS } from './signatures.js';
 import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
 import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
+import { CORE_MOVES, coreMethods } from './cores.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
@@ -107,7 +108,7 @@ Object.assign(ATK, {
   plunge: { anim: 'plunge', dur: 1.2, hit: [9, 9], dmg: 88, ki: 60, poise: 40, cost: 14, reach: 2.8, arc: 360, move: 0, chain: 9, next: 'air1', heavy: true, plunge: true, aoe: 2.8 },
 });
 // The stance forms' strikes, finishers, slide attacks and each weapon's air strikes.
-Object.assign(ATK, MOVES, ARMORY_MOVES, SIG_MOVES, SKILL_MOVES);
+Object.assign(ATK, MOVES, ARMORY_MOVES, SIG_MOVES, SKILL_MOVES, CORE_MOVES);
 for (const [k, n] of Object.entries(NAMES)) if (ATK[k]) ATK[k].name ||= n;
 const AIR = { rise: 10.5, g: 26, hang: 7, plungeG: 80, maxStrikes: 4, dash: { dur: .26, dist: 3.4, iframes: [0, .2] } };
 const CHARGE = { max: .7 };  // seconds a heavy can be held; a full charge hits 1.8× as hard
@@ -219,6 +220,7 @@ export class Player {
   applyGear() {
     const g = this.G.save?.data?.gear;
     this.gear = g ? gearStats(g.items, g.equip, this.weapon) : null;
+    if (this.gear) for (const [id, v] of Object.entries(this.coreFx())) this.gear.fx[id] = (this.gear.fx[id] || 0) + v;   // Soul Cores' passives
     const hp = this.hp / (this.maxHp || 1);
     this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp));
     const body = g?.items.find(it => it.uid === g.equip.armor.body), L = SETS[body?.set || 'errant'].look;
@@ -494,6 +496,7 @@ export class Player {
       return this.startAttack(a === 'heavy' ? this.pickHeavy(from) : this.pickLight(from));
     }
     if (a === 'swap') return this.swapWeapon(from === 'strike');
+    if (a === 'core0' || a === 'core1') return this.useCore(+a[4]);
     if (a === 'art') return this.startArt();
     if (a === 'dodge') {
       if (this.ki <= 0 && !this.shifted) return false;
@@ -701,7 +704,7 @@ export class Player {
   // A crescent of moonlight thrown on from a strike: it runs along the ground and cuts what it passes.
   spawnWave(a) {
     const w = a.wave;
-    this.waves.push({ x: this.pos.x, z: this.pos.z, yaw: this.yaw, d: .6, len: w.len, speed: w.speed, w: w.w, color: w.color, fxT: 0, hit: new Set(),
+    this.waves.push({ x: this.pos.x, z: this.pos.z, yaw: this.yaw + (a.yawOff || 0), d: .6, len: w.len, speed: w.speed, w: w.w, color: w.color, fxT: 0, hit: new Set(),
       atk: { ...a, dmg: a.dmg * w.dmg, ki: a.ki * w.dmg, poise: a.poise * w.dmg, multi: 0, last: 0, pop: 0, wave: null, aoe: 0 } });
     this.G.audio.sfx('wave');
   }
@@ -903,7 +906,7 @@ export class Player {
     G.fx.blood(_a.set(this.pos.x, 1.2, this.pos.z), { x: -Math.sin(h.dirYaw), z: -Math.cos(h.dirYaw) }, 14, 0x5a0808);
     G.hud.screenFlash('hurt');
     if (this.hp <= 0) { this.die(); return 'hit'; }
-    const armored = (stalwart || (this.state === 'attack' && this.atk.heavy && this.st * this.aspeed > .2 && this.st * this.aspeed < this.atk.hit[1])) && !h.heavy;
+    const armored = (stalwart || this.frenzied() || (this.state === 'attack' && this.atk.heavy && this.st * this.aspeed > .2 && this.st * this.aspeed < this.atk.hit[1])) && !h.heavy;
     if (!armored && !this.shifted) {
       this.setState('hurt'); this.hurtDur = h.heavy ? .62 : .34;
       this.anim.play(h.heavy ? 'stagger' : 'hurt', h.heavy ? 1.9 : 1.3, .03);
@@ -1069,7 +1072,7 @@ export class Player {
     G.audio.sfx('throw'); G.audio.sfx('swing', { pitch: .8 });
   }
   // Hex Charge: the charges fly as seeking bolts at the foe in front, or whoever is near.
-  fireHex(n) {
+  fireHex(n, mul = 1) {
     const G = this.G;
     this.k.tip.getWorldPosition(_a);
     const foes = G.enemies.filter(e => e.alive && !e.burrowed && e.distToPlayer() < 16).sort((m, q) => m.distToPlayer() - q.distToPlayer());
@@ -1077,7 +1080,7 @@ export class Player {
       const tg = this.lock?.alive ? this.lock : foes[i % Math.max(1, foes.length)];
       const yaw = this.yaw + (i - (n - 1) / 2) * .4;
       const mesh = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0x9dff7a }));
-      this.addShot({ kind: 'hex', mesh, x: _a.x, y: Math.max(1, _a.y), z: _a.z, vx: Math.sin(yaw) * HEX.speed, vy: 1.5, vz: Math.cos(yaw) * HEX.speed, tg, life: 1.8 });
+      this.addShot({ kind: 'hex', mesh, x: _a.x, y: Math.max(1, _a.y), z: _a.z, vx: Math.sin(yaw) * HEX.speed, vy: 1.5, vz: Math.cos(yaw) * HEX.speed, tg, life: 1.8, mul });
     }
     G.audio.sfx('magic'); G.fx.flash(_a, 0x9dff7a, 1.6, .3, true);
   }
@@ -1091,7 +1094,8 @@ export class Player {
         if (!G.world.los(s, { x: nx, z: nz }, ny)) { done = true; G.fx.spark({ x: s.x, y: s.y, z: s.z }, { x: -s.vx, z: -s.vz }, 6, 0xd8f0a0, 3); }
         for (const e of G.enemies) {
           if (done || !e.alive || e.burrowed || Math.hypot(e.pos.x - nx, e.pos.z - nz) > e.radius + .35 || ny < e.pos.y - .1 || ny > e.pos.y + e.height + .2) continue;
-          const res = e.takeHit({ dmg: DART.dmg * this.dmgMul, ki: DART.ki, poise: DART.poise, dir: s.yaw });
+          const res = e.takeHit({ dmg: (s.dmg ?? DART.dmg) * this.dmgMul, ki: s.bola ? 60 : DART.ki, poise: s.bola ? 60 : DART.poise, dir: s.yaw });
+          if (s.bola && res && res !== 'kill') e.rime(5);   // a bola: staggered and slowed
           if (res) { this.combo.n++; this.combo.t = G.time; }
           G.fx.spark({ x: nx, y: ny, z: nz }, { x: s.vx, z: s.vz }, 8, 0xd8f0a0, 4); G.audio.sfx('hit', { x: nx, z: nz, vol: .5 });
           done = true;
@@ -1131,31 +1135,34 @@ export class Player {
         s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
         for (const e of G.enemies) {
           if (done || !e.alive || e.burrowed || Math.hypot(e.pos.x - s.x, e.pos.z - s.z) > e.radius + .4 || s.y < e.pos.y - .2 || s.y > e.pos.y + e.height + .3) continue;
-          e.takeHit({ dmg: HEX.dmg * this.dmgMul, ki: 30, poise: 20, dir: Math.atan2(s.vx, s.vz) });
+          e.takeHit({ dmg: HEX.dmg * (s.mul || 1) * this.dmgMul, ki: 30, poise: 20, dir: Math.atan2(s.vx, s.vz) });
           this.combo.n++; this.combo.t = G.time;
           G.fx.flash({ x: s.x, y: s.y, z: s.z }, 0x9dff7a, 1.4, .25, true); G.audio.sfx('hit', { x: s.x, z: s.z }); done = true;
         }
         s.mesh.position.set(s.x, s.y, s.z);
         if (Math.random() < dt * 60) G.fx.motes(s.mesh.position, 0x9dff7a, 1, .05, .1, .07, .4);
         if (s.t > s.life || s.y < 0) done = true;
+      } else if (s.kind === 'cloud') {
+        done = this.updateCloud(s, dt);
       } else if (s.kind.startsWith('r_')) {
         done = this.updateRangedShot(s, dt);
       } else if (s.kind === 'bomb') {
         const u = Math.min(1, s.t / s.dur);
         s.mesh.position.set(s.x0 + (s.x1 - s.x0) * u, s.y0 * (1 - u) + 3 * 4 * u * (1 - u) * .8, s.z0 + (s.z1 - s.z0) * u);
         if (Math.random() < dt * 50) G.fx.motes(s.mesh.position, 0xffb070, 1, .05, .3, .08, .4);
-        if (u >= 1) { done = true; this.bombBurst(s.x1, s.z1); }
+        if (u >= 1) { done = true; this.bombBurst(s.x1, s.z1, s); }
       }
       if (done) { this.dropShot(s); this.shots.splice(i, 1); }
     }
   }
-  bombBurst(x, z) {
+  bombBurst(x, z, s = null) {
     const G = this.G, p = { x, y: 0, z };
     G.fx.explosion(p, BOMB.radius * .8); G.fx.ring(p, 0xffc890, BOMB.radius, .35);
     G.audio.sfx('explode', { x, z }); G.cam.shake(.35);
     for (const e of G.enemies) {
       if (!e.alive || e.burrowed || e.pos.y > 3 || Math.hypot(e.pos.x - x, e.pos.z - z) > BOMB.radius + e.radius) continue;
-      const res = e.takeHit({ dmg: BOMB.dmg * this.dmgMul * (e.boss ? .7 : 1), ki: BOMB.ki, poise: BOMB.poise, dir: yawTo(x, z, e.pos.x, e.pos.z), heavy: true, kb: 6 });
+      const res = e.takeHit({ dmg: BOMB.dmg * (s?.mul || 1) * this.dmgMul * (e.boss ? .7 : 1), ki: BOMB.ki, poise: BOMB.poise, dir: yawTo(x, z, e.pos.x, e.pos.z), heavy: true, kb: 6 });
+      if (s?.fire && res && res !== 'blocked') e.burn(BRAND.burn * 1.5);   // a firebomb
       if (res) { this.combo.n++; this.combo.t = G.time; }
       if (res && res !== 'kill' && e.state !== 'air') e.launch(4, true);
     }
@@ -1169,7 +1176,15 @@ export class Player {
 
     // Input buffering.
     if (this.alive && G.controlsOn) {
-      for (const a of ['light', 'heavy', 'dodge', 'burst', 'heal', 'shift', 'swap', 'art']) if (inp.hit(a) && !(this.aiming && (a === 'light' || a === 'heavy'))) this.buffer = { a, t: G.time };
+      // Hold Fae Shift and strike (or strike hard) for a Soul Core's skill; Fae Shift itself comes on letting go.
+      const chord = inp.down('shift') && this.shiftHold;
+      for (const a of ['light', 'heavy', 'dodge', 'burst', 'heal', 'swap', 'art']) if (inp.hit(a) && !(this.aiming && (a === 'light' || a === 'heavy')) && !(chord && (a === 'light' || a === 'heavy'))) this.buffer = { a, t: G.time };
+      if (inp.hit('shift')) { if (inp.down('shift')) this.shiftHold = { used: false }; else this.buffer = { a: 'shift', t: G.time }; }
+      if (this.shiftHold && inp.down('shift')) {
+        if (inp.hit('light')) { this.buffer = { a: 'core0', t: G.time }; this.shiftHold.used = true; }
+        else if (inp.hit('heavy')) { this.buffer = { a: 'core1', t: G.time }; this.shiftHold.used = true; }
+      }
+      if (this.shiftHold && !inp.down('shift')) { if (!this.shiftHold.used) this.buffer = { a: 'shift', t: G.time }; this.shiftHold = null; }
       if (inp.hit('aim')) { if (this.aiming) this.endAim(); else if (!this.startAim() && this.state === 'free' && !this.R) G.hud.toast('No ranged weapon carried'); }
       if (inp.hit('heal') && inp.down('guard')) this.buffer = { a: 'art', t: G.time };   // guard + Moondew: a Fae Art
       if (inp.hit('artNext')) this.cycleArt();
@@ -1235,7 +1250,7 @@ export class Player {
         }
         if (this.exhaustPending && this.ki <= 0) { this.exhaustPending = false; this.setState('exhausted'); this.anim.play('stagger', 1.3); G.hud.toast('Out of breath', 'warn'); G.audio.sfx('playerHurt', { vol: .4 }); break; }
         this.exhaustPending = false;
-        const act = takeAny(['light', 'heavy', 'dodge', 'burst', 'heal', 'shift', 'swap', 'art']);
+        const act = takeAny(['light', 'heavy', 'dodge', 'burst', 'heal', 'shift', 'swap', 'art', 'core0', 'core1']);
         if (act && this.tryStart(act)) break;
         // Guard at a sprint (or the slide button at a run) drops into a slide.
         const runSpeed = Math.hypot(this.vel.x, this.vel.z);
@@ -1320,7 +1335,7 @@ export class Player {
         }
         // Recovery can be cut short by a dash, a counter, a Switch Strike, raising the guard, or simply moving.
         if (t >= a.hit[1] + .02) {
-          const c = takeAny(['dodge', 'burst', 'heal', 'swap', 'art']);
+          const c = takeAny(['dodge', 'burst', 'heal', 'swap', 'art', 'core0', 'core1']);
           if (c && this.tryStart(c, c === 'swap' ? 'strike' : null)) break;
           if (G.controlsOn && inp.down('guard') && this.pos.y <= .05) { this.setState('free'); break; }
         }
@@ -1495,6 +1510,13 @@ export class Player {
         if (this.st >= end) this.setState('free');
         break;
       }
+      case 'core': {
+        // Casting a Soul Core's skill: a slow walk while it goes.
+        const s = 2 * mag;
+        if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
+        this.updateCoreCast(dt);
+        break;
+      }
       case 'swap': {
         const s = 3 * mag;
         if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
@@ -1643,7 +1665,7 @@ export class Player {
   // Moonstep Riposte: heavy damage and posture, not an outright kill.
   riposteHit(e, big) {
     const G = this.G;
-    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : this.weapon === 'sword' && this.sk('mech') ? 1.3 : 1) * (1 + this.gf('exec') / 100);
+    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : this.weapon === 'sword' && this.sk('mech') ? 1.3 : 1) * (1 + this.gf('exec') / 100) * (this.fc?.core || 1);
     const res = e.takeHit({ dmg, ki: big ? 90 : 140, poise: 60, dir: this.yaw, heavy: true, crit: true });
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 4.5, 0xb8c8ff);
@@ -1738,6 +1760,8 @@ export class Player {
     if (a.counter) mech *= wid === 'rapier' ? (mm ? 2 : 1.5) : 1;
     // Skills learned: Proficiency, and Pause Mastery for the form's pause combo.
     mech *= (this.sk('prof1') ? 1.06 : 1) * (this.sk('prof2') ? 1.08 : 1) * (this.isPause && this.sk('pause') ? 1.2 : 1);
+    // Soul Cores: a core's strike by its fusing, and Blood Frenzy while it lasts.
+    mech *= (a.core ? this.coreMul || 1 : 1) * (this.frenzied() ? 1 + this.coreBuff.dmg : 1);
     // Gear: the weapon's level and rarity, its effects, and the sets' bonuses.
     const behind = Math.abs(angleDiff(e.yaw, yawTo(e.pos.x, e.pos.z, this.pos.x, this.pos.z))) > 2, hpK = this.hp / this.maxHp;
     mech *= weaponMul(this.gear?.weapon) * (1 + this.gf('dmg') / 100) * (hpK >= .999 ? 1 + this.gf('dmgFull') / 100 : 1) * (hpK < .34 ? 1 + this.gf('dmgLow') / 100 : 1)
@@ -1771,6 +1795,7 @@ export class Player {
     // Gear on the blow: mending, and chances to burn, frost and bleed (the Stalker's set bleeds from behind,
     // the Winter Court's frosts one strike in five).
     if (res !== 'blocked') {
+      if (a.rime) e.rime(BRAND.rime);
       if (this.gf('leech')) this.heal(this.gf('leech'));
       if (Math.random() * 100 < this.gf('burn')) e.burn(BRAND.burn);
       if (Math.random() * 100 < this.gf('frost') + (this.setBonus('winter4') ? 20 : 0)) e.rime(BRAND.rime);
@@ -1841,6 +1866,7 @@ export class Player {
     if (this.state !== 'attack') this.aoeDone = false;
     if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep * (this.has('wildfang') ? 1.8 : 1)) this.frenzy.n = 0;
     if (this.combo.n && G.time - this.combo.t > COMBO.keep + this.gf('comboKeep')) this.combo.n = 0;
+    if (this.frenzied() && Math.random() < dt * 24) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, 0xff5a5a, 1, .4, .8, .08, .6);
     if (this.brand) {
       if (G.time >= this.brand.until) { this.brand = null; this.refreshLook(); }
       else if (Math.random() < dt * 24) { this.k.tip.getWorldPosition(_b); G.fx.motes(_b, ARTS[this.brand.kind].hex, 1, .12, .4, .07, .45); }
@@ -1906,3 +1932,5 @@ export class Player {
 }
 // Ranged weapons (ranged.js): aiming, firing, ammunition and shots in flight.
 Object.defineProperties(Player.prototype, Object.getOwnPropertyDescriptors(rangedMethods));
+// Soul Cores (cores.js): their skills and passives.
+Object.defineProperties(Player.prototype, Object.getOwnPropertyDescriptors(coreMethods));

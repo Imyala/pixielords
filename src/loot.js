@@ -3,6 +3,7 @@
 // (and better). Weapons drop only of kinds the knight already carries; armour mostly of the mission's own set.
 import * as THREE from 'three';
 import { RARITY, SLOTS, SETS, MISSION_GEAR, makeItem, rollRarity, itemName } from './gear.js';
+import { CORES, CORE_OF } from './cores.js';
 
 export const PACK = 80;   // pieces carried, equipped ones included
 
@@ -21,12 +22,16 @@ export class Loot {
       this.place(it, e.pos.x + Math.sin(a) * r, e.pos.z + Math.cos(a) * r);
     }
     if (n) G.audio.sfx('glint', { vol: .6, pitch: .8 });
+    // A Soul Core: always from gatekeepers, warlords and Revenants, often from elites, now and then from the rest.
+    const core = CORE_OF[e.spawn?.type];
+    if (core && Math.random() < (CORES[core].boss ? 1 : e.elite ? .25 : .025) * mul) this.place({ core }, e.pos.x - .6, e.pos.z + .4);
   }
   // A new piece for this mission: kind, level and rarity (at least minRar).
   roll(luck = 0, minRar = 0) {
     const G = this.G, d = G.save.data, MG = MISSION_GEAR[G.level.id] || MISSION_GEAR.keep;
-    const lvl = Math.round(MG.lvl[0] + Math.random() * (MG.lvl[1] - MG.lvl[0])) + d.ng * 20;
-    const rar = Math.max(minRar, rollRarity(luck));
+    const S = G.sideDef?.();   // a side mission's harder foes drop better, and higher-level
+    const lvl = Math.round(MG.lvl[0] + Math.random() * (MG.lvl[1] - MG.lvl[0])) + d.ng * 20 + (S?.lvl || 0);
+    const rar = Math.max(minRar, rollRarity(luck + (S?.luck || 0)));
     d.gear.uid = (d.gear.uid || 1) + 1;
     if (Math.random() < .42) {
       const type = d.arms[Math.floor(Math.random() * d.arms.length)];
@@ -38,10 +43,10 @@ export class Loot {
     return makeItem({ kind: 'armor', slot: SLOTS[Math.floor(Math.random() * SLOTS.length)], set, lvl, rar }, d.gear.uid);
   }
   place(it, x, z) {
-    const G = this.G, col = RARITY[it.rar].color;
+    const G = this.G, col = it.core ? 0xb07aff : RARITY[it.rar].color, rar = it.core ? 3 : it.rar;
     const g = new THREE.Group(); g.position.set(x, 0, z);
     const beam = new THREE.Mesh(this.beamGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }));
-    beam.scale.set(1.3 + it.rar * .25, 1.6 + it.rar * .5, 1.3 + it.rar * .25);
+    beam.scale.set(1.3 + rar * .25, 1.6 + rar * .5, 1.3 + rar * .25);
     const ring = new THREE.Mesh(new THREE.RingGeometry(.28, .36, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = .03;
     const gem = new THREE.Mesh(this.gemGeo, new THREE.MeshBasicMaterial({ color: col }));
@@ -52,15 +57,19 @@ export class Loot {
   }
   remove(l) { this.G.scene.remove(l.g); l.beam.material.dispose(); l.gem.material.dispose(); l.ring.geometry.dispose(); l.ring.material.dispose(); this.list.splice(this.list.indexOf(l), 1); }
   clear() { while (this.list.length) this.remove(this.list[0]); }
+  // Everything still on the ground, taken at once (a side mission's end).
+  gather() { for (const l of [...this.list]) { if (l.it.core) this.G.takeCore(l.it.core); else if (!this.G.takeGear(l.it)) continue; this.remove(l); } }
 
   update(dt) {
     const G = this.G, p = G.player;
     for (const l of [...this.list]) {
       l.t += dt;
       l.gem.rotation.y += dt * 2; l.gem.position.y = .35 + Math.sin(l.t * 3) * .06;
-      l.beam.material.opacity = .45 + l.it.rar * .06 + Math.sin(l.t * 4) * .1; l.ring.scale.setScalar(1 + Math.sin(l.t * 3) * .12);
-      if (Math.random() < dt * (2 + l.it.rar * 3)) G.fx.motes({ x: l.g.position.x, y: .4, z: l.g.position.z }, RARITY[l.it.rar].color, 1, .15, .8, .06, .7);
+      const rar = l.it.core ? 3 : l.it.rar;
+      l.beam.material.opacity = .45 + rar * .06 + Math.sin(l.t * 4) * .1; l.ring.scale.setScalar(1 + Math.sin(l.t * 3) * .12);
+      if (Math.random() < dt * (2 + rar * 3)) G.fx.motes({ x: l.g.position.x, y: .4, z: l.g.position.z }, l.it.core ? 0xb07aff : RARITY[l.it.rar].color, 1, .15, .8, .06, .7);
       if (!p.alive || G.state !== 'play' || Math.hypot(p.pos.x - l.g.position.x, p.pos.z - l.g.position.z) > 1.2 || p.pos.y > 1) continue;
+      if (l.it.core) { G.takeCore(l.it.core); this.remove(l); continue; }
       if (!G.takeGear(l.it)) { if (!this.fullToast || G.time - this.fullToast > 6) { this.fullToast = G.time; G.hud.toast(`Your pack is full (${PACK}): dismantle gear under Gear`, 'warn'); } continue; }
       this.remove(l);
     }

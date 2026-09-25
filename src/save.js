@@ -22,6 +22,8 @@ export function freshSave(ng = 0) {
     mastery: {},   // per weapon: { xp, learned: [skill ids] } (skills.js)
     ranged: ['wisp'], rangedSel: 'wisp',   // ranged weapons found, and the one carried (ranged.js)
     gear: freshGear(),   // gear found and worn (gear.js)
+    cores: {}, coreSlots: [null, null],   // Soul Cores held (how many of each, fused) and the two set (cores.js)
+    sides: {}, side: null,   // side missions done (how often), and the one under way (sides.js)
   };
 }
 
@@ -54,7 +56,7 @@ function migrate(d) {
   if (!d.arts.includes(d.artSel)) d.artSel = d.arts[0];
   d.mastery ||= {};
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
-  d.gear ||= freshGear();
+  d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {}; d.side ||= null;
   return d;
 }
 
@@ -74,12 +76,12 @@ export class Save {
   get deaths() { return this.data.deaths; }
   get time() { return this.data.time; }
   get ng() { return this.data.ng; }
-  // The current mission's state.
-  get m() { return this.mission(this.data.mission); }
+  // The current mission's state, or the side mission's own while one is under way.
+  get m() { const d = this.data; return d.side ? (d.sideRun ||= freshMission()) : this.mission(d.mission); }
   mission(id) { return (this.data.missions[id] ||= freshMission()); }
   summary(levels) {
     const d = this.data, m = Math.floor(d.time / 60);
-    return `${levels?.[d.mission]?.name || ''} · Level ${this.level} · ${m} min${d.ng ? ` · NG+${d.ng}` : ''}`;
+    return `${levels?.[d.mission]?.name || ''}${d.side ? ' (side mission)' : ''} · Level ${this.level} · ${m} min${d.ng ? ` · NG+${d.ng}` : ''}`;
   }
   reset(ng = 0) { this.data = freshSave(ng); }
   write() {

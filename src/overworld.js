@@ -499,12 +499,13 @@ export class Overworld {
   }
 
   // Set out: the knight steps into the gate ring, the light rises, and the mission begins.
-  enter(id) {
+  // Set out for a mission, or for one of its side missions (side: a sides.js id).
+  enter(id, side = null) {
     const n = this.node(id);
     if (!n || this.entering || this.revealing || !this.unlocked(id)) return;
     this.select(id, false);
     this.target = null; this.ks = n.s;
-    this.entering = { id, t: 0, started: false };
+    this.entering = { id, side, t: 0, started: false };
     this.kanim.play('fog', 1, .1);
     this.G.audio.sfx('fog');
     this.fx.ring({ x: n.x, z: n.z }, 0x8ff0ff, 3, .6, n.y + .15);
@@ -524,7 +525,7 @@ export class Overworld {
     // The stick travels too, one landmark per flick.
     const mv = inp.padStick, mag = Math.hypot(mv.lx, mv.ly);
     this.stickT = (this.stickT || 0) - dt;
-    if (mag > .6 && this.stickT <= 0) { this.stickT = .4; this.step([mv.lx / mag, mv.ly / mag]); }
+    if (mag > .6 && this.stickT <= 0 && G.menu.top?.screen === 'map') { this.stickT = .4; this.step([mv.lx / mag, mv.ly / mag]); }
     if (mag < .3) this.stickT = 0;
 
     // Reveals: the road lights stone by stone to a newly opened mission, then the mist lifts.
@@ -578,7 +579,7 @@ export class Overworld {
       n.beam.material.opacity = Math.min(.55, e.t * .8);
       if (Math.random() < dt * 40) this.fx.motes({ x: n.x, y: n.y + .2, z: n.z }, 0x9ff3ff, 1, .9, 4, .1, 1);
       if (e.t > .6) G.menu.el.querySelector('.owfade')?.classList.add('on');
-      if (e.t > 1.3 && !e.started) { e.started = true; G.startMission(e.id); }
+      if (e.t > 1.3 && !e.started) { e.started = true; if (e.side) G.startSide(e.side); else G.startMission(e.id); }
     }
 
     // Selection: a beam over the chosen landmark's ring; rings pulse.

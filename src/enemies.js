@@ -3,7 +3,7 @@
 // red and can't be guarded; the player dashes through it or answers with a Thorn Counter.
 import * as THREE from 'three';
 import { createModel, MODEL_SIZE } from './models3d.js';
-import { buildKnight, KnightAnimator } from './knight.js';
+import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
@@ -442,6 +442,47 @@ Object.assign(TYPES, {
       A('Blizzard Ring', 18, [S('cast', 1.0, .2, .9, 40, { proj: { kind: 'shard', count: 14, speed: 9, ring: true, chill: 18 } })], { cd: 6, w: 1 }),
     ],
   },
+});
+
+// ---- Revenants (side-mission duels): fae knights who fell before you, their echoes still fighting with the
+// weapons they carried, stroke for stroke as you would (their strikes are the player's own animations).
+const revenant = (name, weapon, look, hp, moves, o = {}) => ({
+  knight: look, weapon, name, scale: 1.12, radius: .5, hp, ki: 300, poise: 55, walk: 2.4, run: 6.2, glimmer: Math.round(hp * 2.4), voice: 'growl', pitch: 1.15,
+  elite: true, track: 7, aggro: .95, evasive: .45, parry: .3, glow: .12, phase2At: .5, phase2Line: `${name.split(',')[0]} burns brighter`, roarHazard: 'none',
+  attacks: moves, phase2: [A('Revenant\'s Wrath', 30, [S('roar', 1.1, .5, .5, 0, { hyper: true })], { once: true })], ...o,
+});
+const RV = { dark: 0x141018, visor: 0xb07aff, glow: 0x8a5ad8, trail: 0xc8a0ff };
+Object.assign(TYPES, {
+  'revenant-thornwake': revenant('Sir Aldric Thornwake, Revenant', 'great', { ...RV, steel: 0x6c7a58, cloth: 0x2e4a2a, trim: 0x9aa860, blade: 0xd8e4ff, wing: 0x9fd89a }, 1700, [
+    A('Iron Tide', 3.2, [S('swing', .5, .16, .08, 62, { reach: 3.2, arc: 190, lunge: 1, kact: 'wb_sweep' }), S('swing', .34, .16, .08, 62, { reach: 3.2, arc: 190, lunge: 1, kact: 'wb_return' }), S('spin', .36, .4, .8, 70, { reach: 3.3, arc: 360, kact: 'wb_turn' })]),
+    A('Falling Edge', 3.2, [S('overhead', .55, .16, .9, 88, { reach: 3.2, arc: 80, lunge: 1.2, kact: 'wb_hfall' })], { w: .8 }),
+    A('Striding Thrust', 8, [S('thrust', .6, .3, .9, 80, { reach: 3.2, arc: 50, lunge: 6, burst: true, kact: 'wb_rush' })], { minRange: 4, cd: 6, w: .8 }),
+    A('Leaping Cleave', 10, [S('leap', .6, .62, 1, 100, { reach: 0, aoe: 2.8, burst: true, hyper: true, shake: .8, kact: 'wb_hleap' })], { minRange: 4.5, cd: 7, w: .7 }),
+  ]),
+  'revenant-hollowmoon': revenant('Sister Hollowmoon, Revenant', 'katana', { ...RV, steel: 0x8a8a9a, cloth: 0x2a2a3a, trim: 0xbfe6ff, blade: 0xe8f4ff, wing: 0xbfd8ff }, 2400, [
+    A('Draw-cut', 2.9, [S('swing', .42, .12, .7, 70, { reach: 2.9, arc: 170, lunge: 1.2, kact: 'kt_draw' })]),
+    A('Still Water', 2.8, [S('swing', .4, .14, .06, 58, { reach: 2.8, arc: 160, lunge: 1, kact: 'kt_cut' }), S('swing', .26, .14, .06, 58, { reach: 2.8, arc: 160, lunge: 1, kact: 'kt_back' }), S('thrust', .3, .18, .8, 70, { reach: 3, arc: 50, lunge: 2, kact: 'kt_thrust' })]),
+    A('Passing Draw', 9, [S('thrust', .5, .28, .9, 96, { reach: 2.9, arc: 60, lunge: 7, burst: true, kact: 'kt_dash' })], { minRange: 4, cd: 6, w: .9 }),
+    A('Rising Frost', 3, [S('swing', .45, .16, .8, 74, { reach: 2.8, arc: 140, kact: 'kt_rdraw' })], { w: .7 }),
+  ], { parry: .45 }),
+  'revenant-emberlight': revenant('Brother Emberlight, Revenant', 'hammer', { ...RV, steel: 0x9a6a48, cloth: 0x6a2a1a, trim: 0xe08a40, blade: 0xffcf8a, wing: 0xffb070, glow: 0xff8a40, trail: 0xffb070 }, 3200, [
+    A('Anvil Rhythm', 3, [S('swing', .55, .16, .08, 78, { reach: 3, arc: 190, lunge: .8, kact: 'h_side' }), S('swing', .4, .16, .08, 78, { reach: 3, arc: 190, lunge: .8, kact: 'h_back' }), S('overhead', .5, .16, 1, 104, { reach: 2.9, arc: 90, aoe: 2.2, kact: 'h_over' })]),
+    A('Great Turn', 3.2, [S('spin', .5, .5, .9, 86, { reach: 3.2, arc: 360, kact: 'h_spin' })], { w: .8 }),
+    A('Haft Charge', 8, [S('thrust', .45, .35, .8, 70, { reach: 2.4, arc: 120, lunge: 6, kact: 'h_charge' })], { minRange: 4, cd: 5 }),
+    A('Mountain Leap', 11, [S('leap', .7, .7, 1.1, 120, { reach: 0, aoe: 3.2, burst: true, hyper: true, shake: .9, kact: 'h_hleap', fire: 1 })], { minRange: 4.5, cd: 7, w: .8 }),
+  ], { parry: .15, poise: 80, roarHazard: 'fire' }),
+  'revenant-ysolde': revenant('Dame Ysolde of the Wane, Revenant', 'rapier', { ...RV, steel: 0xdfe6f4, cloth: 0x6a4a9a, trim: 0xe8e8ff, blade: 0xe8e8ff, wing: 0xd8c8ff }, 3400, [
+    A('Lunge', 3.2, [S('thrust', .4, .14, .6, 72, { reach: 3.2, arc: 40, lunge: 1.8, kact: 'rp_lunge' })]),
+    A('Feint and Lunge', 3.2, [S('thrust', .3, .1, .05, 44, { reach: 3, arc: 40, lunge: .8, kact: 'rp_lunge' }), S('thrust', .22, .14, .7, 76, { reach: 3.2, arc: 40, lunge: 1.8, kact: 'rp_lunge' })]),
+    A('Parry and Cut', 2.6, [S('swing', .34, .12, .6, 58, { reach: 2.7, arc: 150, lunge: .8, kact: 'rp_cut' })], { w: .8 }),
+    A('Flèche', 9, [S('thrust', .5, .3, .9, 96, { reach: 3.2, arc: 50, lunge: 8, burst: true, kact: 'rp_fleche' })], { minRange: 4, cd: 5, w: .9 }),
+  ], { parry: .55, evasive: .6 }),
+  'revenant-lanternless': revenant('The Lanternless Knight, Revenant', 'fangs', { ...RV, steel: 0x2a2a30, cloth: 0x0e0e14, trim: 0xd6ac52, blade: 0xffe8c0, wing: 0xffd36a, visor: 0xffd36a, glow: 0xffb040, trail: 0xffd36a }, 4600, [
+    A('Swallow\'s Dance', 2.6, [S('swing', .32, .1, .04, 44, { reach: 2.5, arc: 150, lunge: .8, kact: 'f_slash1' }), S('swing', .18, .1, .04, 44, { reach: 2.5, arc: 150, lunge: .8, kact: 'f_slash2' }), S('swing', .2, .12, .05, 50, { reach: 2.6, arc: 120, lunge: .8, kact: 'f_cross' }), S('spin', .22, .4, .8, 56, { reach: 2.7, arc: 360, kact: 'f_spin' })]),
+    A('Whirlwind', 3.2, [S('spin', .45, .6, .9, 58, { reach: 2.9, arc: 360, lunge: 2, kact: 'f_whirl' })], { w: .8 }),
+    A('Viper Dash', 10, [S('thrust', .5, .35, .9, 86, { reach: 2.6, arc: 140, lunge: 8, burst: true, kact: 'f_viper' })], { minRange: 4, cd: 5, w: .9 }),
+    A('Crossfall', 10, [S('leap', .6, .55, 1, 104, { reach: 0, aoe: 2.4, burst: true, hyper: true, shake: .7, kact: 'f_xfall' })], { minRange: 4.5, cd: 7, w: .7 }),
+  ], { parry: .4, evasive: .6 }),
 });
 
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
@@ -1256,7 +1297,8 @@ export class Enemy {
     this.stepDur = { windup: s.windup * spd, active: s.active, recover: s.recover * (this.phase2 ? .8 : 1) };
     this.waveDone = false;
     if (this.kn) {
-      const [act, hitT] = KNIGHT_ACT[s.kact || s.anim] || KNIGHT_ACT.swing;
+      // A knight's own action (KNIGHT_ACT), or any of the player's strikes by name, timed to its hit.
+      const [act, hitT] = KNIGHT_ACT[s.kact || s.anim] || (ACTIONS[s.kact] ? [s.kact, ACTIONS[s.kact].hit?.[0] ?? .25] : KNIGHT_ACT.swing);
       this.kplay(act, clamp(hitT / Math.max(.05, this.stepDur.windup), .3, 3), .05);
     }
     const G = this.G, head = new THREE.Vector3(this.pos.x, this.height * .75, this.pos.z);
