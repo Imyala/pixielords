@@ -10,6 +10,9 @@ export class CameraRig {
     this.trauma = 0; this.t = 0;
     this.pivot = new THREE.Vector3(); this.look = new THREE.Vector3();
     this.recenterT = 0; this.recenterYaw = 0;
+    this.lockTilt = 0;   // the player's own tilt while locked on (mouse or right stick, up and down)
+    this.lockHeight = 1;   // settings: 0 low, 1 normal, 2 high
+    this.distScale = 1;   // settings: near, normal, far
   }
 
   recenter(yaw) { this.recenterT = .35; this.recenterYaw = yaw; }
@@ -32,18 +35,23 @@ export class CameraRig {
     this.pivotY = dt ? damp(this.pivotY ?? 1.55, 1.55 + p.y * .75, 9, dt) : 1.55 + p.y * .75;
     this.pivot.set(p.x, this.pivotY, p.z);
     const bigLock = lock && lock.height > 3;
-    this.dist = damp(this.dist, bigLock ? 6 : 4.7, 2, dt);
+    this.dist = damp(this.dist, (bigLock ? 6.2 : lock ? 5.2 : 4.7) * this.distScale, 2, dt);
     // Aiming a ranged weapon: in close over the right shoulder.
     const ak = this.aimK = dt ? damp(this.aimK || 0, player.aiming ? 1 : 0, 9, dt) : player.aiming ? 1 : 0;
     if (ak > .001) this.pivot.add({ x: -Math.cos(this.yaw) * .78 * ak, y: .1 * ak, z: Math.sin(this.yaw) * .78 * ak });
     if (lock) {
+      // Locked on: stay high enough to see the foe over the knight's shoulder (a little higher up close and for
+      // big foes), and let the player tilt it themselves.
       const lp = lock.pos, d = Math.hypot(lp.x - p.x, lp.z - p.z);
       this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 9, dt);
       const big = lock.height > 3;
-      const want = clamp((big ? .38 : .26) - (d < 2.5 ? .05 : 0) + (big && d < 6 ? .12 : 0), .1, .6);
+      this.lockTilt = clamp(this.lockTilt + look.y, -.25, .35);
+      const want = clamp((big ? .42 : .4) + (d < 3 ? .06 : 0) + (big && d < 6 ? .1 : 0) + (this.lockHeight - 1) * .1 + this.lockTilt, .15, .85);
       this.pitch = damp(this.pitch, want, 4, dt);
-      this.look.set(lp.x, lp.y + Math.min(lock.height * .55, 3), lp.z).lerp(this.pivot, big ? .5 : .6);
+      this.look.set(lp.x, lp.y + Math.min(lock.height * .5, 2.6), lp.z).lerp(this.pivot, big ? .5 : .55);
+      this.look.y = Math.max(this.look.y, this.pivot.y - .1);
     } else {
+      this.lockTilt *= Math.max(0, 1 - dt * 4);
       this.yaw -= look.x; this.pitch = clamp(this.pitch + look.y, player.aiming ? -.6 : -.32, 1.15);
       if (this.recenterT > 0) { this.recenterT -= dt; this.yaw = dampAngle(this.yaw, this.recenterYaw, 14, dt); this.pitch = damp(this.pitch, .32, 10, dt); }
       this.look.copy(this.pivot);

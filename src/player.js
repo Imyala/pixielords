@@ -1192,6 +1192,9 @@ export class Player {
         else if (inp.hit('heavy')) { this.buffer = { a: 'core1', t: G.time }; this.shiftHold.used = true; }
       }
       if (this.shiftHold && !inp.down('shift')) { if (!this.shiftHold.used) this.buffer = { a: 'shift', t: G.time }; this.shiftHold = null; }
+      if (inp.hit('core0')) this.buffer = { a: 'core0', t: G.time };   // the gamepad's RT + X / RT + Y
+      if (inp.hit('core1')) this.buffer = { a: 'core1', t: G.time };
+      if (inp.hit('pulse') && this.pulse && G.time <= this.pulse.close) this.doPulse();   // Resonance on RB
       if (inp.hit('aim')) { if (this.aiming) this.endAim(); else if (!this.startAim() && this.state === 'free' && !this.R) G.hud.toast('No ranged weapon carried'); }
       if (inp.hit('heal') && inp.down('guard')) this.buffer = { a: 'art', t: G.time };   // guard + Moondew: a Fae Art
       if (inp.hit('artNext')) this.cycleArt();

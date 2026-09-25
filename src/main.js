@@ -14,7 +14,7 @@ import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
-import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear, freshMission, freshAbyss } from './save.js';
+import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear, freshMission, freshAbyss, SETTINGS_DEFAULT } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
@@ -89,7 +89,7 @@ G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: 
 const timers = [];
 G.after = (sec, fn) => timers.push({ t: G.time + sec, fn });
 // A tip that waits its turn: it never covers a letter or another tip already open, nor opens over a menu.
-G.tipAfter = (sec, text) => G.after(sec, function show() { if (G.hud.messageOpen || G.menu.open || G.state !== 'play') G.after(.4, show); else G.hud.message(text); });
+G.tipAfter = (sec, text) => G.settings.tips !== false && G.after(sec, function show() { if (G.hud.messageOpen || G.menu.open || G.state !== 'play') G.after(.4, show); else G.hud.message(text); });
 function runTimers() {
   for (let i = timers.length - 1; i >= 0; i--) if (G.time >= timers[i].t) { const f = timers[i].fn; timers.splice(i, 1); f(); }
 }
@@ -161,11 +161,13 @@ for (const m of Object.values(G.player.k.mats)) if (m.isMeshStandardMaterial) { 
 G.setSetting = (k, v) => {
   G.settings[k] = v; saveSettings(G.settings); applySettings();
 };
+G.resetSettings = () => { G.settings = { ...SETTINGS_DEFAULT }; saveSettings(G.settings); applySettings(); };
 function applySettings() {
   const s = G.settings;
   G.input.sens = s.sens; G.input.invertY = s.invertY;
   G.audio.setVolume('master', s.master); G.audio.setVolume('music', s.music); G.audio.setVolume('sfx', s.sfx);
   G.shakeScale = s.shake;
+  G.cam.lockHeight = s.lockHeight ?? 1; G.cam.distScale = [.82, 1, 1.22][s.camDist ?? 1];
   const hi = !!s.quality;
   renderer.setPixelRatio(hi ? Math.min(devicePixelRatio, 1.75) : Math.min(devicePixelRatio, 1));
   moon.castShadow = hi;
@@ -623,7 +625,7 @@ function grantRanged(id, quiet = false) {
   if (!quiet) {
     readyRanged(id);
     G.after(.9, () => { G.hud.toast(`Ranged weapon: ${R.name}`, 'item'); G.audio.sfx('pickup'); });
-    G.tipAfter(1.8, `${R.name}: ${R.desc}\nAim with ${G.hud.key('aim')} and strike to fire; ${G.hud.key('aim')} again or guard to lower it. Ammunition is refilled at every Moonwell. Change ranged weapons in the Arsenal.`);
+    G.tipAfter(1.8, `${R.name}: ${R.desc}\nAim with ${G.hud.key('aim')} and ${G.hud.key('fire')} to fire; ${G.hud.key('aim')} again (or let go, on a gamepad) or guard to lower it. Ammunition is refilled at every Moonwell. Change ranged weapons in the Arsenal.`);
   }
   return true;
 }
@@ -878,7 +880,7 @@ G.takeCore = id => {
   p.applyGear();
   G.hud.toast(n ? `${C.name} fused: +${n}` : `Soul Core: ${C.name}`, 'loot r3');
   G.audio.sfx('magic'); G.fx.ring(p.pos, 0xb07aff, 2.2, .4);
-  if (!d.coreTip) { d.coreTip = true; G.tipAfter(1, `Soul Cores: what a fallen foe was. Two can be set at once (under Gear). Each lends a passive, and a skill: hold ${G.hud.key('shift')} and strike for the first, strike hard for the second. Skills cost Faelight. A core found again fuses into the one you hold, and grows stronger.`); }
+  if (!d.coreTip) { d.coreTip = true; G.tipAfter(1, `Soul Cores: what a fallen foe was. Two can be set at once (under Gear). Each lends a passive, and a skill: ${G.hud.key('core0')} for the first, ${G.hud.key('core1')} for the second. Skills cost Faelight. A core found again fuses into the one you hold, and grows stronger.`); }
   G.save.write();
 };
 G.setCore = (slot, id) => {
@@ -1067,6 +1069,7 @@ const manual = new URLSearchParams(location.search).has('manual');
 function frame(fixed, draw = true) {
   const rdt = fixed ?? Math.min(clock.getDelta(), 1 / 20);
   const inp = G.input;
+  inp.ctx = { menu: G.menu.open || G.hud.messageOpen, aiming: !!G.player?.aiming };
   inp.poll(rdt);
 
   // Menus eat input first.
@@ -1090,7 +1093,8 @@ function frame(fixed, draw = true) {
   let dt = rdt;
   if (G.hitstop > 0) { G.hitstop -= rdt; dt *= .04; }
   else if (G.slowmo > 0) { G.slowmo -= rdt; dt *= .3; }
-  const paused = G.menu.open && G.state === 'play' && G.menu.top?.screen !== 'shrine';
+  // The world waits while a menu is open, and while a wisp's words, a letter or a tip are being read.
+  const paused = G.state === 'play' && ((G.menu.open && G.menu.top?.screen !== 'shrine') || (G.hud.messageOpen && G.settings.readPause !== false));
   if (paused) dt = 0;
 
   if (G.state === 'play' || G.state === 'dead' || G.state === 'ending') {

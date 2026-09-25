@@ -16,35 +16,42 @@ python3 -m http.server
 # then open http://localhost:8000
 ```
 
-Keyboard and mouse or a gamepad. Click the game to capture the mouse. Progress saves to the browser
-every time you rest at a Moonwell, vanquish a warlord or clear a mission.
+Made for keyboard and mouse; a gamepad works too, laid out as Nioh's Type A. Click the game to capture the
+mouse. Progress saves to the browser every time you rest at a Moonwell, vanquish a warlord or clear a mission.
+The Controls screen (title or pause menu) shows every key, a diagram of the gamepad, and the techniques.
 
-| Action | Keyboard + mouse | Gamepad |
+| Action | Keyboard + mouse | Gamepad (Xbox · PlayStation) |
 |--------|------------------|---------|
 | Move / camera | WASD / mouse | Left / right stick |
-| Strike · strike hard | Left click · right click | RB · RT |
-| Guard (tap as a blow lands to Deflect) | Shift | LB |
-| Dash (hold to sprint) | Space | B |
-| Slide (at a sprint) · from a slide: Wingleap | Shift or Z · Space | LB or L3 · B |
-| Glide (while falling) | Hold Space | Hold B |
-| Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
+| Strike · strike hard | Left click · right click | X · Y (□ · △) |
+| Guard (tap as a blow lands to Deflect) | Shift | LB (L1) |
+| Dodge (hold to sprint) | Space | A (✕) |
+| Slide (at a sprint) · from a slide: Wingleap | Z or Shift · Space | L3 or LB · A |
+| Glide (while falling) | Hold Space | Hold A |
+| Stance High / Mid / Low | 1 · 2 · 3 (or C / X to step) | RB + Y / X / A (R1 + △ / □ / ✕) |
+| Resonance (as blue light gathers after a strike) | Tap Shift | RB (R1), or tap LB |
 | Switch between your two weapons (as a strike ends: Switch Strike) | V | D-pad left |
-| Fae Art: use · change | T (or Shift + R) · Y | LB + X · Select |
-| Aim the ranged weapon · fire (hold to draw the bow) | Ctrl or L · left click | D-pad right · RB |
-| Weapon Skill (once learned) | Hold Shift + right click | Hold LB + RT |
-| Backstep Strike · Guard Counter (once learned) | Space with no direction, then strike · strike just after a block | B with no direction, then RB · RB just after a block |
-| Charge a heavy (Moonglaive) | Hold right click | Hold RT |
-| Launcher | Hold Shift + left click | Hold LB + RB |
-| In the air: strike · Starfall · air dash | Left click · right click · Space | RB · RT · B |
-| Thorn Counter | F | LT |
+| Fae Art: use · change | T (or Shift + R) · Y | D-pad down · D-pad right |
+| Aim the ranged weapon · fire (hold to draw the bow) | Ctrl or L · left click | Hold LT · RT (L2 · R2) |
+| Weapon Skill (once learned) | Hold Shift + right click | Hold LB + Y |
+| Backstep Strike · Guard Counter (once learned) | Space with no direction, then strike · strike just after a block | A with no direction, then X · X just after a block |
+| Charge a heavy (Moonglaive) | Hold right click | Hold Y |
+| Launcher | Hold Shift + left click | Hold LB + X |
+| In the air: strike · Starfall · air dash | Left click · right click · Space | X · Y · A |
+| Thorn Counter | F | RT + B (R2 + ○) |
 | Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick |
-| Drink Moondew | R | X |
-| Interact · read a letter | E | A |
-| Fae Shift (Faelight full) | G | Y |
-| Soul Core skills: first · second | Hold G + left click · hold G + right click | Hold Y + RB · hold Y + RT |
-| Side missions (on the Crossroads map) | G | Y |
-| The Underbriar (on the Crossroads map) | R | X |
+| Drink Moondew | R | D-pad up |
+| Interact · read a letter | E | B (○) |
+| Fae Shift (Faelight full) | G | B + Y together (○ + △) |
+| Soul Core skills: first · second | Hold G + left click · hold G + right click | RT + X · RT + Y (R2 + □ · R2 + △) |
+| Side missions · the Underbriar (on the Crossroads map) | F · R | Y · X |
+| Menus: choose · back · change page · the chosen item's other actions | Enter · Esc · Q / E · F / R | A · B · LB / RB · Y / X |
 | Pause | Esc | Start |
+
+Settings (title or pause menu) are in pages as Nioh's are: **Game** (pause while reading, tips, the lock-on
+camera's height, camera distance), **Camera** (sensitivity, invert, screen shake), **Sound** and **Display**.
+With *pause while reading* on (the default), the world waits while a lantern-wisp's words, a letter or a tip
+are open.
 
 ## How it plays
 
@@ -523,6 +530,7 @@ src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
 src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
+src/menuui.js     the menus' Nioh-style chrome: header plaque, gold-lit lists, key-hint bar (keys or pad buttons), option rows, the ink-wash ring, the gamepad diagram
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

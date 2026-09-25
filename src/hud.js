@@ -1,6 +1,6 @@
 // In-game HUD, drawn with DOM elements over the canvas.
 import * as THREE from 'three';
-import { KEY_LABEL, PAD_LABEL } from './input.js';
+import { KEY_LABEL, PAD_LABEL, PS_LABEL } from './input.js';
 import { CHARMS } from './charms.js';
 import { COMBO } from './movesets.js';
 import { WEAPONS } from './player.js';
@@ -79,7 +79,7 @@ export class HUD {
     o.querySelector('small').textContent = kind; o.querySelector('b').textContent = text;
   }
 
-  key(a) { return this.G.input.usingPad ? PAD_LABEL[a] : KEY_LABEL[a]; }
+  key(a) { const i = this.G.input; return i.usingPad ? (i.padPS ? PS_LABEL : PAD_LABEL)[a] : KEY_LABEL[a]; }
 
   toast(text, cls = '') {
     const d = document.createElement('div');
@@ -250,10 +250,10 @@ export class HUD {
       q.art.classList.toggle('empty', !(p.artUses[p.art] > 0));
     }
     // Soul Cores set: each skill, its keys, and whether there is Faelight enough.
-    const cs = G.save.data.coreSlots || [], cks = cs.map(id => id ? `${id}:${p.anima >= CORES[id].cost}` : '').join('|') + this.key('shift') + this.key('light');
+    const cs = G.save.data.coreSlots || [], cks = cs.map(id => id ? `${id}:${p.anima >= CORES[id].cost}` : '').join('|') + this.key('core0') + this.key('core1');
     if (cks !== this.coreShown) {
       this.coreShown = cks;
-      this.el.querySelector('.coreslots').innerHTML = cs.map((id, i) => id ? `<div class="${p.anima >= CORES[id].cost ? 'ready' : ''}"><i>◈</i><b>${esc(CORES[id].skillName)}</b><small>${esc(this.key('shift'))}+${esc(this.key(i ? 'heavy' : 'light'))} · ${CORES[id].cost}</small></div>` : '').join('');
+      this.el.querySelector('.coreslots').innerHTML = cs.map((id, i) => id ? `<div class="${p.anima >= CORES[id].cost ? 'ready' : ''}"><i>◈</i><b>${esc(CORES[id].skillName)}</b><small>${esc(this.key(i ? 'core1' : 'core0'))} · ${CORES[id].cost}</small></div>` : '').join('');
     }
     // The ranged weapon: its ammunition (or the pod's heat), and the reticle while aimed.
     const R = RANGED[p.rangedSel];
@@ -264,7 +264,7 @@ export class HUD {
         this.rngShown = rk;
         q.rngI.style.color = '#' + R.color.toString(16).padStart(6, '0');
         q.rngB.textContent = R.ammo ? `${R.name} ×${n ?? 0}` : R.name;
-        q.rngS.textContent = p.aiming ? `${this.key('light')} to ${R.kind === 'bow' ? 'draw and loose' : 'fire'}  ·  ${this.key('aim')} to lower` : `${this.key('aim')} to aim`;
+        q.rngS.textContent = p.aiming ? `${this.key('fire')} to ${R.kind === 'bow' ? 'draw and loose' : 'fire'}  ·  ${this.G.input.usingPad ? 'let go of ' + this.key('aim') : this.key('aim')} to lower` : `${this.G.input.usingPad ? 'hold ' : ''}${this.key('aim')} to aim`;
         q.rng.classList.toggle('empty', !!R.ammo && !(n > 0));
         q.rngH.hidden = R.kind !== 'pod';
       }
