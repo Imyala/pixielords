@@ -13,6 +13,14 @@ export class CameraRig {
     this.lockTilt = 0;   // the player's own tilt while locked on (mouse or right stick, up and down)
     this.lockHeight = 1;   // settings: 0 low, 1 normal, 2 high
     this.distScale = 1;   // settings: near, normal, far
+    this.kp = new THREE.Vector3(); this.kv = new THREE.Vector3(); this.fovPunch = 0; this.baseFov = camera.fov;
+  }
+
+  // A blow's jolt: the view is knocked a little along the blow and springs back (overshooting once), and on the
+  // heaviest the lens punches in. impact.js decides how much.
+  kick(yaw, amt, punch = 0) {
+    this.kv.x += Math.sin(yaw) * amt * 9; this.kv.z += Math.cos(yaw) * amt * 9; this.kv.y -= amt * 3;
+    this.fovPunch = Math.max(this.fovPunch, punch);
   }
 
   recenter(yaw) { this.recenterT = .35; this.recenterYaw = yaw; }
@@ -81,7 +89,16 @@ export class CameraRig {
       const t = this.t * 40;
       cam.position.x += Math.sin(t * 1.1) * .18 * s; cam.position.y += Math.sin(t * 1.7 + 1) * .14 * s; cam.position.z += Math.sin(t * 1.3 + 2) * .18 * s;
     }
-    cam.lookAt(this.look.x, this.look.y + (lock ? 0 : .05), this.look.z);
+    // The jolt: a stiff spring, a little under-damped.
+    if (dt > 0) {
+      this.kv.addScaledVector(this.kp, -190 * dt).multiplyScalar(Math.max(0, 1 - 15 * dt));
+      this.kp.addScaledVector(this.kv, dt);
+      this.fovPunch = Math.max(0, this.fovPunch - dt * 5);
+    }
+    cam.position.add(this.kp);
+    cam.lookAt(this.look.x + this.kp.x * .45, this.look.y + (lock ? 0 : .05) + this.kp.y * .45, this.look.z + this.kp.z * .45);
     if (s > 0) cam.rotateZ(Math.sin(this.t * 33) * .03 * s);
+    const fov = this.baseFov - this.fovPunch * 3.5;
+    if (Math.abs(cam.fov - fov) > .01) { cam.fov = fov; cam.updateProjectionMatrix(); }
   }
 }

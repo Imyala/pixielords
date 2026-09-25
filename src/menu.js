@@ -21,7 +21,7 @@ import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MA
 import { esc, glyph, keybar, shell, panel, list, row, divider, subtabs, stats, sec, option, meter, icon, moonDisc, padDiagram } from './menuui.js';
 import { PATRONS, PATRON_ORDER, shiftText } from './patrons.js';
 import { OMENS, phaseOf } from './moontonight.js';
-import { PAD_LABEL, PS_LABEL } from './input.js';
+import { PAD_LABEL, PS_LABEL, KEY_LABEL, REBIND, keyName, boundKey, defaultKey } from './input.js';
 import { gravePetals } from './graves.js';
 import { bestiary, ACTS, ROLE_COLOR, traits, coreOf, artsOf, known } from './bestiary.js';
 import { TRIALS, TRIAL_GROUPS, TRIAL_PAY, trialLock, trialsPassed } from './trials.js';
@@ -40,6 +40,7 @@ const STATS = [
 const pct = v => `${Math.round(v * 100)}%`;
 const SETTINGS = [
   { name: 'Game', rows: [
+    { k: 'difficulty', label: 'Difficulty', vals: [0, 1, 2], names: ['Moonlit', 'Knight', 'Eclipse'], desc: 'Moonlit: foes hit for 60%, and the Deflect window is wider. Knight: the fight as it was made. Eclipse: foes are a sixth hardier, hit a third harder and press harder.' },
     { k: 'readPause', label: 'Pause while reading', vals: [true, false], names: ['On', 'Off'], desc: 'The world waits while a letter, a lantern-wisp\'s words or a tip are open.' },
     { k: 'tips', label: 'Tips', vals: [true, false], names: ['Show', 'Hide'], desc: 'A few words the first time something new is found: a weapon, gear, a Soul Core, a charm.' },
     { k: 'lockHeight', label: 'Lock-on camera height', vals: [0, 1, 2], names: ['Low', 'Normal', 'High'], desc: 'How far above the knight the camera sits while locked on. Tilt it yourself with the mouse or right stick too.' },
@@ -62,13 +63,13 @@ const SETTINGS = [
   ] },
 ];
 
-// Keyboard and mouse, grouped as the game plays.
-const KB = [
-  ['Moving', [['Move', 'W A S D'], ['Camera', 'Mouse'], ['Dodge · hold to sprint', 'Space'], ['Slide (at a sprint)', 'Z', 'Shift'], ['Wingleap (from a slide)', 'Space'], ['Glide (while falling)', 'hold Space'], ['Interact', 'E']]],
-  ['Fighting', [['Strike', 'LMB'], ['Strike hard', 'RMB'], ['Guard · tap as a blow lands to Deflect', 'Shift'], ['Stance: High / Mid / Low', '1 2 3'], ['Stance up / down', 'C', 'X'], ['Thorn Counter', 'F'], ['Lock on', 'Q', 'MMB'], ['Switch target', 'Wheel', 'Tab'], ['Switch weapon', 'V']]],
-  ['Faelight and tools', [['Fae Shift', 'G'], ['Soul Core skills', 'G+LMB', 'G+RMB'], ['Use Fae Art', 'T', 'Shift+R'], ['Change Fae Art', 'Y'], ['Aim the ranged weapon', 'Ctrl', 'L'], ['Fire (hold to draw a bow)', 'LMB'], ['Drink Moondew', 'R'], ['Pause', 'Esc']]],
-  ['Menus', [['Choose', 'Enter'], ['Back', 'Esc'], ['Tabs', 'Q', 'E'], ['Pages within a screen', 'Z', 'C'], ['The chosen item\'s other actions', 'F', 'R'], ['Hold to keep scrolling', 'W', 'S']]],
+// The keys the player may move (input.js REBIND), grouped as the game plays; and those that stay where they are.
+const REBIND_GROUPS = [
+  ['Moving', [['up', 'Move forward'], ['down', 'Move back'], ['left', 'Move left'], ['right', 'Move right'], ['dodge', 'Dodge · hold to sprint · Wingleap'], ['slide', 'Slide (at a sprint)'], ['interact', 'Interact']]],
+  ['Fighting', [['light', 'Strike'], ['heavy', 'Strike hard'], ['guard', 'Guard · tap as a blow lands to Deflect'], ['burst', 'Thorn Counter'], ['lock', 'Lock on'], ['stanceHigh', 'High stance'], ['stanceMid', 'Mid stance'], ['stanceLow', 'Low stance'], ['stanceUp', 'Stance up'], ['stanceDown', 'Stance down'], ['swap', 'Switch weapon']]],
+  ['Faelight and tools', [['shift', 'Fae Shift (hold it and strike for the Soul Cores)'], ['art', 'Use Fae Art'], ['artNext', 'Change Fae Art'], ['aim', 'Aim the ranged weapon'], ['heal', 'Drink Moondew']]],
 ];
+const FIXED_KEYS = [['Camera', 'Mouse'], ['Switch target', 'Wheel', 'Tab'], ['Pause', 'Esc'], ['Menus: choose · back', 'Enter', 'Esc'], ['Menus: tabs · pages', 'Q E', 'Z C'], ['Menus: the chosen item\'s other actions', 'F', 'R']];
 // Techniques, on both: [name, keyboard, gamepad (with P(action) for the pad's own labels)].
 const TECH = [
   ['Deflect', 'tap Shift as a blow lands', P => `tap ${P.guard} as a blow lands`],
@@ -382,6 +383,25 @@ export class Menu {
       case 'letter': this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break;
       case 'charm': if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); this.render(); break;
       case 'opt': this.setOpt(b.dataset.opt, dir); break;
+      case 'rebind': {   // wait for the next key; one already in use trades places with the old
+        const a = b.dataset.a; this.capturing = a; this.render();
+        G.input.captureNext(code => {
+          this.capturing = null;
+          if (code !== 'Escape') {
+            const map = { ...(G.settings.keys || {}) }, cur = x => map[x] || defaultKey(x);
+            const other = REBIND.find(x => x !== a && cur(x) === code);
+            if (other) map[other] = cur(a);
+            map[a] = code;
+            for (const x of Object.keys(map)) if (map[x] === defaultKey(x)) delete map[x];
+            G.setSetting('keys', map);
+            G.audio.sfx('uiOk');
+            if (other) G.hud.toast(`${keyName(code)} was on another action: they traded keys`, 'item');
+          }
+          if (this.top?.screen === 'controls') this.render();
+        });
+        break;
+      }
+      case 'resetKeys': G.setSetting('keys', {}); this.render(); break;
       case 'spage': page('page', SETTINGS.length); break;
       case 'cpage': page('page', CPAGES.length); break;
       case 'revert': G.resetSettings(); G.hud.toast('Settings returned to their defaults'); this.render(); break;
@@ -605,12 +625,18 @@ Menu.prototype.screens = {
   controls(data) {
     const G = this.G, at = data.page || 0, P = G.input.padPS ? PS_LABEL : PAD_LABEL;
     let inner;
-    if (at === 0) inner = `<div class="kbgrid">${KB.map(([grp, rows]) => `<h4>${esc(grp)}</h4>${rows.map(([n, ...ks]) => `<div class="kbrow"><span>${esc(n)}</span><span>${kbKeys(...ks)}</span></div>`).join('')}`).join('')}</div>`;
+    // Keyboard and mouse: every key the player may move is a row; choose one, then press its new key.
+    if (at === 0) inner = list(REBIND_GROUPS.map(([grp, acts]) => divider(grp) + acts.map(([a, n]) => {
+      const code = boundKey(a), moved = code !== defaultKey(a), wait = this.capturing === a;
+      return row({ act: 'rebind', cls: wait ? 'capturing' : '', title: n, extra: `data-a="${a}"`, right: wait ? '<i class="mx-wait">press a key…</i>' : `${moved ? '<i class="tag">moved</i> ' : ''}<kbd class="k kb">${esc(keyName(code))}</kbd>`,
+        desc: wait ? 'Press the new key or mouse button · Esc to cancel' : `${n}: choose to set a new key${moved ? ` (it was ${keyName(defaultKey(a))})` : ''}. A key already in use trades places.` });
+    }).join('')).join('') + divider('Where they stay') + FIXED_KEYS.map(([n, ...ks]) => `<div class="kbrow"><span>${esc(n)}</span><span>${kbKeys(...ks)}</span></div>`).join('')
+      + row({ act: 'resetKeys', icon: 'rise', title: 'Put every key back', desc: 'Every key to where it started.' }), 'dense');
     else if (at === 1) inner = padDiagram(G.input.padPS);
-    else if (at === 2) inner = `<table class="mx-table"><tr><th></th><th>Keyboard and mouse</th><th>Gamepad</th></tr>${TECH.map(([n, k, pf]) => `<tr><td>${esc(n)}</td><td>${esc(k)}</td><td>${esc(pf(P))}</td></tr>`).join('')}</table>`;
+    else if (at === 2) inner = `<table class="mx-table"><tr><th></th><th>Keyboard and mouse</th><th>Gamepad</th></tr>${TECH.map(([n, k, pf]) => { const kb = pf(KEY_LABEL); return `<tr><td>${esc(n)}</td><td>${esc(kb === 'the same' ? k : kb)}</td><td>${esc(pf(P))}</td></tr>`; }).join('')}</table>`;
     else inner = `<div class="mx-tips">${TIPS.map(([b, t]) => `<p><b>${esc(b)}</b> ${esc(t)}</p>`).join('')}</div>`;
     const body = panel(`${subtabs(G, CPAGES.map((n, i) => ({ name: n, icon: ['controls', 'controls', 'sword', 'journal'][i] })), at, 'cpage')}<div class="mx-scroll">${inner}</div>`, 'sht');
-    return { ctx: 'veil', html: this.frame({ title: 'Controls', crumb: CPAGES[at], layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Page', 'cpage'], ['back', 'Back', 'back']] }) };
+    return { ctx: 'veil', html: this.frame({ title: 'Controls', crumb: CPAGES[at], layout: 'sheet', body, hints: [at === 0 && ['confirm', 'Set a new key'], [['mSubPrev', 'mSubNext'], 'Page', 'cpage'], ['back', 'Back', 'back']].filter(Boolean) }) };
   },
   gear(data) {
     const G = this.G, d = G.save.data, g = d.gear, p = G.player, wn = id => p.weaponName(id), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);

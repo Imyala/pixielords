@@ -140,6 +140,43 @@ export class Audio {
         this.tone(g, t, .28, { type: 'sine', f0: 120, f1: 35, peak: 1.2 });
         this.tone(g, t, .1, { type: 'square', f0: 220, f1: 80, peak: .2 }); break;
       }
+      // Blows landing, by what they are: a cut's bright slice, a crush's deep thud, a stab's short punch; the ring
+      // of steel on armour laid over any of them; and a killing blow's weight. o.heavy: a heavier blow.
+      case 'hitCut': {
+        const g = d(o.heavy ? 1.05 : .85, .5), hv = o.heavy ? 1 : 0;
+        this.noiseBurst(g, t, .07 + hv * .05, { type: 'highpass', f0: 5200 - R() * 800, f1: 2000, a: .001, peak: .9 });
+        this.noiseBurst(g, t + .004, .13 + hv * .1, { type: 'lowpass', f0: 2200, f1: 260, a: .002, peak: .8 + hv * .3 });
+        this.tone(g, t, .16 + hv * .12, { type: 'sine', f0: 150 - hv * 30, f1: 45, peak: .8 + hv * .5 }); break;
+      }
+      case 'hitBlunt': {
+        const g = d(o.heavy ? 1.2 : .95, .55), hv = o.heavy ? 1 : 0;
+        this.tone(g, t, .22 + hv * .16, { type: 'sine', f0: 105 - hv * 25, f1: 30, peak: 1.3 + hv * .4 });
+        this.noiseBurst(g, t, .16 + hv * .12, { type: 'lowpass', f0: 900, f1: 90, a: .002, peak: 1.1 });
+        this.noiseBurst(g, t + .01, .06, { f0: 1400, f1: 700, q: 2.5, peak: .5 + hv * .3 });
+        if (hv) this.tone(g, t, .09, { type: 'square', f0: 160, f1: 60, peak: .22 }); break;
+      }
+      case 'hitPierce': {
+        const g = d(o.heavy ? 1 : .8, .45);
+        this.noiseBurst(g, t, .05, { f0: 3400, f1: 1800, q: 4, a: .001, peak: .9 });
+        this.noiseBurst(g, t + .02, .1, { type: 'lowpass', f0: 1600, f1: 200, peak: .7 });
+        this.tone(g, t, .12, { type: 'sine', f0: 220, f1: 70, peak: .7 + (o.heavy ? .4 : 0) }); break;
+      }
+      case 'hitArmor': {
+        const g = d(.7, .8);
+        for (const f of [880, 1470, 2290]) this.tone(g, t, .3 + R() * .15, { type: 'triangle', f0: f * (1 + R() * .04), f1: f * .96, peak: .14, a: .001 });
+        this.noiseBurst(g, t, .05, { type: 'highpass', f0: 4000, peak: .5 }); break;
+      }
+      case 'killBlow': {
+        const g = d(1.1, .8);
+        this.tone(g, t + .015, .5, { type: 'sine', f0: 70, f1: 26, peak: 1.3 });
+        this.noiseBurst(g, t, .35, { type: 'lowpass', f0: 1200, f1: 60, a: .004, peak: .8 });
+        this.noiseBurst(g, t + .03, .3, { type: 'bandpass', f0: 2600, f1: 600, q: 1.2, a: .01, peak: .35 }); break;
+      }
+      case 'bodyFall': {
+        const g = d(.8, .5);
+        this.tone(g, t, .25, { type: 'sine', f0: 90, f1: 35, peak: .9 });
+        this.noiseBurst(g, t, .3, { type: 'lowpass', f0: 600, f1: 80, a: .003, peak: .9 }); break;
+      }
       case 'playerHurt': {
         const g = d(1, .3);
         this.noiseBurst(g, t, .2, { type: 'lowpass', f0: 1500, f1: 200, a: .002, peak: 1 });

@@ -78,6 +78,8 @@ export const P = {
 // Actions: duration + keyframes [t, partialPose]. Channels not given fall back to the running pose.
 export const K = (t, o) => [t, pose(o)];
 export const LUNGE = { thLx: -.55, knL: .5, thRx: .45, knR: .35, lift: -.08 };
+// Lying on the back, knees up, blade trailing: where a crushing blow leaves the knight.
+const FLOORED = { chestRx: .25, headRx: .45, bodyRx: -1.42, lift: -.74, thLx: -.5, knL: .8, thRx: -.1, knR: .35, hiltA: -1.4, hiltR: .5, hiltH: 0, bladePitch: .2, lhX: .55, lhY: .05, lhZ: -.2, wings: 0 };
 // A variant of an action: retimed to dur, with offsets added where a key sets a channel and values set on every key.
 export function vary(src, { dur = src.dur, add = {}, set = {}, spinX = src.spinX, spinY = src.spinY } = {}) {
   return { dur, spinX, spinY, loop: src.loop, keys: src.keys.map(([t, p]) => {
@@ -175,6 +177,19 @@ export const ACTIONS = {
     K(.5, { lift: -.45, chestRx: .5, headRx: .5, bodyRx: .1, thLx: -1.5, knL: 1.6, thRx: 0, knR: 1.9, hiltA: -.8, hiltR: .3, hiltH: -.4, bladePitch: -1.4, lhX: .25, lhY: -.35, lhZ: .2 }),
     K(1.1, { lift: -.6, chestRx: .6, headRx: .6, bodyRx: 1.45, thLx: -1.3, knL: 1.2, thRx: -.4, knR: 1.3, wings: 0 }),
     K(2.2, { lift: -.75, chestRx: .3, headRx: .2, bodyRx: 1.55, thLx: -.1, knL: .2, thRx: 0, knR: .2, hiltA: -1.3, hiltR: .5, hiltH: 0, bladePitch: 0, lhX: .5, lhY: 0, lhZ: .1, wings: 0 }),
+  ] },
+  // Floored by a crushing blow: thrown back onto the ground, where the pose holds (a loop that never turns over)
+  // until the knight gets up, or rolls out.
+  knockdown: { dur: 30, loop: true, keys: [
+    K(0, { chestRx: -.5, headRx: -.5, bodyRx: -.25, hiltA: -1.1, hiltR: .3, hiltH: .15, bladePitch: 1.1, lhX: .45, lhY: .15, lhZ: 0, lift: -.05 }),
+    K(.2, { chestRx: -.3, headRx: -.35, bodyRx: -.85, lift: -.35, thLx: -.9, knL: .9, thRx: -.4, knR: .5, hiltA: -1.2, hiltR: .35, hiltH: .1, bladePitch: .8, lhX: .5, lhY: .2, lhZ: -.1, wings: .2 }),
+    K(.5, { ...FLOORED }),
+    K(30, { ...FLOORED }),
+  ] },
+  getup: { dur: .6, keys: [
+    K(0, { ...FLOORED }),
+    K(.28, { chestRx: .55, headRx: .2, bodyRx: -.3, lift: -.45, thLx: -1.5, knL: 1.9, thRx: -.2, knR: 1.1, hiltA: -.9, hiltR: .35, hiltH: -.3, bladePitch: -1, lhX: .3, lhY: -.25, lhZ: .25 }),
+    K(.6, {}),
   ] },
   rise: { dur: 1.4, keys: [
     K(0, { lift: -.42, chestRx: .35, headRx: .45, hiltA: 0, hiltR: .4, hiltH: -.3, bladeYaw: 0, bladePitch: -1.5, twoHand: 1, thLx: -1.45, knL: 1.5, thRx: .05, knR: 1.9, wings: .1 }),

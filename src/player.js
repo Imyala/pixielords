@@ -25,6 +25,7 @@ import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './mo
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND, SELF, SNARE, LANCE } from './arts.js';
 import { Trail } from './fx.js';
+import { heft, land } from './impact.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, smooth, rand } from './util.js';
 
 export const STANCES = {
@@ -893,7 +894,7 @@ export class Player {
     // Guard and Deflect (Dread attacks can't be guarded).
     const facing = this.weapon === 'aegis' || Math.abs(angleDiff(this.yaw, h.dirYaw)) < 1.4;   // Bulwark: a guard from every side
     const recovering = this.state === 'attack' && this.st * this.aspeed >= this.atk.hit[1];
-    const window = DEFLECT + (this.has('mirrorguard') ? .06 : 0) + (this.weapon === 'tonfas' ? .1 : this.weapon === 'rapier' ? .05 : 0);
+    const window = DEFLECT + (G.diff?.deflect ?? 0) + (this.has('mirrorguard') ? .06 : 0) + (this.weapon === 'tonfas' ? .1 : this.weapon === 'rapier' ? .05 : 0);
     const justPressed = G.time - this.guardPressT <= window && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
     if ((this.guarding || justPressed) && facing && !h.burst) {
       if (justPressed && !h.aoe) return this.deflect(h);
@@ -936,6 +937,14 @@ export class Player {
     G.hud.screenFlash('hurt');
     if (this.hp <= 0) { this.die(); return 'hit'; }
     const armored = (stalwart || this.frenzied() || (this.state === 'attack' && this.atk.heavy && this.st * this.aspeed > .2 && this.st * this.aspeed < this.atk.hit[1])) && !h.heavy;
+    // A crushing blow (a warlord's slam, a charge, a great heavy) floors the knight.
+    if (!armored && !this.shifted && h.heavy && !h.projectile && (h.hyper || h.kd || dmg >= this.maxHp * .2) && this.pos.y < .3) {
+      this.setState('floored'); this.anim.play('knockdown', 1.15, .03);
+      this.knock = { yaw: h.dirYaw + Math.PI, v: 7.5 };
+      this.pulse = null; this.lock = this.lock?.alive ? this.lock : null;
+      G.audio.sfx('bodyFall', { vol: .9 }); G.fx.dust(this.pos, 10);
+      return 'hit';
+    }
     if (!armored && !this.shifted) {
       this.setState('hurt'); this.hurtDur = h.heavy ? .62 : .34;
       this.anim.play(h.heavy ? 'stagger' : 'hurt', h.heavy ? 1.9 : 1.3, .03);
@@ -1494,6 +1503,16 @@ export class Player {
         if (this.st >= this.hurtDur) this.setState('free');
         break;
       }
+      // Floored: untouchable on the ground (the foe has had its blow); dash to roll out, or get up.
+      case 'floored':
+        this.iframes = this.st > .12;
+        if (this.st > .45 && take('dodge')) { this.setState('free'); this.iframesT = .35; if (this.tryStart('dodge')) break; }
+        if (this.st >= 1.25 || (this.st > .8 && (moveInput() || take('light') || take('heavy')))) { this.setState('getup'); this.anim.play('getup', 1.15, .04); }
+        break;
+      case 'getup':
+        this.iframes = true;
+        if (this.st >= .5) this.setState('free');
+        break;
       case 'stagger':
       case 'exhausted':
         if (this.st >= (this.state === 'stagger' ? 1 : .8)) { this.setState('free'); this.ki = Math.max(this.ki, this.maxKi * .25); }
@@ -1853,7 +1872,8 @@ export class Player {
     if (wid === 'staff') kb = (kb ?? (a.heavy ? 4.5 : 2)) + 2;
     if (wid === 'fans' && !(kb < 0)) kb = Math.max(kb ?? 0, 4);
     const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1) * (1 + this.gf('ki') / 100);
-    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? this.pshift?.ki ?? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
+    const H = heft(wid, a, cm);   // the blow's weight (impact.js): heavy enough, it floors an ordinary foe as its poise breaks
+    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? this.pshift?.ki ?? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined, kd: H.kd, k: H.k });
     if (!res) return;
     G.did?.('hit', { e, res, stance: this.stance, a });   // the Thornyard's trials (trials.js) listen
     this.combo.n++; this.combo.t = G.time;
@@ -1912,16 +1932,16 @@ export class Player {
     const side = this.atkKey === 'light1' || this.atkKey === 'light4' ? 1 : -1;
     const sdir = { x: Math.cos(dir) * side, z: -Math.sin(dir) * side };
     G.fx.spark(p, sdir, a.heavy ? 22 : 12, this.shifted ? this.shiftCol() : 0xffd080, a.heavy ? 8 : 6);
-    G.fx.blood(p, { x: dx / d, z: dz / d }, a.heavy ? 16 : 8, 0x2a0606);
-    G.audio.sfx(a.heavy ? 'hitHeavy' : 'hit', { x: e.pos.x, z: e.pos.z });
-    G.hitstop = Math.max(G.hitstop, a.multi ? .02 : a.heavy ? .08 : .045);
+    // Steel on steel throws sparks; flesh bleeds.
+    if (e.T.knight || e.armored || e.T.armor) G.fx.spark(p, { x: dx / d, z: dz / d }, a.heavy ? 18 : 10, 0xe8f0ff, a.heavy ? 9 : 7);
+    else G.fx.blood(p, { x: dx / d, z: dz / d }, a.heavy ? 16 : 8, 0x2a0606);
+    land(G, this, e, a, res, dir, cm);   // hit-stop, the camera's jolt, the sound (impact.js)
     if (this.weapon === 'fangs') {
       const f = this.frenzy, before = f.n;
       const wild = this.has('wildfang'), max = wild || mm ? 8 : FRENZY.max;
       f.n = Math.min(max, (G.time - f.t <= FRENZY.keep * (wild ? 1.8 : 1) ? f.n : 0) + 1); f.t = G.time;
       if (f.n === max && before < max) { G.hud.toast('Frenzy', 'anima'); G.fx.ring(this.pos, 0xffb4c8, 2, .3); }
     }
-    G.cam.shake(a.heavy ? .22 : .08);
     this.gainAnima((a.heavy ? 7 : 4) * (1 + this.gf('animaHit') / 100));
   }
 

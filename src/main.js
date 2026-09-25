@@ -1,7 +1,7 @@
 // PixieLords: a stance-based fae action game in the browser. Boot, game loop and the rules that tie the
 // systems together (Moonwells, souls and the Echo, the Gatewarden's portcullis, the Briar Seal and the boss).
 import * as THREE from 'three';
-import { Input } from './input.js';
+import { Input, applyKeys } from './input.js';
 import { Audio } from './audio.js';
 import { World, CUT } from './world.js';
 import { LEVELS, ORDER } from './levels/index.js';
@@ -184,9 +184,13 @@ G.setSetting = (k, v) => {
   if (k === 'realMoon') G.refreshTonight?.(G.level?.id);
 };
 G.resetSettings = () => { G.settings = { ...SETTINGS_DEFAULT }; saveSettings(G.settings); applySettings(); };
+// Difficulty (settings): what foes deal and how hardy they are, the Deflect window, and how hard they press.
+const DIFFICULTY = [{ dmg: .6, hp: 1, deflect: .05, aggro: .85 }, { dmg: 1, hp: 1, deflect: 0, aggro: 1 }, { dmg: 1.33, hp: 1.17, deflect: -.015, aggro: 1.15 }];
 function applySettings() {
   const s = G.settings;
   G.input.sens = s.sens; G.input.invertY = s.invertY;
+  applyKeys(s.keys || {});
+  G.diff = DIFFICULTY[s.difficulty ?? 1] || DIFFICULTY[1];
   G.audio.setVolume('master', s.master); G.audio.setVolume('music', s.music); G.audio.setVolume('sfx', s.sfx);
   G.shakeScale = s.shake;
   G.cam.lockHeight = s.lockHeight ?? 1; G.cam.distScale = [.82, 1, 1.22][s.camDist ?? 1];

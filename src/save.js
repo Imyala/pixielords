@@ -100,7 +100,7 @@ export class Save {
   }
 }
 
-export const SETTINGS_DEFAULT = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1, quality: 1, glow: true, readPause: true, tips: true, lockHeight: 1, camDist: 1, realMoon: true };
+export const SETTINGS_DEFAULT = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1, quality: 1, glow: true, difficulty: 1, keys: {}, readPause: true, tips: true, lockHeight: 1, camDist: 1, realMoon: true };
 export function loadSettings() {
   try { return { ...SETTINGS_DEFAULT, ...JSON.parse(localStorage.getItem(SKEY) || '{}') }; } catch { return { ...SETTINGS_DEFAULT }; }
 }

@@ -271,3 +271,8 @@ svg.pad{display:block;width:calc(100% - 60px);margin:4px 30px 0;height:auto} svg
   .forms3{grid-template-columns:1fr} .kbgrid{grid-template-columns:1fr} .mx-tips{columns:1}
   .nkeys{max-width:100%} .mx-help{display:none}
 }
+
+/* Rebinding a key: the row waits, lit, for the next key. */
+.mx-row.capturing{background:linear-gradient(90deg,rgba(242,184,255,.16),rgba(242,184,255,.04) 70%,transparent)}
+.mx-wait{font:italic 15px var(--f-lore);color:var(--mx-rose);animation:mxwait .9s ease-in-out infinite alternate}
+@keyframes mxwait{from{opacity:.45}to{opacity:1}}

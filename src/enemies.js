@@ -989,7 +989,7 @@ export class Enemy {
     const role = s.elite === 'boss' || s.id === 'revenant' || s.grave != null ? L.warlord : s.elite === 'warden' ? L.gatekeeper : null;
     const tier = lead ? 1 : base + wt, way = lead && wt ? { hp: tierHp(base + wt) / tierHp(base), dmg: tierDmg(base + wt) / tierDmg(base) } : null;
     this.tier = lead ? way?.hp || 1 : tier;   // Glimmer scales with it
-    this.maxHp = Math.round(T.hp * ng * tierHp(tier) * (role?.hp || 1) * (way?.hp || 1)); this.hp = this.maxHp;
+    this.maxHp = Math.round(T.hp * ng * tierHp(tier) * (role?.hp || 1) * (way?.hp || 1) * (this.G.diff?.hp ?? 1)); this.hp = this.maxHp;
     this.maxKi = Math.round(T.ki * (1 + (tier - 1) * .5) * (role ? 1 + ((role.hp || 1) - 1) * .5 : 1) * (way ? 1 + (way.hp - 1) * .3 : 1)); this.ki = this.maxKi;
     this.dmgMul = (1 + (ng - 1) * .6) * tierDmg(tier) * (role?.dmg || 1) * (way?.dmg || 1) * (this.G.tonight?.foeDmg || 1) * (T.dmgScale || 1);   // a new moon's dark; a grave's knight, as strong as the mission's Duel
     this.poiseDmg = 0; this.poiseT = 0; this.kiT = 0;
@@ -1258,7 +1258,7 @@ export class Enemy {
     if (this.state !== 'grappled') {
       const kb = (hit.kb ?? (hit.heavy ? 4.5 : 2)) * (this.boss ? .15 : this.elite ? .35 : 1);
       this.impulse.x += Math.sin(hit.dir) * kb; this.impulse.z += Math.cos(hit.dir) * kb;
-      this.pulseAnim(hit.heavy ? 'heavy' : 'hit', this.boss ? .4 : this.elite ? .6 : 1);
+      this.pulseAnim(hit.heavy ? 'heavy' : 'hit', (this.boss ? .4 : this.elite ? .6 : 1) * Math.min(1.6, Math.max(.7, hit.k || 1)), hit.dir);
     }
     if (this.hp <= 0) { this.die(hit); return 'kill'; }
     if (this.state === 'grappled') return 'hit';
@@ -1273,6 +1273,8 @@ export class Enemy {
     const armored = this.armored || this.chantT > G.time || this.step && this.phase === 'active' && this.step.hyper || (this.step && this.step.hyper && this.phase === 'windup' && this.pt > this.step.windup * .4);
     if (this.poiseDmg >= (this.poise ?? this.T.poise) && !armored && this.state !== 'broken') {
       this.poiseDmg = 0;
+      // A blow heavy enough (a heavy weapon's heavy, a finisher, a full charge) floors an ordinary foe.
+      if (hit.kd && this.knockdown(hit.dir, hit.k || 2)) return 'stagger';
       this.hurt(hit.heavy ? .55 : .36);
       return 'stagger';
     }
@@ -1305,6 +1307,23 @@ export class Enemy {
     this.state = 'hurt'; this.st = 0; this.hurtDur = dur;
     this.kplay('hurt', 1.2, .03);
     this.G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * 1.2, vol: .6 });
+  }
+
+  // Floored by a heavy blow: thrown back along it, down a moment (blows land harder on the floored), then up.
+  // Which way it falls follows the blow: struck from behind, it pitches forward onto its face.
+  knockdown(dir, k = 2) {
+    if (this.boss || this.elite || !this.alive || ['air', 'down', 'grappled', 'dead', 'broken'].includes(this.state)) return false;
+    const G = this.G;
+    this.endAttack();
+    this.fallDir = Math.cos(angleDiff(dir, this.yaw)) > .2 ? -1 : 1;
+    this.state = 'down'; this.st = 0; this.downDur = 1.15 + Math.min(.5, (k - 1.9) * .3);
+    const f = 2 + k * .9;
+    this.impulse.x += Math.sin(dir) * f; this.impulse.z += Math.cos(dir) * f;
+    this.animVel.hop += 2.5;
+    G.fx.dust(this.pos, 10);
+    G.audio.sfx('bodyFall', { x: this.pos.x, z: this.pos.z });
+    G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * 1.25, vol: .5 });
+    return true;
   }
 
   breakKi() {
@@ -1348,6 +1367,15 @@ export class Enemy {
   die(hit) {
     const G = this.G;
     this.endAttack();
+    // It falls away from the killing blow (forward if struck from behind); a heavy blow throws it further.
+    const dir = hit?.dir ?? this.yaw + Math.PI, k = hit?.k || (hit?.heavy ? 1.6 : 1);
+    this.fallDir = Math.cos(angleDiff(dir, this.yaw)) > .2 ? -1 : 1;
+    if (this.state !== 'grappled' && !this.boss) {
+      const f = (this.elite ? 1.5 : 2.5) * Math.min(2.4, k);
+      this.impulse.x += Math.sin(dir) * f; this.impulse.z += Math.cos(dir) * f;
+      if (k >= 1.6 && !this.elite) this.animVel.hop += 2 * Math.min(2, k - .6);
+    }
+    this.fallSound = false;
     this.state = 'dead'; this.st = 0; this.hp = 0;
     this.kplay('death', 1, .05);
     if (this.armored) this.shatterArmor();
@@ -1578,10 +1606,10 @@ export class Enemy {
   }
 
   deliver(s, from, p = this.foe()) {
-    const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1) * (this.G.realmAt?.(this.pos) ? 1.15 : 1);   // an Umbral Realm's foes hit harder
+    const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1) * (this.G.realmAt?.(this.pos) ? 1.15 : 1) * (this.G.diff?.dmg ?? 1);   // an Umbral Realm's foes hit harder; the difficulty
     const res = p.receiveHit({
       dmg, from: this, burst: !!s.burst, poison: (s.poison || 0) + (this.has('blight') ? 30 : 0), chill: (s.chill || 0) + (this.has('rime') ? 22 : 0), heavy: s.dmg >= 60,
-      dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe,
+      dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe, hyper: !!s.hyper, kd: !!s.kd,
     });
     this.hitDone = true;
     if (res === 'hit' && this.champion) {
@@ -1750,7 +1778,7 @@ export class Enemy {
       this.think = rand(.16, .3);
       const a = this.pickAttack(d);
       const tokens = G.attackTokens || 0;
-      const eager = Math.random() < (T.aggro || .7);
+      const eager = Math.random() < (T.aggro || .7) * (G.diff?.aggro ?? 1);
       // A pair of warlords mostly take turns: one presses while the other circles.
       const waiting = this.partner?.alive && this.partner.state === 'attack' && !a?.once && Math.random() < .65;
       if (a && !waiting && (this.boss || this.elite || tokens < 2 || ranged) && (eager || this.boss)) { this.startAttack(a); return; }
@@ -1833,6 +1861,7 @@ export class Enemy {
 
   updateDead(dt) {
     this.fadeT += dt;
+    if (!this.fallSound && this.fadeT > (this.kn ? .9 : .45)) { this.fallSound = true; this.G.audio.sfx('bodyFall', { x: this.pos.x, z: this.pos.z, vol: this.boss ? 1 : .6 }); this.G.fx.dust(this.pos, this.boss ? 16 : 6); }
     if (this.pos.y > 0) { this.deadVy -= 24 * dt; this.pos.y = Math.max(0, this.pos.y + this.deadVy * dt); }
     if (this.fadeT > 1.1) {
       this.mat.transparent = true;
@@ -1844,10 +1873,13 @@ export class Enemy {
   }
 
   // A one-off jolt layered on top of the pose springs (hits, hops, deflects).
-  pulseAnim(kind, k = 1) {
+  // dir: the way the blow travelled. It rocks the body away from it: back from the front, forward from behind,
+  // over to the side (and twisting) from the flank.
+  pulseAnim(kind, k = 1, dir) {
     const v = this.animVel;
-    if (kind === 'hit') { v.pitch -= 7 * k; v.twist += (Math.random() - .5) * 8 * k; v.sq -= 2 * k; }
-    if (kind === 'heavy') { v.pitch -= 12 * k; v.twist += (Math.random() - .5) * 12 * k; v.sq -= 3.5 * k; }
+    const rel = dir === undefined ? Math.PI : angleDiff(dir, this.yaw), fwd = Math.cos(rel), side = Math.sin(rel);
+    if (kind === 'hit') { v.pitch += 7 * k * fwd; v.roll += 6 * k * side; v.twist += (side * 5 + (Math.random() - .5) * 4) * k; v.sq -= 2 * k; }
+    if (kind === 'heavy') { v.pitch += 12 * k * fwd; v.roll += 10 * k * side; v.twist += (side * 8 + (Math.random() - .5) * 6) * k; v.sq -= 3.5 * k; }
     if (kind === 'deflected') { v.pitch -= 10 * k; v.aL += 10 * k; v.aR += 10 * k; }
     if (kind === 'hop') { v.roll += (Math.random() < .5 ? -1 : 1) * 6; v.hop += 3; }
   }
@@ -1891,10 +1923,10 @@ export class Enemy {
         tg.cPi = -.4; tg.hPi = -.3; tg.eL = -.9; tg.eR = -.3; tg.kL = 1.1; tg.kR = .5; tg.sL = -.6; tg.sR = .2; break;
       case 'down': {
         const up = clamp((this.st - (this.downDur - .45)) / .45, 0, 1);
-        tg.pitch = -1.4 * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0;
+        tg.pitch = -1.4 * (this.fallDir || 1) * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0;
         tg.cPi = -.25 * (1 - up) + .3 * up * (1 - up) * 4; tg.hPi = -.4 * (1 - up); tg.kL = .9 * (1 - up) + .6 * up * (1 - up) * 4; tg.kR = .4; tg.eL = tg.eR = -.6; break;
       }
-      case 'dead': tg.pitch = -1.45; tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; tg.cPi = .2; tg.hPi = -.3; tg.kL = .7; tg.kR = .3; tg.eL = -.4; break;
+      case 'dead': tg.pitch = -1.45 * (this.fallDir || 1); tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; tg.cPi = .2; tg.hPi = -.3; tg.kL = .7; tg.kR = .3; tg.eL = -.4; break;
       case 'attack': {
         walk *= .3;
         const w = this.phase === 'windup' ? E(this.pt / this.stepDur.windup) : 1;
@@ -2046,6 +2078,9 @@ export class Enemy {
     const sp = Math.hypot(fwdV, sideV);
     if (this.state === 'broken' && !A.action) A.play('stagger', .45, .1);
     if (this.state === 'dead' && A.name !== 'death') A.play('death', 1, .05);
+    // Floored: down on its back, then up again as the knight does.
+    if (this.state === 'down') { const up = this.st > this.downDur - .55; if (!up && A.name !== 'knockdown') A.play('knockdown', 1.2, .04); else if (up && A.name !== 'getup') A.play('getup', 1, .05); }
+    else if (A.name === 'knockdown') A.stop();
     A.update(dt, { speed: ['engage', 'patrol', 'return', 'alert', 'idle'].includes(this.state) ? spd / this.T.scale : 0, forward: sp > .1 ? fwdV / sp : 1, side: sp > .1 ? sideV / sp : 0,
       sprint: run > .5 && this.state === 'engage', stance: 'mid', weapon: this.T.weapon || 'sword', shifted: this.phase2 });
     const swinging = this.state === 'attack' && s && !s.blink && (this.phase === 'active' || (this.phase === 'recover' && this.pt < .12) || (this.phase === 'windup' && this.pt > this.stepDur.windup * .7));

@@ -49,6 +49,10 @@ The Controls screen (title or pause menu) shows every key, a diagram of the game
 | Side missions · the Underbriar (on the Crossroads map) | F · R | Y · X |
 | Menus: choose · back · tabs · pages within a screen · the chosen item's other actions | Enter · Esc · Q / E · Z / C · F / R | A · B · LB / RB · LT / RT · Y / X |
 | Pause | Esc | Start |
+| Floored: roll out · get up | Space · any move or strike | A · left stick or X |
+
+Every keyboard and mouse key can be moved: **Controls → Keyboard & Mouse** lists them, and choosing one waits
+for its new key (a key already in use trades places; Esc cancels; *Put every key back* resets them all).
 
 The menus are one frame of moonglass and briar. The pause menu and a Moonwell are each a row of tabs along the
 top (the pause menu: Knight, Equipment, Arsenal, Skills, Movesets, Wardrobe, Journal, Bestiary, Deeds, Settings,
@@ -75,7 +79,9 @@ settings turns it off for a plainer, lighter image.
 
 Settings (title or pause menu) are in pages as Nioh's are: **Game** (pause while reading, tips, the lock-on
 camera's height, camera distance), **Camera** (sensitivity, invert, screen shake), **Sound** and **Display**
-(quality, glow and grade).
+(quality, glow and grade). **Difficulty** (Game page): *Moonlit* (foes hit for 60% and the Deflect window is
+wider), *Knight* (as the fight was made) or *Eclipse* (foes a sixth hardier, a third harder-hitting and more
+eager).
 With *pause while reading* on (the default), the world waits while a lantern-wisp's words, a letter or a tip
 are open.
 
@@ -192,6 +198,20 @@ size; the mouse or right stick tilts it further up or down.
 - **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
   knight: tap guard then for **Resonance** and the stamina flows back. Change stance in that moment for a
   Resonant Shift.
+- **How a blow lands.** Every weapon has a weight (daggers and fans flick, swords cut, glaives and the Aegis
+  swing broad, the Thornhammer, Warblade and Grinder's Wheel crash) and a material (it cuts, crushes or
+  stabs). A strike's heft follows from both, heavier still for a heavy, a finisher or a charge, lighter for each
+  beat of a flurry: the heavier, the longer the world holds on impact, the harder the camera is jolted along the
+  blow (and the lens punches in on the heaviest), and the deeper its sound (a cut's slice, a crush's thud, a
+  stab's punch, and a ring of steel on armour, which throws sparks rather than blood). Foes rock away from where
+  a blow comes from (back from the front, forward from behind, over from the flank). A heavy enough blow (a
+  heavy weapon's heavy, any finisher from a glaive up, a full charge) that breaks an ordinary foe's poise
+  **floors** it: thrown back along the blow, down a moment (blows land harder on the floored), then up. Foes
+  fall away from the killing blow, thrown further by a heavy one; the last foe of a fight, or an elite or
+  warlord, falls with a moment of slowed time.
+- **Floored.** A crushing blow (a warlord's slam, a charge, anything that would take a fifth of your health)
+  knocks the knight flat. Nothing touches you on the ground: dash to roll out at once, or get up (any move or
+  strike after a moment, or on your own a second later).
 - **Deflect and Flashcut.** Tap guard just as a blow lands to Deflect it. Strike straight after for a
   **Flashcut**: one draw-cut that fells ordinary foes outright, bites deep into elites and warlords, and
   chains from foe to foe.
@@ -760,7 +780,8 @@ src/levels/       one file per mission (keep, rotwood, deep, moonspire, frostmer
 src/foes2.js      the second act's foes, gatekeepers, warlords and Revenants
 src/foes3.js      the third act's, on the moon
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
-src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision and shake
+src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision, shake, and a blow's jolt and lens punch
+src/impact.js     how a blow lands: each weapon's weight and material, a strike's heft, and from them hit-stop, the camera's jolt, the sound, knockdowns and a killing blow's weight
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        the HUD: stance crest, bars, the quick-slot cross, lock-on mark, boss bar, prompts, banners, letters and the ? / ! markers over foes
@@ -776,7 +797,8 @@ src/kindred.js    Kindred Spirits: tonight's kindred at a mission's Moonwells, a
 src/umbral.js     Umbral Realms: which foe hosts a mission's realm, its look, and who stands in it
 src/bestiary.js   the Bestiary: every foe placed in a mission, its role, act, arts, ways and Soul Core
 src/menuui.js     the menus' pieces: the frame (title, tab spine, chips, help line, key bar), panels, rows with the crescent cursor, pages, options, the icon set, the moon, the gamepad diagram
-src/save.js       localStorage save and settings
+src/save.js       localStorage save and settings (the difficulty and the player's keys among them)
+src/input.js      keyboard, mouse and gamepad folded into named actions; the pad's chords; rebinding keys and naming them
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs
 ```

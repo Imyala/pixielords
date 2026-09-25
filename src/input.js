@@ -48,6 +48,30 @@ const BIND = {
   mSubNext: ['KeyC', 'Pad7'],
 };
 
+// Rebinding (Controls → Rebind keys): each of these actions has one main keyboard or mouse key that the player may
+// move; its other keys (arrows, the right Shift, J / K) stay unless another action takes them. Pad buttons don't move.
+export const REBIND = ['light', 'heavy', 'guard', 'dodge', 'burst', 'lock', 'heal', 'interact', 'shift', 'swap', 'slide', 'art', 'artNext', 'aim',
+  'stanceHigh', 'stanceMid', 'stanceLow', 'stanceUp', 'stanceDown', 'up', 'down', 'left', 'right'];
+const kbCode = c => !c.startsWith('Pad') && !c.startsWith('Wheel');
+const ORIG = Object.fromEntries(REBIND.map(a => [a, [...BIND[a]]]));
+const DEFAULT_KEY = Object.fromEntries(REBIND.map(a => [a, ORIG[a].find(kbCode)]));
+export const defaultKey = a => DEFAULT_KEY[a];
+export const boundKey = a => (BIND[a] || []).find(kbCode);
+// A key's name as printed on it.
+const NAMED = { Mouse0: 'LMB', Mouse1: 'MMB', Mouse2: 'RMB', Mouse3: 'Mouse 4', Mouse4: 'Mouse 5', ShiftLeft: 'Shift', ShiftRight: 'R-Shift', ControlLeft: 'Ctrl', ControlRight: 'R-Ctrl',
+  AltLeft: 'Alt', AltRight: 'R-Alt', Space: 'Space', Tab: 'Tab', CapsLock: 'Caps', Enter: 'Enter', Backspace: 'Bksp', Escape: 'Esc', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+  Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/' };
+export const keyName = code => NAMED[code] || (code || '?').replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
+// Put the player's keys in place (map: action → code; missing means the default), and relabel everything shown.
+export function applyKeys(map = {}) {
+  const main = Object.fromEntries(REBIND.map(a => [a, map[a] || DEFAULT_KEY[a]])), taken = new Set(Object.values(main));
+  for (const a of REBIND) BIND[a] = [main[a], ...ORIG[a].filter(c => c !== DEFAULT_KEY[a] && !(kbCode(c) && taken.has(c)))];
+  const n = a => keyName(main[a]);
+  Object.assign(KEY_LABEL, { light: n('light'), heavy: n('heavy'), guard: n('guard'), dodge: n('dodge'), burst: n('burst'), lock: n('lock'), heal: n('heal'), interact: n('interact'),
+    shift: n('shift'), swap: n('swap'), slide: n('slide'), art: n('art'), artNext: n('artNext'), aim: n('aim'), fire: n('light'),
+    stance: `${n('stanceHigh')} ${n('stanceMid')} ${n('stanceLow')}`, core0: `${n('shift')} + ${n('light')}`, core1: `${n('shift')} + ${n('heavy')}`, pulse: `${n('guard')} (tap)` });
+}
+
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
   interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V', slide: 'Z', art: 'T', artNext: 'Y', aim: 'Ctrl',
@@ -86,6 +110,7 @@ export class Input {
     addEventListener('keydown', e => {
       if (e.code === 'Tab' || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
       if (e.repeat) return;
+      if (this.capture) { e.preventDefault(); const f = this.capture; this.capture = null; f(e.code); return; }   // rebinding: the next key
       this.usingPad = false;
       down(e.code);
     });
@@ -96,6 +121,8 @@ export class Input {
       down('Mouse' + e.button);
     });
     addEventListener('mouseup', e => up('Mouse' + e.button));
+    // Rebinding takes a mouse button pressed anywhere, the menu included.
+    addEventListener('mousedown', e => { if (!this.capture || this.captureT > performance.now()) return; e.preventDefault(); e.stopPropagation(); const f = this.capture; this.capture = null; f('Mouse' + e.button); }, true);
     el.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mousemove', e => {
       if (!this.locked) return;
@@ -111,6 +138,9 @@ export class Input {
     addEventListener('blur', () => { for (const c of this.held) this.released.add(c); this.held.clear(); });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === el; });
   }
+
+  // The next key or mouse button pressed goes to f(code) instead of the game (Escape: f('Escape'), to cancel).
+  captureNext(f) { this.capture = f; this.captureT = performance.now() + 150; }
 
   requestLock() {
     try { const p = this.el.requestPointerLock?.(); p?.catch?.(() => {}); } catch { /* not allowed here */ }
