@@ -40,6 +40,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Fae Shift (Faelight full) | G | Y |
 | Soul Core skills: first · second | Hold G + left click · hold G + right click | Hold Y + RB · hold Y + RT |
 | Side missions (on the Crossroads map) | G | Y |
+| The Underbriar (on the Crossroads map) | R | X |
 | Pause | Esc | Start |
 
 ## How it plays
@@ -234,7 +235,9 @@ The armour sets:
 | Winter Court | the Frostmere | chill builds half as fast | one strike in five frosts foes, slowing them |
 
 Item levels run 1–6 in the Grubhold, 8–14 in the Rotwood, 16–22 in the Deep, 24–30 on the Moonspire and
-32–38 on the Frostmere, twenty higher each New Game+, which keeps your gear, skills and weapons.
+32–38 on the Frostmere, twenty higher each New Game+ (each Way, below), which keeps your gear, skills and
+weapons. In the Underbriar they run about two per depth. From the Way of the Thorn on, a sixth rarity drops:
+**Divine**, with five effects and the highest multiplier of all.
 
 How the fifteen newest fight (the first five are in [How it plays](#how-it-plays)):
 
@@ -364,6 +367,58 @@ Rare or Fabled gear (Moonlit, the first time through the Frostmere's hardest). T
 double Glimmer and an extra piece. Hunts and Duels always leave their foe's Soul Core. Abandon a side run from
 the pause menu, or set out elsewhere from any Moonwell.
 
+### The Underbriar
+
+An endless maze beneath the Fae Crossroads, open once the Grubhold is cleared (the "Underbriar" button on the
+map, or R / X there). Like Nioh's Abyss, every **depth** is made anew from a seed: a start room, a chain of four
+to six rooms joined by briar-hung passages, and side rooms off them holding Glimmer and Moondew draughts (a
+draught fills one flask there and then). Each run of five depths is dressed as one of the missions (the
+Grubhold's halls, the Rotwood's cliffs and trees, the Deep's crystals and stalagmites, the Moonspire's marble,
+the Frostmere's snow) and peopled by that mission's foes; past the twenty-fifth depth the foes of every mission
+wander together.
+
+- **Slay every foe** on a depth and the Pixie Gate down opens, with Glimmer for the depth. The HUD counts them.
+- **Every fifth depth** ends in a warlord's arena behind a Briar Seal: the gatekeepers and warlords of the five
+  missions in turn, then the five Revenants, then round again, harder. Each leaves Rare gear or better (Fabled
+  from the twentieth depth) and its Soul Core.
+- **The depth after each warlord holds a lit Moonwell**, a checkpoint. The other depths' Moonwells are dim.
+  Health, Moondew and Faelight carry from depth to depth; only a lit Moonwell refills them.
+- **Fall, and you wake at the last lit Moonwell** you reached; your Echo waits where you fell, on that depth.
+- Start again from the first depth or any lit Moonwell you have reached. The Underbriar remembers your deepest.
+
+Foes grow hardier the deeper you go (by the twenty-first depth, as hardy as the Frostmere's; past the
+seventy-fifth, everything, warlords included, keeps growing), Champions rise more often, and gear drops at
+higher levels and rarer.
+
+### Champions and the Ways
+
+**Champions** are foes risen with the moon's leftover light: one or more affixes, shown in the name over their
+bar and a ring in the first affix's colour at their feet. They have 60% more health, hit a little harder, and
+pay out as elites do (twice the Glimmer, gear more often and better, a chance of a Soul Core).
+
+| Affix | What it does |
+|---|---|
+| Swift | moves and strikes a quarter faster |
+| Bloodthirsty | mends itself with every blow it lands |
+| Emberborn | its blows leave you standing in fire, and it trails flame |
+| Rimebound | its blows chill you |
+| Blighted | its blows build blight |
+| Warded | a ward soaks a third of its health in blows; left alone six seconds, it returns |
+| Wrathful | below a third of its health it rages: harder and faster |
+| Stoneskin | hardier still, and hard to stagger |
+| Stormcaller | calls lightning down where you stand (move off the marked circle) |
+| Phasing | steps through the air to your back |
+
+The roll is seeded by mission, foe and Way, so the same foe is the same Champion every time you meet it.
+Gatekeepers, warlords and Revenants are never Champions.
+
+Each New Game+ is a **Way**, as Nioh's difficulties are: the **Way of the Knight** (the first walk), the **Way
+of the Thorn**, the **Way of the Moon**, the **Way of the Fae Lord**, and then the Fae Lord +1, +2... Each keeps
+your level, gear, weapons, Soul Cores, skills, side-mission record and Underbriar record, and begins the
+missions again with foes half again as hardy, hitting harder, gear twenty levels higher, and Champions: a few
+on the first Way (never in the Grubhold), one in seven on the Thorn, more with two affixes on the Moon, and up
+to three affixes on the Fae Lord. Divine gear drops from the Way of the Thorn on, more often on each Way after.
+
 Missions are data. Each file in `src/levels/` describes one: where it sits on the Fae Crossroads, its areas,
 fog and light, Moonwells, foes, items (an item can wait inside a breakable), letters, Lost Pixies, gate,
 seal and exit (and, for a fight whose arena gives way, where the ice breaks), plus a `build()` that dresses
@@ -388,6 +443,9 @@ src/gear.js       gear: rarities, the effect pool, armour sets and their bonuses
 src/loot.js       loot on the ground: what fallen foes drop (gear and Soul Cores), the beams, walking over it to take it
 src/cores.js      Soul Cores: the 24 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
 src/sides.js      side missions: Twilight, Hunts and Duels for each mission, their foes, difficulty, loot and spoils
+src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in five looks, foes, treasure, warlord arenas), checkpoints and scaling
+src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
+src/ways.js       the Ways (New Game+ cycles): names, what each asks, and Divine gear's weight
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses

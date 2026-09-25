@@ -1,5 +1,7 @@
 // Progress lives in localStorage; the game still runs (without saving) if storage is blocked.
 // Each mission keeps its own Moonwells, fallen bosses and taken items; stats and Glimmer are shared.
+import { wayName } from './ways.js';
+
 const KEY = 'pixielords-save-v1';
 const SKEY = 'pixielords-settings-v1';
 
@@ -12,6 +14,7 @@ export const forgeCost = rank => Math.round(700 * 1.42 ** rank);
 export const freshGear = () => ({ items: ['head', 'body', 'hands', 'legs'].map((slot, i) => ({ uid: i + 1, kind: 'armor', slot, set: 'errant', lvl: 1, rar: 0, fx: [] })),
   equip: { weapons: {}, armor: { head: 1, body: 2, hands: 3, legs: 4 } }, uid: 4 });
 
+export const freshAbyss = () => ({ depth: 1, best: 0, cps: [1], seed: 1 + Math.floor(Math.random() * 99999) });
 export const freshMission = () => ({ shrine: null, kindled: [], dead: [], items: [], cleared: false });
 
 export function freshSave(ng = 0) {
@@ -24,6 +27,7 @@ export function freshSave(ng = 0) {
     gear: freshGear(),   // gear found and worn (gear.js)
     cores: {}, coreSlots: [null, null],   // Soul Cores held (how many of each, fused) and the two set (cores.js)
     sides: {}, side: null,   // side missions done (how often), and the one under way (sides.js)
+    abyss: freshAbyss(),   // the Underbriar: the depth you are on, the deepest cleared, lit Moonwells reached (underbriar.js)
   };
 }
 
@@ -57,6 +61,7 @@ function migrate(d) {
   d.mastery ||= {};
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
   d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {}; d.side ||= null;
+  d.abyss ||= freshAbyss();
   return d;
 }
 
@@ -81,7 +86,7 @@ export class Save {
   mission(id) { return (this.data.missions[id] ||= freshMission()); }
   summary(levels) {
     const d = this.data, m = Math.floor(d.time / 60);
-    return `${levels?.[d.mission]?.name || ''}${d.side ? ' (side mission)' : ''} · Level ${this.level} · ${m} min${d.ng ? ` · NG+${d.ng}` : ''}`;
+    return `${d.mission === 'underbriar' ? `The Underbriar · Depth ${d.abyss?.depth || 1}` : levels?.[d.mission]?.name || ''}${d.side ? ' (side mission)' : ''} · Level ${this.level} · ${m} min${d.ng ? ` · ${wayName(d.ng)}` : ''}`;
   }
   reset(ng = 0) { this.data = freshSave(ng); }
   write() {

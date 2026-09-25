@@ -1,5 +1,5 @@
 // Gear, as in Nioh: foes drop weapons (only of kinds you already carry) and pieces of armour. Every piece has a
-// rarity (Common, Fine, Rare, Fabled, Moonlit: the rarer, the more effects), an item level (higher in later
+// rarity (Common, Fine, Rare, Fabled, Moonlit and, from the Way of the Thorn on, Divine: the rarer, the more effects), an item level (higher in later
 // missions and every New Game+) and effects rolled from a pool. A weapon's level and rarity raise its damage;
 // armour's raise its defence. Armour belongs to a set, and two or four pieces of one set wake its bonuses.
 // Equip it in the Gear screen; dismantle what you won't wear for Glimmer. This file is data and arithmetic:
@@ -11,6 +11,7 @@ export const RARITY = [
   { name: 'Rare', color: 0x6ab4ff, fx: 2, mul: 1.06, w: 13 },
   { name: 'Fabled', color: 0xc88aff, fx: 3, mul: 1.1, w: 4.4 },
   { name: 'Moonlit', color: 0xffd36a, fx: 4, mul: 1.15, w: .6 },
+  { name: 'Divine', color: 0xff7ad8, fx: 5, mul: 1.22, w: 0 },   // its weight comes from the Way (ways.js)
 ];
 export const SLOTS = ['head', 'body', 'hands', 'legs'];
 export const SLOT_NAME = { head: 'Helm', body: 'Mail', hands: 'Gauntlets', legs: 'Greaves' };
@@ -85,9 +86,9 @@ export const armorDef = it => (it ? Math.round(BASE_DEF[it.slot] * (1 + (it.lvl 
 export const defReduce = def => Math.min(.5, def / (def + 400));
 export const dismantleValue = it => Math.round((20 + it.lvl * 6) * (1 + it.rar * .8));
 
-// A rarity, rolled: better foes (luck > 0) shift it upward.
-export function rollRarity(luck = 0, rnd = Math.random) {
-  const w = RARITY.map((r, i) => r.w * (1 + luck * i * .8));
+// A rarity, rolled: better foes (luck > 0) shift it upward; divine is Divine gear's weight (ways.js).
+export function rollRarity(luck = 0, rnd = Math.random, divine = 0) {
+  const w = RARITY.map((r, i) => (i === 5 ? divine : r.w) * (1 + Math.max(0, luck) * i * .8));
   let x = rnd() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return i; }
   return 0;

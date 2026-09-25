@@ -11,6 +11,7 @@ import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, 
 import { PACK } from './loot.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES, sidesOf } from './sides.js';
+import { wayName, wayDesc } from './ways.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -46,6 +47,7 @@ const CONTROLS = [
   ['Fae Shift (Faelight full)', 'G', 'Y'],
   ['Soul Core skills: first  ·  second', 'Hold G + left click  ·  hold G + right click', 'Hold Y + RB  ·  hold Y + RT'],
   ['Side missions (on the Crossroads map)', 'G', 'Y'],
+  ['The Underbriar (on the Crossroads map)', 'R', 'X'],
   ['Pause', 'Esc', 'Start'],
 ];
 
@@ -98,6 +100,7 @@ export class Menu {
       if (!O.entering) for (const d of ['left', 'right', 'up', 'down']) if (inp.hit(d)) O.step(d);
       if (inp.hit('confirm')) this.el.querySelector('.owpanel [data-act=setout]:not([disabled])')?.click();
       if (inp.hit('shift') && !O.entering) this.el.querySelector('.owpanel [data-act=sides]:not([disabled])')?.click();
+      if (inp.hit('heal') && !O.entering) this.el.querySelector('.owpanel [data-act=underbriar]')?.click();
       if (inp.hit('back') && ['shrine', 'title'].includes(this.top.data?.from) && !O.entering) { this.G.audio.sfx('ui'); this.pop(); }
       return;
     }
@@ -149,6 +152,9 @@ export class Menu {
       case 'sides': this.push('sides', { m: b.dataset.id, from: this.top.data?.from }); break;
       case 'side': this.pop(); G.overworld.enter(b.dataset.m, b.dataset.id); break;
       case 'abandon': G.abandonSide(); break;
+      case 'underbriar': this.push('underbriar', { from: this.top.data?.from }); break;
+      case 'descend': G.menu.close(); G.enterUnderbriar(+b.dataset.depth); break;
+      case 'leaveAbyss': G.leaveUnderbriar(); break;
       case 'charms': this.push('charms'); break;
       case 'journal': this.push('journal'); break;
       case 'moves': this.push('moves', { w: G.player.weapon }); break;
@@ -176,7 +182,7 @@ export class Menu {
   render() {
     const { screen, data } = this.top, G = this.G;
     this.el.className = 'on ' + screen;
-    G.overworld?.setActive(screen === 'map' || screen === 'sides');
+    G.overworld?.setActive(screen === 'map' || screen === 'sides' || screen === 'underbriar');
     let h = '';
     if (screen === 'title') {
       const has = G.save.exists, ready = G.ready;
@@ -200,7 +206,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button>${G.sideDef() ? '<button class="btn" data-act="abandon">Abandon side mission</button>' : ''}<button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button>${G.sideDef() ? '<button class="btn" data-act="abandon">Abandon side mission</button>' : ''}${G.level.depth ? '<button class="btn" data-act="leaveAbyss">Leave the Underbriar</button>' : ''}<button class="btn" data-act="quit">Quit to title</button></div>
         ${G.sideDef() ? `<p class="dim">${esc(G.sideDef().name)}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.</p>` : ''}
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
@@ -214,6 +220,9 @@ export class Menu {
           <p><b>Gear</b>: foes drop weapons and armour, marked by beams of light in their rarity's colour; walk over them to take them. Rarer pieces carry more effects, and two or four pieces of one armour set wake its bonuses. Equip under Gear; dismantle the rest for Glimmer.</p>
           <p><b>Soul Cores</b>: fallen foes sometimes leave a violet core (elites often, gatekeepers, warlords and Revenants always). Set two under Gear: each lends a passive and a skill. Hold Fae Shift and strike for the first, strike hard for the second; skills cost Faelight. A core found again fuses into the one you hold and grows stronger.</p>
           <p><b>Side missions</b>: a cleared mission offers three more on the Crossroads map. <b>Twilight</b> runs the whole mission under a blood moon, every foe hardier and its gear better; a <b>Hunt</b> sends you after its gatekeeper, returned stronger; a <b>Duel</b> sets you against a <b>Revenant</b>, a fallen fae knight who fights with your own weapons. Each can be run again for more spoils.</p>
+          <p><b>Champions</b>: now and then a foe rises with one or more affixes (Swift, Bloodthirsty, Emberborn, Rimebound, Blighted, Warded, Wrathful, Stoneskin, Stormcaller, Phasing), named for them and ringed in their colour. Hardier and more dangerous, they pay out as elites do. More come on later Ways, in Twilight and deep in the Underbriar.</p>
+          <p><b>Ways</b>: each New Game+ is a Way: the Thorn, the Moon, the Fae Lord and beyond. Foes grow hardier, Champions carry more affixes, gear drops higher, and <b>Divine</b> gear, the rarest, appears.</p>
+          <p><b>The Underbriar</b> (from the Crossroads map, once the Grubhold is cleared): an endless maze made anew at every depth. Slay every foe to open the way down; every fifth depth ends with a warlord, and the next holds a lit Moonwell to start from again. Health and Moondew carry from depth to depth; fall, and you wake at the last lit Moonwell.</p>
           <p><b>Skills</b>: every weapon learns from use. Blows landed earn it mastery and skill points; spend them under Skills on new moves (a Backstep Strike, a Guard Counter, an Air Finisher, the weapon's own Weapon Skill on guard + heavy) and on mastery of its ways.</p>
           <p><b>Ranged weapons</b>: aim to bring the camera over your shoulder, strike to fire. The Wisp Pod needs no ammunition but overheats; the Moonbow draws while you hold strike; the rifle and hand cannon hit hardest but reload slowly. Shots to the head hit harder. Ammunition refills at every Moonwell.</p>
           <p><b>Fae Arts</b>: thrown darts and pixie bombs, and brands that set your weapon burning, crackling or frosting for thirty seconds. Their uses return at every Moonwell.</p>
@@ -287,13 +296,13 @@ export class Menu {
       const keys = G.input.usingPad ? 'D-pad or stick to travel · A to set out' + (data?.from === 'cleared' ? '' : ' · B to go back') : 'Arrows or WASD to travel · Enter to set out' + (data?.from === 'cleared' ? '' : ' · Esc to go back') + ' · or click a landmark';
       h = `<div class="owlabels">${labels}</div>
         <div class="panel owpanel">
-          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level}+</div>
+          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level + d.ng * 20}+${d.ng ? ' · ' + esc(wayName(d.ng)) : ''}</div>
           <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
           ${opening ? '<div class="kicker">A new path opens</div>' : ''}
           <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
           ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span></div>` : ''}
           ${st === 'cleared' && !opening ? `<div class="owsides">${sidesOf(id).map(S => `<span class="mtag ${d.sides?.[S.id] ? 'cleared' : 'new'}" title="${esc(S.name)}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('')}</div>` : ''}
-          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${st === 'cleared' && !opening ? `<button class="btn" data-act="sides" data-id="${id}">Side missions <small>${esc(G.hud.key('shift'))}</small></button>` : ''}${back}</div>
+          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${st === 'cleared' && !opening ? `<button class="btn" data-act="sides" data-id="${id}">Side missions <small>${esc(G.hud.key('shift'))}</small></button>` : ''}${d.missions.keep?.cleared && !opening ? `<button class="btn" data-act="underbriar">The Underbriar <small>${esc(G.hud.key('heal'))} · deepest ${d.abyss?.best || 0}</small></button>` : ''}${back}</div>
           <div class="foot">${keys}</div>
         </div>
         <div class="owfade"></div>`;
@@ -307,6 +316,17 @@ export class Menu {
       h = `<div class="panel wide sides"><div class="kicker">${esc(L.name)} · side missions</div><h2>Side Missions</h2>
         <div class="map">${rows}</div>
         <p class="dim">A side run keeps its own Moonwells and leaves the mission's own as they were. Spoils: Glimmer and gear of Rare or better; its gatekeeper or Revenant always leaves its Soul Core.</p>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'underbriar') {
+      // The endless maze under the Crossroads: start from the first depth or any lit Moonwell reached.
+      const a = G.save.data.abyss || { cps: [1], best: 0 };
+      const rows = [...a.cps].sort((x, y) => y - x).map(cp => {
+        const L = G.LEVELS[['keep', 'rotwood', 'deep', 'moonspire', 'frostmere'][Math.floor((cp - 1) / 5) % 5]];
+        return `<button class="btn side" data-act="descend" data-depth="${cp}"><span class="kicker">Depth ${cp} · Lv ${Math.round(1 + (cp - 1) * 2.3) + G.save.data.ng * 20}+${cp === 1 ? ' · the beginning' : ' · a lit Moonwell'}</span><b>Descend from Depth ${cp}</b><small>Its halls are dressed as ${esc(L.name)}'s.</small></button>`;
+      }).join('');
+      h = `<div class="panel wide sides"><div class="kicker">Beneath the Fae Crossroads · deepest cleared: ${a.best || 0}</div><h2>The Underbriar</h2>
+        <p>An endless maze where everything the moon ever lit goes to dream, made anew at every depth. Slay every foe on a depth to open the way down; every fifth depth ends with a warlord, and the depth after it holds a lit Moonwell to start from again. The deeper, the harder, and the richer.</p>
+        <div class="map">${rows}</div>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'sidecleared') {
       const S = SIDES[data.id], g = G.save.data.gear, got = data.spoils.map(uid => g.items.find(it => it.uid === uid)).filter(Boolean);
@@ -459,8 +479,9 @@ export class Menu {
       const sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
       h = `<div class="panel ending"><h1>${esc(G.level.endingTitle || 'THE PATHS ARE STILL')}</h1>
         <p>${esc(G.level.ending || G.level.outro || '')}</p>
-        <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Cycle</small><b>${sv.ng + 1}</b></div></div>
-        <div class="btns"><button class="btn" data-act="ngplus">Journey again · New Game+</button><button class="btn" data-act="missions">Walk the Fae Crossroads</button><button class="btn" data-act="title">Return to title</button></div></div>`;
+        <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Way</small><b>${esc(wayName(sv.ng))}</b></div></div>
+        <p class="dim">Next: <b>${esc(wayName(sv.ng + 1))}</b>. ${esc(wayDesc(sv.ng + 1))} You keep your level, gear, weapons, Soul Cores and skills; the missions begin again.</p>
+        <div class="btns"><button class="btn" data-act="ngplus">Walk the ${esc(wayName(sv.ng + 1))} · New Game+</button><button class="btn" data-act="missions">Walk the Fae Crossroads</button><button class="btn" data-act="title">Return to title</button></div></div>`;
     }
     this.el.innerHTML = h;
     if (screen === 'map') G.overworld.bindLabels(this.el);

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createModel, MODEL_SIZE } from './models3d.js';
 import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
+import { AFFIXES, rollChampion, championDress, championDispose } from './champions.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
 // ---------------------------------------------------------------- definitions
@@ -894,6 +895,7 @@ export class Enemy {
     this.mat.dispose();
     this.shell?.material.dispose();
     for (const m of this.crown?.userData.mats || []) m.dispose();
+    championDispose(this);
     if (this.kn) { this.G.scene.remove(this.kn.trail.mesh); this.kn.trail.mesh.geometry.dispose(); this.kn.trail.mat.dispose(); }
   }
 
@@ -967,6 +969,64 @@ export class Enemy {
     this.notice = 0; this.susShown = false; this.lookAt = null; this.idleGoal = null; this.idleYaw = null; this.idleT = null;
     for (const m of this.crown?.userData.mats || []) { m.transparent = m.userData.t ??= m.transparent; m.opacity = m.userData.o ??= m.opacity; }
     if (this.kn) { this.kn.anim.stop(); this.kn.trail.samples.length = 0; this.kn.k.mats.blade.emissiveIntensity = .5; this.kn.k.mats.wing.color.setHex(T.knight.wing); }
+    this.makeChampion(rollChampion(this.G, this));
+  }
+
+  // Champions (champions.js): hardier, named for their affixes, glowing in the first one's colour.
+  makeChampion(affixes) {
+    const T = this.T, has = id => affixes.includes(id);
+    this.affixes = affixes; this.champion = affixes.length > 0;
+    this.name = this.champion ? `${affixes.map(id => AFFIXES[id].name).join(' ')} ${T.name}` : T.name;
+    this.poise = T.poise; this.ward = this.wardMax = 0; this.wrathOn = false; this.storms = [];
+    if (this.champion) {
+      const hp = 1.6 * (has('stone') ? 1.35 : 1);
+      this.maxHp = Math.round(this.maxHp * hp); this.hp = this.maxHp;
+      this.maxKi = Math.round(this.maxKi * (has('stone') ? 1.5 : 1.2)); this.ki = this.maxKi;
+      this.poise = T.poise * (has('stone') ? 2.4 : 1.3);
+      this.dmgMul *= 1.1;
+      if (has('warded')) this.ward = this.wardMax = Math.round(this.maxHp * .3);
+      this.stormT = 3 + Math.random() * 3; this.phaseT = 5 + Math.random() * 3; this.trailT = 1;
+      this.mat.emissive.setHex(AFFIXES[affixes[0]].color); this.mat.emissiveIntensity = .3;
+    }
+    if (this.champion || this.champFx) championDress(this);
+  }
+  has(affix) { return this.champion && this.affixes.includes(affix); }
+
+  // A champion's affixes at work each frame: the ward returning, wrath, lightning and phasing.
+  championTick(dt, d) {
+    const G = this.G, p = G.player;
+    if (this.ward < this.wardMax && G.time - (this.lastHitT || 0) > 6) this.ward = Math.min(this.wardMax, this.ward + this.wardMax * .3 * dt);
+    if (this.champFx) {
+      this.champFx.ward.visible = this.ward > 0; this.champFx.ward.material.opacity = .06 + .14 * this.ward / (this.wardMax || 1);
+      this.champFx.ring.material.opacity = .45 + Math.sin(G.time * 4 + this.pos.x) * .2;
+    }
+    if (Math.random() < dt * 5) G.fx.motes({ x: this.pos.x + rand(-.4, .4), y: rand(.2, this.height), z: this.pos.z + rand(-.4, .4) }, AFFIXES[this.affixes[Math.floor(Math.random() * this.affixes.length)]].color, 1, .2, .6, .08, .8);
+    if (!this.aware || !p.alive) return;
+    if (this.has('wrath') && !this.wrathOn && this.hp < this.maxHp / 3) {
+      this.wrathOn = true; this.dmgMul *= 1.35;
+      G.fx.ring(this.pos, 0xff5030, 3.5, .5); G.fx.burstAura({ x: this.pos.x, y: 0, z: this.pos.z }, 0xff4020, 6, this.height, this.radius + .3);
+      G.audio.sfx('roar', { x: this.pos.x, z: this.pos.z, vol: .6, pitch: 1.3 });
+      this.mat.emissive.setHex(0xff3010); this.mat.emissiveIntensity = .55;
+    }
+    if (this.has('ember') && this.state === 'engage' && (this.trailT -= dt) <= 0) { this.trailT = 2.6; G.projectiles.hazard(this.pos.x, this.pos.z, 1.1, 3.5, 24, 'fire', true); }
+    if (this.has('storm') && d < 16 && (this.stormT -= dt) <= 0) {
+      this.stormT = 6 + Math.random() * 3;
+      const at = { x: p.pos.x, z: p.pos.z };
+      G.fx.telegraph(at, 1.7, .95, 0xd8c8ff);
+      this.storms.push({ ...at, t: G.time + .95 });
+    }
+    for (let i = this.storms.length - 1; i >= 0; i--) {
+      const b = this.storms[i];
+      if (G.time < b.t) continue;
+      this.storms.splice(i, 1);
+      G.fx.bolt({ x: b.x, y: 14, z: b.z }, { x: b.x, y: 0, z: b.z }, 0xe0d4ff, .3); G.fx.ring(b, 0xd8c8ff, 1.9, .3); G.fx.flash({ x: b.x, y: 1, z: b.z }, 0xd8c8ff, 3, .2);
+      G.audio.sfx('storm', { x: b.x, z: b.z });
+      if (Math.hypot(p.pos.x - b.x, p.pos.z - b.z) < 1.7 + p.radius) p.receiveHit({ dmg: 42 * this.dmgMul, from: this, aoe: true, dirYaw: yawTo(p.pos.x, p.pos.z, b.x, b.z) });
+    }
+    if (this.has('phasing') && this.state === 'engage' && d > 1.5 && d < 14 && (this.phaseT -= dt) <= 0) {
+      this.phaseT = 7 + Math.random() * 3;
+      this.blinkAway(true); this.think = Math.min(this.think, .12);
+    }
   }
 
   // Rime armour: blows glance off until the foe is Shattered, which breaks the armour for good.
@@ -1108,6 +1168,13 @@ export class Enemy {
       }
     }
     let dmg = hit.dmg * (this.state === 'down' ? 1.2 : 1);   // a floored foe takes more
+    this.lastHitT = G.time;
+    if (this.ward > 0) {   // a Warded champion's ward takes the blow first
+      const a = Math.min(this.ward, dmg); this.ward -= a; dmg -= a;
+      G.fx.spark(new THREE.Vector3(this.pos.x, this.height * .6, this.pos.z), { x: Math.sin(hit.dir || 0), z: Math.cos(hit.dir || 0) }, 10, 0x9fd0ff, 5);
+      if (this.ward <= 0) { G.fx.shatter({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 30, 0x9fd0ff, 5); G.audio.sfx('shatter', { x: this.pos.x, z: this.pos.z, vol: .6 }); G.hud.toast('Ward broken', 'item'); }
+      hit = { ...hit, ki: (hit.ki || 0) * .4, poise: 0 };
+    }
     if (this.armored) {
       dmg *= this.T.armor.reduce ?? .35; hit = { ...hit, ki: (hit.ki || 0) * 1.15, poise: 0 };
       G.fx.shatter({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 6, 0xdff4ff, 3);
@@ -1136,7 +1203,7 @@ export class Enemy {
     if (this.state === 'down') return 'hit';
     if (this.ki <= 0 && this.state !== 'broken') { this.breakKi(); return 'broken'; }
     const armored = this.armored || this.chantT > G.time || this.step && this.phase === 'active' && this.step.hyper || (this.step && this.step.hyper && this.phase === 'windup' && this.pt > this.step.windup * .4);
-    if (this.poiseDmg >= this.T.poise && !armored && this.state !== 'broken') {
+    if (this.poiseDmg >= (this.poise ?? this.T.poise) && !armored && this.state !== 'broken') {
       this.poiseDmg = 0;
       this.hurt(hit.heavy ? .55 : .36);
       return 'stagger';
@@ -1442,11 +1509,16 @@ export class Enemy {
 
   deliver(s, from) {
     const p = this.G.player;
+    const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1);
     const res = p.receiveHit({
-      dmg: s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1), from: this, burst: !!s.burst, poison: s.poison || 0, chill: s.chill || 0, heavy: s.dmg >= 60,
+      dmg, from: this, burst: !!s.burst, poison: (s.poison || 0) + (this.has('blight') ? 30 : 0), chill: (s.chill || 0) + (this.has('rime') ? 22 : 0), heavy: s.dmg >= 60,
       dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe,
     });
     this.hitDone = true;
+    if (res === 'hit' && this.champion) {
+      if (this.has('vampiric') && this.alive) { this.hp = Math.min(this.maxHp, this.hp + Math.max(dmg * .8, this.maxHp * .05)); this.G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xff3a5a, 10, .5, 1, .1, .7); }
+      if (this.has('ember')) this.G.projectiles.hazard(p.pos.x, p.pos.z, 1.3, 2.5, 30, 'fire');
+    }
     return res;
   }
 
@@ -1494,6 +1566,7 @@ export class Enemy {
     const G = this.G, p = G.player;
     // Fae Art brands: Emberbrand's fire eats health; Rimebrand's frost slows everything the foe does.
     if (this.burnT > 0 && this.alive) this.tickBurn(dt);
+    if (this.champion && this.alive) { if (this.has('swift')) dt *= 1.25; if (this.wrathOn) dt *= 1.15; }
     if (this.slowT > 0) {
       this.slowT -= dt; dt *= this.boss ? .82 : .62;
       if (Math.random() < dt * 12) G.fx.motes({ x: this.pos.x + rand(-.3, .3), y: rand(.3, this.height), z: this.pos.z + rand(-.3, .3) }, 0xcfeaff, 1, .2, .2, .08, .8);
@@ -1513,6 +1586,7 @@ export class Enemy {
     const d = this.distToPlayer();
     const toP = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z);
     this.think -= dt;
+    if (this.champion) this.championTick(dt, d);
 
     switch (this.state) {
       case 'sleep':

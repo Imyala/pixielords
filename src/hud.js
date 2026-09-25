@@ -7,6 +7,7 @@ import { WEAPONS } from './player.js';
 import { ARTS } from './arts.js';
 import { RANGED } from './ranged.js';
 import { CORES } from './cores.js';
+import { AFFIXES } from './champions.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -196,8 +197,8 @@ export class HUD {
     let b = this.bars.get(e);
     if (!b) {
       b = document.createElement('div'); b.className = 'ebar';
-      b.innerHTML = '<div class="eh"><i class="trail"></i><i class="fill"></i></div><div class="ek"><i class="fill"></i></div><span class="dmg"></span>';
-      b._fill = b.querySelector('.eh .fill'); b._trail = b.querySelector('.eh .trail'); b._ki = b.querySelector('.ek .fill'); b._dmg = b.querySelector('.dmg');
+      b.innerHTML = '<div class="eh"><i class="trail"></i><i class="fill"></i></div><div class="ek"><i class="fill"></i></div><span class="dmg"></span><span class="cname"></span>';
+      b._fill = b.querySelector('.eh .fill'); b._cn = b.querySelector('.cname'); b._trail = b.querySelector('.eh .trail'); b._ki = b.querySelector('.ek .fill'); b._dmg = b.querySelector('.dmg');
       b._tr = 1;
       this.q.ebars.appendChild(b); this.bars.set(e, b);
     }
@@ -313,7 +314,9 @@ export class HUD {
 
     // Enemy bars above heads.
     for (const e of G.enemies) {
-      const want = e.alive && !e.boss && !this.bossList.includes(e) && (e.barT > 0 || e === L) && e.hp < e.maxHp + (e === L ? 1 : 0);
+      // Champions show their bar and name as soon as they notice you.
+      const champ = e.champion && e.aware && e.distToPlayer() < 16;
+      const want = e.alive && !e.boss && !this.bossList.includes(e) && (((e.barT > 0 || e === L) && e.hp < e.maxHp + (e === L ? 1 : 0)) || champ);
       let b = this.bars.get(e);
       if (!want) { if (b) b.style.display = 'none'; continue; }
       b = this.bar(e);
@@ -326,6 +329,8 @@ export class HUD {
       b._fill.style.transform = `scaleX(${f})`; b._trail.style.transform = `scaleX(${b._tr})`;
       b._ki.style.transform = `scaleX(${Math.max(0, e.ki / e.maxKi)})`;
       b.classList.toggle('broken', e.state === 'broken');
+      b.classList.toggle('warded', e.ward > 0);
+      if (b._cnFor !== e.name) { b._cnFor = e.name; b._cn.textContent = e.champion ? e.affixes.map(a => AFFIXES[a].name).join(' · ') : ''; b._cn.style.color = e.champion ? '#' + AFFIXES[e.affixes[0]].color.toString(16).padStart(6, '0') : ''; }
       b._dmg.textContent = e.dmgShown > 0 ? Math.round(e.dmgShown) : '';
     }
 

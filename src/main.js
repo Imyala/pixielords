@@ -14,7 +14,7 @@ import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
-import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear, freshMission } from './save.js';
+import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear, freshMission, freshAbyss } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
@@ -24,6 +24,8 @@ import { Loot, PACK } from './loot.js';
 import { RARITY, itemName, dismantleValue } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
+import { wayName, wayDesc } from './ways.js';
+import { makeFloor, isCheckpoint, checkpointOf, isBossDepth } from './underbriar.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -37,6 +39,13 @@ const armoryFrom = (kind, mission) => Object.keys(ARMORY).filter(id => ARMORY[id
 const rangedFrom = (kind, mission) => Object.keys(RANGED).filter(id => RANGED[id].source?.[kind] === mission);
 // The side mission under way (sides.js), or null.
 const sideDef = () => SIDES[G.save.data.side] || null;
+// In the Underbriar (underbriar.js): its depths are made as they are reached, not kept in LEVELS.
+const abyss = () => G.level?.id === 'underbriar';
+const levelFor = id => {
+  if (id !== 'underbriar') return LEVELS[id] || LEVELS.keep;
+  const a = G.save.data.abyss ||= freshAbyss();
+  return G.level?.id === 'underbriar' && G.level.depth === a.depth ? G.level : makeFloor(a.depth, a.seed);
+};
 G.sideDef = sideDef; G.SIDES = SIDES;
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
@@ -102,7 +111,7 @@ G.save = new Save();
 G.input = new Input(canvas);
 G.audio = new Audio();
 G.fx = new FX(scene);
-G.level = LEVELS[G.save.data.mission] || LEVELS.keep;
+G.level = levelFor(G.save.data.mission);
 G.world = new World(G, G.level);
 G.cam = new CameraRig(camera, G.world);
 G.hud = new HUD(G);
@@ -175,13 +184,14 @@ async function loadEnemies() {
   G.bosses = bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
   G.boss = G.bosses[0];
   G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
+  if (L.depth) for (const b of G.bosses) b.boss = true;   // a depth's warlord waits behind its seal, whatever it was
 }
 
 const bossIds = L => [].concat(L.boss);
 
 // Swap in another mission's world and foes.
 async function setLevel(id) {
-  const L = LEVELS[id] || LEVELS.keep;
+  const L = levelFor(id);
   if (G.level === L && G.enemies.length) return;
   G.loading = true;
   if (G.level !== L) {
@@ -211,7 +221,7 @@ function applyWorldState() {
   const d = G.save.data, m = G.save.m, L = G.level, S = sideDef();
   syncSide();
   G.player.lock = null;
-  G.ngMul = (1 + d.ng * .5) * (S?.hard || 1);
+  G.ngMul = (1 + d.ng * .5) * (S?.hard || 1) * (L.depthMul || 1);
   for (const e of G.enemies) {
     e.reset();
     if (e.spawn.add || m.dead.includes(e.id)) e.kill();
@@ -226,20 +236,79 @@ function applyWorldState() {
   const bossDead = G.bosses.every(b => m.dead.includes(b.id));
   G.world.setBreaks(false);
   G.world.setFogGate(!bossDead);
-  G.world.setExit(bossDead && !S);
+  G.world.setExit(abyss() ? !!m.cleared : bossDead && !S);
   G.world.resetBreakables();
   // A side run finds the mission's items already taken (they were, the first time through).
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, !!S || m.items.includes(it.id));
   for (const l of G.world.letters) G.world.setLetterRead(l.id, d.letters.includes(L.id + ':' + l.id));
   for (const px of G.world.pixieList) G.world.setPixie(px.id, d.pixies.includes(L.id + ':' + px.id));
-  for (const s of Object.values(L.shrines)) s.fx.lit = m.kindled.includes(s.id) ? 1 : 0;
+  for (const s of Object.values(L.shrines)) s.fx.lit = !s.dim && m.kindled.includes(s.id) ? 1 : 0;
   G.projectiles.clear();
   for (const h of L.hazards || []) G.projectiles.hazard(h.x, h.z, h.r, Infinity, h.poison ?? 45, h.kind, true);
   G.attackTokens = 0;
   G.bossFight = false;
   G.hud.setBoss(null);
   G.hud.objective(S && S.kindName, S && (S.kind === 'twilight' ? `Fell ${G.bosses.map(b => b.name.split(',')[0]).join(' and ')}` : `Fell ${(G.sideTarget?.name || '').split(',')[0]}`));
+  if (abyss()) abyssObjective();
   updateGrave();
+}
+
+// ---------------------------------------------------------------- the Underbriar
+// What a depth asks: its warlord, every foe, or nothing more (the way down is open).
+function abyssObjective() {
+  const L = G.level, m = G.save.m, left = abyssLeft();
+  G.hud.objective(`Underbriar · Depth ${L.depth}`, m.cleared ? 'The way down is open' : L.isBoss ? `Fell ${G.bosses.map(b => b.name.split(',')[0]).join(' and ')}` : `Slay every foe · ${left} remain${left === 1 ? 's' : ''}`);
+}
+const abyssLeft = () => G.enemies.filter(e => e.alive && !e.spawn.add && !G.bosses.includes(e)).length;
+// Every foe down (or the warlord): the Pixie Gate opens, with Glimmer for the depth, and the record grows.
+function depthCleared() {
+  const d = G.save.data, m = G.save.m, L = G.level, a = d.abyss;
+  if (m.cleared) return;
+  m.cleared = true;
+  const gl = Math.round(90 * L.depth ** 1.2 * (1 + d.ng * .5));
+  a.best = Math.max(a.best || 0, L.depth);
+  G.save.glimmer += gl; G.hud.addGlimmer(gl);
+  G.after(.8, () => { G.world.setExit(true); G.hud.toast(`Depth ${L.depth} cleared · ${gl.toLocaleString()} Glimmer · the way down opens`, 'item'); G.audio.sfx('rest'); });
+  abyssObjective();
+  G.save.write();
+}
+// A depth's warlord falls: its spoils (a piece of Rare gear or better), and the way down.
+function abyssWarlordFell() {
+  const L = G.level, m = G.save.m;
+  for (const b of G.bosses) if (!m.dead.includes(b.id)) m.dead.push(b.id);
+  for (const e of G.enemies) if (e.spawn.add && e.alive) e.die({});
+  G.slowmo = 1.4; G.audio.music('none');
+  const it = G.loot.roll(1.8, L.depth >= 20 ? 3 : 2);
+  G.after(1.4, () => { G.hud.big('WARLORD OF THE DEPTH FELLED', 'gold felled', 5, `Depth ${L.depth} · the next holds a lit Moonwell`); G.audio.sfx('felled'); G.hud.setBoss(null); G.bossFight = false; });
+  G.after(3.6, () => { if (!G.takeGear(it)) G.save.glimmer += dismantleValue(it); });
+  G.after(4.2, () => { G.world.setFogGate(false); depthCleared(); G.audio.music('explore'); });
+}
+// Into the Underbriar at a depth (a lit Moonwell's), or on down through the Pixie Gate.
+// carry: health, Moondew and Faelight brought down from the depth above (a Moonwell is the only refill).
+G.enterUnderbriar = async (depth, descending = false, carry = null) => {
+  const d = G.save.data, a = d.abyss ||= freshAbyss();
+  if (!descending && !a.cps.includes(depth)) return false;
+  if (!descending && d.mission !== 'underbriar') a.from = d.mission;
+  d.mission = 'underbriar'; d.side = null; d.sideRun = null;
+  a.depth = depth;
+  if (isCheckpoint(depth) && !a.cps.includes(depth)) a.cps.push(depth);
+  d.missions.underbriar = freshMission();
+  G.save.write();
+  await startRun();
+  const L = G.level, p = G.player;
+  if (carry) { p.hp = Math.min(p.maxHp, carry.hp); p.elixirs = carry.elixirs; p.anima = carry.anima; }
+  G.after(1, () => G.hud.big(`DEPTH ${depth}`, 'intro side', 4, `${LEVELS[L.theme]?.name.replace(/^The /, 'The Underbriar of the ') || 'The Underbriar'}${L.lit ? ' · a Moonwell burns here' : ''}${isBossDepth(depth) ? ' · a warlord waits below' : ''}`));
+  if (!a.tip) { a.tip = true; G.tipAfter(5.5, 'The Underbriar: slay every foe on a depth to open the Pixie Gate down. Every fifth depth ends with a warlord; the next depth has a lit Moonwell to rest at and start from again. Fall, and you wake at the last lit Moonwell you reached.'); }
+  return true;
+};
+G.leaveUnderbriar = () => { G.menu.close(); G.openMap('cleared', G.save.data.abyss?.from || 'keep'); };
+function descend() {
+  const p = G.player, a = G.save.data.abyss;
+  G.controlsOn = false; p.iframesT = 99;
+  G.audio.sfx('shift'); G.hud.fadeTo(true, 1);
+  a.best = Math.max(a.best || 0, G.level.depth);
+  const carry = { hp: p.hp, elixirs: p.elixirs, anima: p.anima };
+  G.after(1.1, () => G.enterUnderbriar(G.level.depth + 1, true, carry));
 }
 
 // A duel's Revenant joins the mission's foes while the side run lasts, in the warlord's place; leaving the
@@ -280,7 +349,7 @@ function beginSide(S, m) {
 
 G.updateGrave = () => updateGrave();
 // An Echo lies in the mission, or side run, where the knight fell.
-const graveHere = g => !!g && g.mission === G.level.id && (g.side || null) === (G.save.data.side || null);
+const graveHere = g => !!g && g.mission === G.level.id && (g.side || null) === (G.save.data.side || null) && (g.depth || 0) === (G.level.depth || 0);
 function updateGrave() {
   const g = G.save.data.grave;
   grave.visible = graveHere(g);
@@ -313,7 +382,7 @@ async function startRun() {
   syncUnlocks();
   G.traveling = false;
   timers.length = 0;
-  if (G.level.id !== G.save.data.mission || !G.enemies.length) {
+  if (G.level.id !== G.save.data.mission || !G.enemies.length || (G.level.depth && G.level.depth !== G.save.data.abyss?.depth)) {
     G.hud.fadeTo(true, .3); G.menu.close(); G.hud.loading(true);
     await setLevel(G.save.data.mission);
     G.hud.loading(false);
@@ -367,11 +436,13 @@ G.startSide = async id => {
 G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
-    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides };
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' } };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
-  await startRun(); missionIntro();
+  await startRun();
+  G.after(1.2, () => G.hud.big(wayName(d.ng + 1), 'intro side', 6, wayDesc(d.ng + 1)));
+  G.after(7.5, missionIntro);
 };
 
 G.quitToTitle = () => {
@@ -401,20 +472,21 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
-  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
+  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
   G.loot.dropFrom(e, e === G.sideTarget);
   G.save.glimmer += amt;
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
   G.fx.wisps(at, Math.min(24, 4 + Math.round(amt / 60)), to, () => G.audio.sfx('glimmer', { vol: .5 }));
   // Souls: green motes mend, violet motes feed Faelight. They wait where they fell until you come close.
-  const big = e.boss ? 3 : e.elite ? 2 : 0;
+  const big = e.boss ? 3 : e.elite || e.champion ? 2 : 0;
   const life = big ? 4 * big : (Math.random() < .6 ? 1 : 0) + (hit.flash ? 1 : 0), fae = big ? 3 * big : Math.random() < .5 ? 1 : 0;
   G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
   const S = sideDef();
-  if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else if (S) sideComplete(S); else bossDefeated(); }
+  if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else if (S) sideComplete(S); else if (abyss()) abyssWarlordFell(); else bossDefeated(); }
   else if (e === G.gatekeeper) { if (S?.kind === 'hunt') sideComplete(S); else gatekeeperDefeated(); }
+  if (abyss() && !e.spawn.add && !G.bosses.includes(e)) { if (!G.level.isBoss && !abyssLeft()) depthCleared(); else abyssObjective(); }
 };
 
 // ---------------------------------------------------------------- breakables, letters and Lost Pixies
@@ -669,7 +741,7 @@ G.onPlayerDeath = () => {
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
   d.deaths++;
-  d.grave = d.glimmer > 0 ? { mission: G.level.id, side: d.side || null, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
+  d.grave = d.glimmer > 0 ? { mission: G.level.id, side: d.side || null, depth: G.level.depth || 0, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
   d.glimmer = 0;
   G.save.write();
   G.audio.music('none');
@@ -682,6 +754,8 @@ G.onPlayerDeath = () => {
 
 function respawn() {
   if (G.state !== 'dead') return;
+  // In the Underbriar you wake at the last lit Moonwell, depths above.
+  if (abyss() && checkpointOf(G.level.depth) !== G.level.depth) { G.enterUnderbriar(checkpointOf(G.level.depth), true); return; }
   applyWorldState();
   placeAtShrine(G.save.m.shrine);
   G.player.anima = 0;
@@ -859,7 +933,9 @@ function findInteractable() {
 function interact(it) {
   const p = G.player, d = G.save.data, m = G.save.m;
   switch (it.kind) {
-    case 'shrine': rest(it.shrine); break;
+    case 'shrine':
+      if (it.shrine.dim) { G.hud.toast('This Moonwell is dim: only those past a warlord burn', 'warn'); G.audio.sfx('ui'); break; }
+      rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
     case 'letter': readLetter(it); break;
     case 'item': {
@@ -868,6 +944,7 @@ function interact(it) {
       G.world.setItemTaken(item.id, true);
       if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
       if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
+      if (item.kind === 'dew') p.elixirs = Math.min(d.elixirMax, p.elixirs + 1);
       if (item.kind === 'charm') {
         const first = !d.charms.length;
         grantCharm(item.charm, true);
@@ -895,6 +972,7 @@ function interact(it) {
       G.audio.sfx('fog');
       break;
     case 'exit': {
+      if (abyss()) { descend(); break; }
       G.state = 'ending'; G.controlsOn = false;
       p.poisoned = 0; p.poison = 0; p.thaw(); p.iframesT = 99;
       // Mission cleared: unlock the next one.

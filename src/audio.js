@@ -236,6 +236,12 @@ export class Audio {
         this.noiseBurst(g, t, .9, { type: 'lowpass', f0: 3000, f1: 60, a: .002, peak: 1.2 });
         this.tone(g, t, .7, { type: 'sine', f0: 70, f1: 25, peak: 1.3 }); break;
       }
+      case 'storm': {   // a bolt out of a clear sky: the crack, then the rumble
+        const g = d(1, 1);
+        this.noiseBurst(g, t, .18, { type: 'highpass', f0: 6000, f1: 2000, a: .001, peak: 1.1 });
+        this.noiseBurst(g, t + .05, 1.1, { type: 'lowpass', f0: 900, f1: 50, a: .05, peak: .9 });
+        this.tone(g, t, .5, { type: 'sawtooth', f0: 180, f1: 40, peak: .25 }); break;
+      }
       case 'magic': {
         const g = d(.5, 1);
         this.tone(g, t, .8, { type: 'sine', f0: 300, f1: 900, a: .2, peak: .25 });
