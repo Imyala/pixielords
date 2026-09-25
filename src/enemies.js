@@ -742,6 +742,7 @@ export class Projectiles {
             this.hazard(o.position.x, o.position.z, pr.frost, 5, 32, 'frost');
           } else if (pr.kind === 'bomb') {
             fx.explosion(o.position, 2.4); G.audio.sfx('explode', { x: o.position.x, z: o.position.z }); G.cam.shake(.35, o.position);
+            G.world.smash(o.position.x, o.position.z, 2.2);
             const d = Math.hypot(p.pos.x - o.position.x, p.pos.z - o.position.z);
             if (d < 2.4 + p.radius) p.receiveHit({ dmg: pr.dmg, from: pr.from, dirYaw: yawTo(p.pos.x, p.pos.z, o.position.x, o.position.z), aoe: true, heavy: true });
             if (pr.fire) this.hazard(o.position.x, o.position.z, pr.fire, 3, 30, 'fire');
@@ -922,6 +923,7 @@ export class Enemy {
     if (T.tint) this.mat.color.setHex(T.tint);
     this.armored = !!T.armor?.start; if (this.shell) this.shell.visible = this.armored;
     this.parryCd = 0; this.waveDone = false; this.partner = null;
+    this.notice = 0; this.susShown = false; this.lookAt = null; this.idleGoal = null; this.idleYaw = null; this.idleT = null;
     for (const m of this.crown?.userData.mats || []) { m.transparent = m.userData.t ??= m.transparent; m.opacity = m.userData.o ??= m.opacity; }
     if (this.kn) { this.kn.anim.stop(); this.kn.trail.samples.length = 0; this.kn.k.mats.blade.emissiveIntensity = .5; this.kn.k.mats.wing.color.setHex(T.knight.wing); }
   }
@@ -970,15 +972,62 @@ export class Enemy {
     return false;
   }
 
+  // How strongly the knight registers right now: sight in a wide cone, a sense of movement at the corner of the
+  // eye, and noise (running, dashing and fighting carry further than walking). Walls muffle noise and hide sight.
+  stimulus(d) {
+    const G = this.G, p = G.player;
+    if (!p.alive || p.state === 'fog' || p.state === 'rest' || this.boss) return 0;
+    const ang = Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z)));
+    const loud = p.sprinting ? 11 : p.isAttacking || p.state === 'dash' || p.state === 'hop' ? 8 : p.moving ? 4.5 : 2.4;
+    let s = 0, heard = false;
+    if (d < loud) { s = 1.4 * (1 - d / loud) + .3; heard = true; }
+    if (d < 20 && ang < 1.35) s = Math.max(s, 1.6 * (1 - d / 20) + .25);
+    else if (d < 7) s = Math.max(s, .6 * (1 - d / 7));
+    if (s > 0 && d > 2.5 && !G.world.los(this.pos, p.pos)) s = heard ? s * .35 : 0;
+    return s;
+  }
+
+  // Awake foes build up notice over a moment before they act: first a glance ("?"), then the alarm ("!").
+  sense(d, dt) {
+    const st = this.stimulus(d), G = this.G;
+    this.notice = clamp((this.notice || 0) + (st > 0 ? st * dt * 2.3 : -dt * .35), 0, 1.05);
+    if (this.notice >= 1) { this.alert(); return; }
+    if (this.notice > .3) {
+      // Suspicious: turn toward what was sensed.
+      this.lookAt = yawTo(this.pos.x, this.pos.z, G.player.pos.x, G.player.pos.z);
+      if (!this.susShown) { this.susShown = true; G.hud?.mark(this, '?'); }
+    } else if (this.notice < .1) { this.susShown = false; this.lookAt = null; }
+  }
+
+  // Idle foes don't stand like statues: they look about and shift around their post.
+  idle(dt) {
+    const h = this.home;
+    this.idleT = (this.idleT ?? rand(.5, 3)) - dt;
+    if (this.idleT <= 0) {
+      this.idleT = rand(3, 7);
+      const r = Math.random();
+      if (r < .45) { this.idleYaw = h.yaw + rand(-1.3, 1.3); this.idleGoal = null; }
+      else if (r < .8 && this.T.style !== 'ranged') { const a = rand(0, TAU), rr = rand(.8, 2.4); this.idleGoal = { x: h.x + Math.sin(a) * rr, z: h.z + Math.cos(a) * rr }; }
+      else { this.idleYaw = h.yaw; this.idleGoal = Math.hypot(this.pos.x - h.x, this.pos.z - h.z) > .5 ? { x: h.x, z: h.z } : null; }
+    }
+    if (this.lookAt != null) { this.faceYaw = this.lookAt; this.turnRate = 3.2; return; }
+    if (this.idleGoal) {
+      const dx = this.idleGoal.x - this.pos.x, dz = this.idleGoal.z - this.pos.z, dd = Math.hypot(dx, dz);
+      if (dd < .3 || this.stuck > .6) this.idleGoal = null;
+      else this.steer(Math.atan2(dx, dz), this.T.walk * .5);
+    } else { this.faceYaw = this.idleYaw ?? h.yaw; this.turnRate = 1.6; }
+  }
+
   alert(delay = 0) {
     if (this.aware || !this.alive || this.boss) return;
-    this.state = 'alert'; this.st = -delay; this.alertT = 0;
+    this.state = 'alert'; this.st = -delay; this.alertT = 0; this.notice = 1; this.lookAt = null; this.idleGoal = null;
     this.G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch });
-    // Wake friends that can see us.
+    this.G.hud?.mark(this, '!');
+    // The alarm carries: friends in sight, or close enough to hear the shout, join in.
     for (const o of this.G.enemies) {
       if (o === this || o.aware || !o.alive || o.boss) continue;
       const d = Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z);
-      if (d < 9 && o.state !== 'sleep' && this.G.world.los(o.pos, this.pos)) o.alert(rand(.3, .8));
+      if (o.state === 'sleep' ? d < 5 : d < 7 || (d < 13 && this.G.world.los(o.pos, this.pos))) o.alert(rand(.3, .8));
     }
   }
 
@@ -1303,6 +1352,7 @@ export class Enemy {
       G.audio.sfx('slam', { x: c.x, z: c.z, vol: Math.min(1.4, this.size * .7) });
       if (s.fire) G.projectiles.hazard(c.x, c.z, s.fire, 3.5, 30, 'fire');
       if (s.pool) { G.projectiles.hazard(c.x, c.z, s.pool, 5, 45); G.fx.ring({ x: c.x, z: c.z }, 0x8fe040, s.aoe, .5); }
+      G.world.smash(c.x, c.z, s.aoe * .8);   // slams break whatever they land on
       if (s.frost) { G.projectiles.hazard(c.x, c.z, s.frost, 6, 40, 'frost'); G.fx.shatter({ x: c.x, y: .4, z: c.z }, 40); for (let i = 0; i < 10; i++) G.fx.spikes({ x: c.x + Math.sin(i / 10 * TAU) * s.aoe * .8, z: c.z + Math.cos(i / 10 * TAU) * s.aoe * .8 }, 1.4, 0xbfe6ff, 3, 1.2); }
       G.cam.shake(s.shake || .3, c);
       const d = Math.hypot(p.pos.x - c.x, p.pos.z - c.z);
@@ -1390,16 +1440,20 @@ export class Enemy {
 
     switch (this.state) {
       case 'sleep':
-      case 'idle':
         if (this.think <= 0) { this.think = .2; if (this.canSee(d)) this.alert(); }
         this.faceYaw = this.home.yaw; this.turnRate = 2;
+        break;
+      case 'idle':
+        if (this.think <= 0) { this.think = .2; this.sense(d, .2); }
+        if (this.state === 'idle') this.idle(dt);
         break;
       case 'patrol': {
         const wp = this.spawn.patrol[this.patrolI];
         const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, dd = Math.hypot(dx, dz);
         if (dd < .6) this.patrolI = (this.patrolI + 1) % this.spawn.patrol.length;
-        else this.steer(Math.atan2(dx, dz), this.T.walk * Math.min(1, dd / 1.5 + .3));
-        if (this.think <= 0) { this.think = .2; if (this.canSee(d)) this.alert(); }
+        else if (this.lookAt == null) this.steer(Math.atan2(dx, dz), this.T.walk * Math.min(1, dd / 1.5 + .3));
+        else { this.faceYaw = this.lookAt; this.turnRate = 3.2; }   // stops to peer at a noise
+        if (this.think <= 0) { this.think = .2; this.sense(d, .2); }
         break;
       }
       case 'alert':
@@ -1449,7 +1503,7 @@ export class Enemy {
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * .2 * dt);
         if (dd < .6) { this.state = this.spawn.patrol ? 'patrol' : 'idle'; this.hp = this.maxHp; this.ki = this.maxKi; }
         else this.steer(Math.atan2(dx, dz), this.T.run * .75 * Math.min(1, dd / 2 + .3));
-        if (this.think <= 0) { this.think = .3; if (d < 9 && this.canSee(d)) { this.state = 'engage'; this.st = 0; this.planT = 0; } }
+        if (this.think <= 0) { this.think = .3; if (d < 12 && this.stimulus(d) > .5) { this.state = 'engage'; this.st = 0; this.planT = 0; } }
         break;
       }
     }

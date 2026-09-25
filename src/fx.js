@@ -227,6 +227,29 @@ export class FX {
     } });
   }
 
+  // Splinters and shards thrown from something broken: they tumble, land and fade. mat is shared, so kept.
+  debris(p, mat, n = 8, size = .2, speed = 4, yaw = 0) {
+    this.debrisGeo ||= new THREE.BoxGeometry(1, 1, 1);
+    const g = new THREE.Group(), parts = [], dur = 2.4;
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.debrisGeo, mat); m.castShadow = true;
+      const sz = size * rand(.5, 1.3), sc = new THREE.Vector3(sz * rand(.6, 1.8), sz * rand(.25, .7), sz * rand(.6, 1.8));
+      const a = yaw + rand(-1.6, 1.6), v = speed * rand(.35, 1);
+      parts.push({ m, sc, x: p.x + rand(-.25, .25), y: p.y + rand(-.2, .3), z: p.z + rand(-.25, .25), vx: Math.sin(a) * v, vy: rand(2, 5.5), vz: Math.cos(a) * v, rx: rand(-9, 9), rz: rand(-9, 9) });
+      m.scale.copy(sc); g.add(m);
+    }
+    this.scene.add(g);
+    this.items.push({ obj: g, t: 0, dur, keep: true, update: k => {
+      const t = k * dur;
+      for (const q of parts) {
+        const floor = q.sc.y * .5, tl = q.tl ??= (q.vy + Math.sqrt(q.vy * q.vy + 19.6 * Math.max(0, q.y - floor))) / 9.8, tc = Math.min(t, tl);
+        q.m.position.set(q.x + q.vx * tc, t < tl ? q.y + q.vy * t - 4.9 * t * t : floor, q.z + q.vz * tc);
+        q.m.rotation.set(q.rx * tc, 0, q.rz * tc);
+        const f = k > .72 ? 1 - (k - .72) / .28 : 1; q.m.scale.copy(q.sc).multiplyScalar(Math.max(.01, f));
+      }
+    } });
+  }
+
   fire(p, r = 1.5) {
     const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * r;
     this.add.emit({ x: p.x + Math.cos(a) * d, y: .1, z: p.z + Math.sin(a) * d, vx: rand(-.3, .3), vy: rand(1.5, 3.5), vz: rand(-.3, .3), life: rand(.35, .8), size: rand(.25, .5), color: this.col(Math.random() < .3 ? 0xffd070 : 0xff5a1a), drag: 1.5, grow: -.3 });

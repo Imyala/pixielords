@@ -249,6 +249,22 @@ export class Audio {
         this.tone(g, t, .5, { type: 'sine', f0: 90, f1: 35, peak: 1 });
         for (let i = 0; i < 8; i++) this.tone(g, t + i * .045 + R() * .02, .5, { type: 'sine', f0: 1800 + R() * 3200, peak: .1, a: .002 }); break;
       }
+      case 'wood': {   // a crate or barrel stove in
+        const g = d(.8, .5);
+        this.noiseBurst(g, t, .22, { type: 'bandpass', f0: 900, f1: 300, q: 1.5, a: .002, peak: 1.1 });
+        for (let i = 0; i < 4; i++) this.tone(g, t + i * .035 + R() * .02, .12, { type: 'triangle', f0: 180 + R() * 160, f1: 90, peak: .35, a: .002 }); break;
+      }
+      case 'clay': {   // an urn smashed
+        const g = d(.7, .6);
+        this.noiseBurst(g, t, .3, { type: 'highpass', f0: 1400, f1: 3500, a: .002, peak: .8 });
+        for (let i = 0; i < 6; i++) this.tone(g, t + i * .03 + R() * .02, .15, { type: 'triangle', f0: 700 + R() * 900, peak: .12, a: .002 }); break;
+      }
+      case 'pixie': {   // a Lost Pixie freed
+        const g = d(.6, 1);
+        for (const [i, f] of [880, 1109, 1319, 1760, 2217].entries()) this.tone(g, t + i * .06, .9, { type: 'sine', f0: f, peak: .14, a: .004 });
+        this.noiseBurst(g, t, .6, { type: 'highpass', f0: 5000, f1: 9000, a: .05, peak: .15 }); break;
+      }
+      case 'page': this.noiseBurst(d(.5, .3), t, .28, { type: 'bandpass', f0: 2600, f1: 1200, q: .8, a: .03, peak: .7 }); break;
       case 'chill': this.noiseBurst(d(.4, .6), t, .7, { type: 'bandpass', f0: 3000, f1: 900, q: 3, a: .08, peak: .5 }); break;
       case 'gate': {
         const g = d(1, .8);

@@ -31,7 +31,7 @@ export class HUD {
       <div class="big"><span></span><em></em></div>
       <div class="flash"></div>
       <div class="edge"></div>
-      <div class="msg" hidden><p></p><small></small></div>
+      <div class="msg" hidden><h3></h3><p></p><em></em><small></small></div>
       <div class="fade"></div>
       <div class="loadingMsg"><span>The path unfolds…</span></div>`;
     this.q = {
@@ -46,12 +46,12 @@ export class HUD {
       boss: $('.boss', el),
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
-      msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), fade: $('.fade', el),
+      msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), msgH: $('.msg h3', el), msgE: $('.msg em', el), fade: $('.fade', el),
     };
     this.bars = new Map();
     this.v = new THREE.Vector3();
     this.hpTrail = 1; this.glimmerShown = 0; this.gainAmt = 0; this.gainT = 0;
-    this.bossList = []; this.bossRows = [];
+    this.bossList = []; this.bossRows = []; this.marks = [];
   }
 
   show(on) { this.el.classList.toggle('on', on); }
@@ -85,6 +85,8 @@ export class HUD {
   clearOverlays() {
     this.q.big.classList.remove('on'); this.q.banner.classList.remove('on');
     this.q.toasts.innerHTML = ''; this.closeMessage(); this.prompt(null);
+    for (const m of this.marks) m.el.remove();
+    this.marks.length = 0;
   }
 
   loading(on) { this.el.querySelector('.loadingMsg').classList.toggle('on', on); if (on) this.el.classList.add('on'); }
@@ -102,6 +104,14 @@ export class HUD {
   }
 
   enemyBroken(e) { this.floatText(e, 'SHATTERED', 'broken'); }
+
+  // A "?" when a foe half-notices the knight, a "!" when it raises the alarm.
+  mark(e, text) {
+    for (const m of this.marks) if (m.e === e) { m.el.remove(); m.dead = true; }
+    const el = document.createElement('div'); el.className = 'emark ' + (text === '!' ? 'alarm' : 'sus'); el.textContent = text;
+    this.q.ebars.appendChild(el);
+    this.marks.push({ e, el, t: 0, dur: text === '!' ? 1.3 : 1.6 });
+  }
 
   stance(s) {
     const el = this.el.querySelector('.stance');
@@ -134,9 +144,16 @@ export class HUD {
   }
 
   message(text) {
+    this.q.msg.classList.remove('letter'); this.q.msgH.textContent = ''; this.q.msgE.textContent = '';
     this.q.msgP.textContent = text;
     this.q.msgS.textContent = `${this.key('interact')} to close`;
     this.q.msg.hidden = false;
+  }
+  // A letter on parchment: a title, the text, and a note that it is kept in the Journal.
+  letter(title, text, note = '') {
+    this.message(text);
+    this.q.msg.classList.add('letter'); this.q.msgH.textContent = title; this.q.msgE.textContent = note;
+    this.q.msgP.scrollTop = 0;
   }
   closeMessage() { this.q.msg.hidden = true; }
   get messageOpen() { return !this.q.msg.hidden; }
@@ -240,6 +257,15 @@ export class HUD {
       b._ki.style.transform = `scaleX(${Math.max(0, e.ki / e.maxKi)})`;
       b.classList.toggle('broken', e.state === 'broken');
       b._dmg.textContent = e.dmgShown > 0 ? Math.round(e.dmgShown) : '';
+    }
+
+    // Notice marks ride over heads, then fade.
+    for (let i = this.marks.length - 1; i >= 0; i--) {
+      const m = this.marks[i]; m.t += dt;
+      const sp = !m.dead && m.e.alive && m.t < m.dur && this.project(m.e.pos.x, m.e.pos.y + m.e.height + .55, m.e.pos.z);
+      if (!sp) { if (!m.dead) m.el.remove(); this.marks.splice(i, 1); continue; }
+      m.el.style.transform = `translate(${sp.x}px, ${sp.y - Math.min(1, m.t * 6) * 10}px) translate(-50%, -100%)`;
+      m.el.style.opacity = Math.min(1, (m.dur - m.t) * 3);
     }
 
     // Boss bars.

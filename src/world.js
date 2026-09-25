@@ -99,6 +99,16 @@ function cutout(mat) {
   return mat;
 }
 
+// Things that shatter when struck: collider radius and height, hits to break, debris, and the Glimmer inside.
+// A keg is goblin blackpowder: it goes up a moment after it breaks, and takes its neighbours with it.
+const BREAKS = {
+  crate: { r: .56, h: 1, hp: 1, bits: 10, size: .24, glim: [10, 30], sound: 'wood' },
+  barrel: { r: .46, h: 1.1, hp: 2, bits: 10, size: .2, glim: [14, 40], sound: 'wood' },
+  urn: { r: .38, h: .95, hp: 1, bits: 12, size: .15, glim: [18, 45], sound: 'clay' },
+  keg: { r: .4, h: .9, hp: 1, bits: 8, size: .18, glim: [0, 0], sound: 'wood', blast: 3.2 },
+  crystal: { r: .6, h: 1.7, hp: 3, bits: 14, size: .17, glim: [50, 110], sound: 'shatter' },
+};
+
 // Procedural textures are slow to paint, so every level shares one cache.
 const TEX = {};
 const tex = (k, f) => (TEX[k] ||= f());
@@ -116,6 +126,8 @@ export class World {
     this.interactables = [];
     this.batches = {};     // material key -> geometries merged at the end of the build
     this.breaks = [];      // ice that gives way mid-fight (hidden until then)
+    this.breakables = [];  // crates, barrels, urns, kegs and crystals that shatter when struck
+    this.shaking = new Set();
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.build();
@@ -281,6 +293,8 @@ export class World {
     this.buildShrines();
     this.buildMessages();
     this.buildItems();
+    this.buildLetters();
+    this.buildPixies();
     this.buildGates();
     this.lightPool = [];
     for (let i = 0; i < 6; i++) {
@@ -749,17 +763,149 @@ export class World {
   buildItems() {
     for (const it of this.level.items || []) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.starTex, color: it.kind === 'grace' ? 0xaef6ff : it.kind === 'charm' ? 0xff9cf0 : it.kind === 'weapon' ? 0xc9b4ff : 0xffe7a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-      s.position.set(it.x, .5, it.z); s.scale.setScalar(.9);
+      s.position.set(it.x, .5, it.z); s.scale.setScalar(.9); s.visible = !it.inside;
       this.group.add(s);
       const ph = Math.random() * 6;
       this.anim.push(t => { s.position.y = .45 + Math.sin(t * 2 + ph) * .08; s.material.rotation = t * .5; s.scale.setScalar(.8 + Math.sin(t * 4 + ph) * .12); });
-      this.interactables.push({ kind: 'item', id: it.id, x: it.x, z: it.z, r: 1.4, prompt: 'Pick up', item: it, sprite: s, taken: false });
+      this.interactables.push({ kind: 'item', id: it.id, x: it.x, z: it.z, r: 1.4, prompt: 'Pick up', item: it, sprite: s, taken: false, hidden: !!it.inside, inside: it.inside });
     }
   }
 
   setItemTaken(id, taken) {
     const it = this.interactables.find(i => i.kind === 'item' && i.id === id);
-    if (it) { it.taken = taken; it.sprite.visible = !taken; }
+    if (it) { it.taken = taken; it.sprite.visible = !taken && !it.hidden; }
+  }
+
+  // ---- Lore: letters and notes lying where their writers left them. Read ones glow dimmer.
+  buildLetters() {
+    this.letters = [];
+    const paper = this.mats.paper ||= new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: .9, side: THREE.DoubleSide, emissive: 0x3a3020, emissiveIntensity: .5 });
+    const wax = this.mats.wax ||= new THREE.MeshStandardMaterial({ color: 0x9a1a20, roughness: .5, emissive: 0x3a0508 });
+    for (const L of this.level.letters || []) {
+      const g = new THREE.Group(); g.position.set(L.x, L.y || 0, L.z); g.rotation.y = L.ry ?? this.R() * 6.28;
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.44, .58), paper); sheet.rotation.set(-Math.PI / 2, 0, .1); sheet.position.y = .025; g.add(sheet);
+      const roll = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .46, 8), paper); roll.rotation.z = Math.PI / 2; roll.position.set(0, .05, -.32); g.add(roll);
+      const seal = new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, .02, 10), wax); seal.position.set(.05, .04, .14); g.add(seal);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffd9a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .5 }));
+      glow.position.y = .3; glow.scale.setScalar(1.3); g.add(glow);
+      this.group.add(g);
+      const ent = { kind: 'letter', id: L.id, x: L.x, z: L.z, r: 1.4, prompt: 'Read the letter', letter: L, read: false };
+      this.interactables.push(ent); this.letters.push(ent);
+      const ph = this.R() * 6;
+      this.anim.push(t => { glow.material.opacity = (ent.read ? .12 : .42) + Math.sin(t * 2 + ph) * .1; });
+    }
+  }
+  setLetterRead(id, read) { const l = this.letters.find(x => x.id === id); if (l) l.read = read; }
+
+  // ---- Lost Pixies: little fae lights hidden about the missions, some shut inside crates and urns.
+  buildPixies() {
+    this.pixieList = [];
+    const wingMat = new THREE.SpriteMaterial({ map: this.glowTex, color: 0xbff8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .8 });
+    for (const P of this.level.pixies || []) {
+      const g = new THREE.Group(), y = P.y ?? 1.1;
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xff9cf0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .75 }));
+      halo.scale.setScalar(.8);
+      const body = new THREE.Mesh(new THREE.SphereGeometry(.055, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      const wl = new THREE.Sprite(wingMat), wr = new THREE.Sprite(wingMat);
+      wl.position.x = -.13; wr.position.x = .13;
+      g.add(halo, body, wl, wr); g.position.set(P.x, y, P.z);
+      this.group.add(g);
+      const ent = { id: P.id, x: P.x, z: P.z, y, g, inside: P.inside, hidden: !!P.inside, taken: false };
+      g.visible = !ent.hidden;
+      this.pixieList.push(ent);
+      const ph = this.R() * 6;
+      this.anim.push(t => {
+        if (!g.visible) return;
+        g.position.set(P.x + Math.sin(t * 1.1 + ph) * .18, ent.y + Math.sin(t * 2.3 + ph) * .12 + (ent.rise || 0), P.z + Math.cos(t * .9 + ph) * .18);
+        const f = .45 + Math.abs(Math.sin(t * 22 + ph)) * .55;
+        wl.scale.set(.34 * f, .2, 1); wr.scale.set(.34 * f, .2, 1);
+        halo.material.opacity = .6 + Math.sin(t * 5 + ph) * .15;
+      });
+    }
+  }
+  setPixie(id, taken) { const p = this.pixieList.find(x => x.id === id); if (p) { p.taken = taken; p.g.visible = !taken && !p.hidden; } }
+
+  // ---- Breakables
+  breakable(kind, x, z, o = {}) {
+    const B = BREAKS[kind], s = o.s ?? 1, M = this.mats, R = this.R;
+    const grp = new THREE.Group(); grp.position.set(x, o.y || 0, z); grp.rotation.y = o.ry ?? R() * 6.28;
+    const add = (geo, mat, px = 0, py = 0, pz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; m.receiveShadow = true; grp.add(m); return m; };
+    let bits = M.wood;
+    if (kind === 'crate') {
+      const body = M.crate ||= new THREE.MeshStandardMaterial({ color: 0x7a5634, roughness: .9 });
+      add(boxGeo(.96 * s, .96 * s, .96 * s, 1), body, 0, .48 * s);
+      for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(boxGeo(.14 * s, 1 * s, .14 * s, 1), M.wood, cx * .45 * s, .5 * s, cz * .45 * s);
+      for (const y of [.08, .92]) add(boxGeo(1 * s, .12 * s, 1 * s, 1), M.wood, 0, y * s);
+      bits = body;
+    } else if (kind === 'barrel' || kind === 'keg') {
+      const keg = kind === 'keg', k = keg ? .82 : 1;
+      const body = keg ? (M.keg ||= new THREE.MeshStandardMaterial({ color: 0x8a2418, roughness: .7 })) : (M.barrel ||= new THREE.MeshStandardMaterial({ color: 0x6a4428, roughness: .85 }));
+      const prof = [[.3, 0], [.38, .08], [.43, .52], [.38, .98], [.3, 1.06]].map(([r, y]) => new THREE.Vector2(r * s * k, y * s * k));
+      add(new THREE.LatheGeometry(prof, 14), body);
+      add(new THREE.CircleGeometry(.3 * s * k, 14).rotateX(-Math.PI / 2), M.wood, 0, 1.06 * s * k);
+      for (const y of [.16, .9]) add(new THREE.TorusGeometry(.415 * s * k, .025 * s, 5, 18).rotateX(Math.PI / 2), M.iron, 0, y * s * k);
+      if (keg) {
+        add(new THREE.SphereGeometry(.1 * s, 8, 6), M.bone, 0, .55 * s * k, .38 * s * k).scale.set(1, 1.1, .5);
+        add(new THREE.CylinderGeometry(.015, .015, .22, 4), M.iron, .08, 1.14 * s * k, 0);
+        const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xffb040, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+        spark.position.set(.08, 1.28 * s * k, 0); grp.add(spark);
+        const ph = R() * 6; this.anim.push(t => { spark.scale.setScalar(.18 + Math.abs(Math.sin(t * 14 + ph)) * .12); });
+      }
+      bits = body;
+    } else if (kind === 'urn') {
+      const col = this.level.spire ? 0xd8dce8 : this.level.frost ? 0x8ab0d0 : this.level.cave ? 0x6a5a70 : 0x9a5a3a;
+      const clay = M['clay' + col] ||= new THREE.MeshStandardMaterial({ color: col, roughness: .7, flatShading: true });
+      const prof = [[.01, 0], [.18, 0], [.3, .12], [.36, .4], [.3, .68], [.14, .8], [.16, .92], [.21, .96]].map(([r, y]) => new THREE.Vector2(r * s, y * s));
+      add(new THREE.LatheGeometry(prof, 12), clay);
+      bits = clay;
+    } else if (kind === 'crystal') {
+      const col = o.color ?? (this.level.frost ? 0xbfe6ff : 0x7fe8ff);
+      const mat = M['bcrystal' + col] ||= this.cutout(new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .8, roughness: .2, metalness: .1, flatShading: true }));
+      for (let i = 0; i < 5; i++) {
+        const hh = (i ? .6 + R() * .6 : 1.6) * s, c = add(new THREE.OctahedronGeometry(1, 0), mat, i ? (R() - .5) * .7 * s : 0, hh * .4, i ? (R() - .5) * .7 * s : 0);
+        c.scale.set(hh * .17, hh * .5, hh * .17); c.rotation.set((R() - .5) * (i ? .9 : .2), R() * 6, (R() - .5) * (i ? .9 : .2));
+      }
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: col, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .35 }));
+      glow.position.y = .8 * s; glow.scale.setScalar(2 * s); grp.add(glow);
+      bits = mat;
+    }
+    this.group.add(grp);
+    const col = this.prop(this.addCyl(x, z, B.r * s, B.h * s));
+    const b = { id: o.id, kind, x, z, y: o.y || 0, r: B.r * s, h: B.h * s, hp: B.hp, maxHp: B.hp, grp, col, bits, glim: B.glim, blast: B.blast, sound: B.sound, B, s, broken: false, shake: 0 };
+    this.breakables.push(b);
+    return b;
+  }
+  // A row or heap of breakables: [kind, dx, dz] offsets from x, z.
+  pile(x, z, list, ry = 0) { const c = Math.cos(ry), sn = Math.sin(ry); for (const [k, dx, dz, o] of list) this.breakable(k, x + dx * c + dz * sn, z - dx * sn + dz * c, o); }
+
+  hitBreakable(b, dmg = 1, yaw = 0) {
+    if (b.broken) return;
+    b.hp -= dmg; b.shake = 1; this.shaking.add(b);
+    const G = this.G;
+    G.fx.spark({ x: b.x, y: b.h * .6, z: b.z }, { x: Math.sin(yaw), z: Math.cos(yaw) }, 6, b.kind === 'crystal' ? 0xdff4ff : 0xffd8a0, 3);
+    if (b.hp <= 0) this.breakIt(b, yaw);
+    else G.audio.sfx(b.sound === 'shatter' ? 'ice' : 'block', { x: b.x, z: b.z, vol: .5 });
+  }
+  breakIt(b, yaw = 0) {
+    if (b.broken) return;
+    const G = this.G, B = b.B;
+    b.broken = true; b.grp.visible = false; b.col.on = false; this.shaking.delete(b);
+    G.fx.debris({ x: b.x, y: b.y + b.h * .5, z: b.z }, b.bits, B.bits, B.size * b.s, 4, yaw);
+    if (b.kind === 'crystal') G.fx.shatter({ x: b.x, y: b.h * .5, z: b.z }, 30, 0xdff4ff, 5);
+    else G.fx.dust({ x: b.x, z: b.z }, 8);
+    G.audio.sfx(b.sound, { x: b.x, z: b.z });
+    for (const it of this.interactables) if (it.kind === 'item' && it.inside === b.id && b.id) { it.hidden = false; it.sprite.visible = !it.taken; }
+    for (const p of this.pixieList) if (p.inside === b.id && b.id && !p.taken) { p.hidden = false; p.g.visible = true; p.rise = -.6; }
+    G.onBreak?.(b);
+  }
+  // Blasts and slams break everything in reach.
+  smash(x, z, r) { for (const b of this.breakables) if (!b.broken && Math.hypot(b.x - x, b.z - z) < r + b.r) this.breakIt(b, Math.atan2(b.x - x, b.z - z)); }
+  resetBreakables() {
+    for (const b of this.breakables) { b.broken = false; b.hp = b.maxHp; b.grp.visible = true; b.col.on = true; b.shake = 0; b.grp.rotation.x = b.grp.rotation.z = 0; }
+    this.shaking.clear();
+    for (const it of this.interactables) if (it.kind === 'item' && it.inside) { it.hidden = true; it.sprite.visible = false; }
+    for (const p of this.pixieList) if (p.inside) { p.hidden = true; p.g.visible = false; p.rise = 0; }
   }
 
   // Seal direction helpers: +1 inside the arena, -1 outside.
@@ -872,6 +1018,12 @@ export class World {
 
   update(dt, t, focus) {
     for (const f of this.anim) f(t);
+    for (const b of this.shaking) {   // a struck crate rocks on its base
+      b.shake = Math.max(0, b.shake - dt * 4);
+      b.grp.rotation.x = Math.sin(t * 47) * .09 * b.shake; b.grp.rotation.z = Math.cos(t * 41) * .09 * b.shake;
+      if (!b.shake) this.shaking.delete(b);
+    }
+    for (const p of this.pixieList) if (p.rise < 0) p.rise = Math.min(0, p.rise + dt * 1.5);   // freed from a crate, it floats up
     const p = this.portcullis;
     if (p?.opening) { p.open = Math.min(1, p.open + dt / 3); this.poseGate(); if (p.open >= 1) p.opening = false; }
     if (this.fogGate.gone) this.fogGate.fade = Math.max(0, this.fogGate.fade - dt * .6);

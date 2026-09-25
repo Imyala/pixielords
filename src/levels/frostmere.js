@@ -2,7 +2,9 @@
 //   The Shivering Pass (first Moonwell) → the Rimefall Stair → the Icefisher's Hamlet → the Causeway
 //   → the Knight's Vigil (the Rime Knight holds the ice wall) → the Frozen Court (second Moonwell)
 //   → Briar Seal → the Mirror of the Mere (the Winter Court: the Rat King and the Frost-Hexer, together).
+//   East of the hamlet, on the shore: the Frozen Boathouse.
 import * as THREE from 'three';
+import { boxGeo } from '../world.js';
 import { ring, pathSides, distToPath, ringCliffs } from './shape.js';
 
 const PASS = { x: 0, z: 0, r: 11 }, HAMLET = { x: 0, z: 68, r: 17 }, VIGIL = { x: 0, z: 110, r: 11 }, MERE = { x: 0, z: 184, r: 18 };
@@ -12,11 +14,16 @@ const CAUSEWAY = [[3.78, 84.6], [2.8, 87.5], [2.8, 96.5], [3.4, 99.5]];
 // The court's walls, from the ice wall round to the seal corridor, and on to the mere (the left side mirrors it).
 const COURT = [[3.4, 120.5], [10, 121.8], [19.5, 124], [19.5, 152], [12, 156], [4, 157], [4, 166.5]];
 const ICE = 0xbfe6ff, AURORA = 0x7fffc8;
+// The Frozen Boathouse: a shed on the shore through a gap in the hamlet's east wall. Cliffs north and south,
+// the open mere beyond a low ridge of ice to the east.
+const BOATHOUSE = { x: 30, z: 68 };
+const BH_NORTH = [[16.57, 71.8], [22, 81], [33, 85]], BH_RIDGE = [[33, 85], [41.5, 80.5], [44, 68], [40.5, 57]], BH_SOUTH = [[40.5, 57], [30.5, 52], [21, 55], [16.57, 64.2]];
 
 function playable(x, z, m = 0) {
   const near = (c, r) => Math.hypot(x - c.x, z - c.z) < r + m;
   return near(PASS, PASS.r + 2) || distToPath(STAIR, x, z) < 6.5 + m || near(HAMLET, HAMLET.r + 2.5) || (Math.abs(x) < 6 + m && z > 82 && z < 101)
-    || near(VIGIL, VIGIL.r + 2.5) || (Math.abs(x) < 21 + m && z > 119 - m && z < 159 + m) || (Math.abs(x) < 6 && z > 155 && z < 168) || near(MERE, MERE.r + 3);
+    || near(VIGIL, VIGIL.r + 2.5) || (Math.abs(x) < 21 + m && z > 119 - m && z < 159 + m) || (Math.abs(x) < 6 && z > 155 && z < 168) || near(MERE, MERE.r + 3)
+    || near(BOATHOUSE, 16);
 }
 
 export default {
@@ -30,7 +37,7 @@ export default {
   tier: 2.4,
   map: { x: 20, z: 30 },   // where it sits on the Fae Crossroads
   aurora: { a: 0x3cff9a, b: 0x9a5aff },
-  fog: { color: 0x1a2436, byArea: { pass: .02, stair: .024, hamlet: .02, causeway: .015, vigil: .018, court: .02, mere: .011 }, base: .02 },
+  fog: { color: 0x1a2436, byArea: { pass: .02, stair: .024, hamlet: .02, boathouse: .016, causeway: .015, vigil: .018, court: .02, mere: .011 }, base: .02 },
   light: { sky: 0xa8c0e8, ground: 0x3a4660, hemi: 1.75, moonColor: 0xe0ecff, moon: 2.1 },
   moon: { at: [140, 120, 360], glow: 120, size: 16 },
   enemyGlow: .14,
@@ -46,7 +53,8 @@ export default {
   areas: [
     { id: 'pass', name: 'The Shivering Pass', x0: -13, x1: 13, z0: -13, z1: 10.6 },
     { id: 'stair', name: 'The Rimefall Stair', x0: -10, x1: 12, z0: 10.6, z1: 51.5 },
-    { id: 'hamlet', name: "The Icefisher's Hamlet", x0: -20, x1: 20, z0: 51.5, z1: 85 },
+    { id: 'hamlet', name: "The Icefisher's Hamlet", x0: -20, x1: 17, z0: 51.5, z1: 85 },
+    { id: 'boathouse', name: 'The Frozen Boathouse', x0: 17, x1: 45, z0: 51, z1: 86 },
     { id: 'causeway', name: 'The Causeway', x0: -6, x1: 6, z0: 85, z1: 99.5 },
     { id: 'vigil', name: "The Knight's Vigil", x0: -13, x1: 13, z0: 99.5, z1: 121.5 },
     { id: 'court', name: 'The Frozen Court', x0: -21, x1: 21, z0: 121.5, z1: 160 },
@@ -74,6 +82,11 @@ export default {
     { id: 'h6', type: 'goblin-rimeguard', x: 5, z: 81, yaw: Math.PI, patrol: [[5, 81], [-5, 80], [0, 74]] },
     { id: 'h7', type: 'goblin-warchanter', x: -5, z: 82.5, yaw: Math.PI },
     { id: 'h8', type: 'goblin-archer', x: 13.5, z: 65, yaw: -2.2 },
+    // The Frozen Boathouse
+    { id: 'b1', type: 'goblin-rimebreaker', x: 33, z: 70, yaw: -Math.PI / 2 },
+    { id: 'b2', type: 'ratman-frostfang', x: 26, z: 60, yaw: -1.2 },
+    { id: 'b3', type: 'ratman-frostfang', x: 38, z: 62, yaw: -1.8, idle: 'sleep' },
+    { id: 'b4', type: 'goblin-rimecaller', x: 36.5, z: 79, yaw: -2.6 },
     // The Causeway
     { id: 'c1', type: 'goblin-rimeguard', x: 0, z: 93, yaw: Math.PI },
     { id: 'c2', type: 'ratman-shadowblade', x: 1, z: 97.5, yaw: Math.PI },
@@ -115,6 +128,21 @@ export default {
     { id: 'glimmer3', x: -7.5, z: 105, kind: 'glimmer', amount: 4000, label: 'Glimmer Shard', desc: '+4000 Glimmer' },
     { id: 'c-iceheart', x: -16, z: 150, kind: 'charm', charm: 'iceheart', label: 'Charm' },
     { id: 'glimmer4', x: 17, z: 127, kind: 'glimmer', amount: 4500, label: 'Glimmer Shard', desc: '+4500 Glimmer' },
+    { id: 'glimmer-boathouse', x: 21.6, z: 76.6, kind: 'glimmer', amount: 4200, label: 'Glimmer Shard', desc: '+4200 Glimmer', inside: 'bcrate' },
+    { id: 'grace-boathouse', x: 40.2, z: 70.5, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+  ],
+  letters: [
+    { id: 'icefisher', x: -3, z: 58.6, title: "An Icefisher's Warning", text: 'Do not walk the mere at night. The ice sings, and the Court listens.\n\nThe last one who walked it was a knight all in blue light, asking for the Hexer by name. We told the knight to go home. In the morning we found the knight at the Vigil, standing, sword raised, and the ice was up to the heart.\n\nWe leave fish at the Vigil now. It seems only right.' },
+    { id: 'maelis5', x: -5.4, z: 116.6, title: "Maelis's Last Letter", text: 'I asked the Court why. The Hexer only smiled, and the cold came up through my boots.\n\nI cannot feel my hands. Soon I will not be able to hold this pen. If you are reading this, you are the one the Lantern Court sent after me.\n\nDo not let me stop you. I will try not to. I always did drop my guard after the fourth cut of a chain; strike then, and do not be sorry.\n\n— Maelis' },
+    { id: 'hrimwen', x: 38.6, z: 64.2, title: 'A Letter from Hrimwen to the Rat King', text: 'My King,\n\nYou speak of warmth: the warrens warm, the moon under our ice, the south dark and cold and paying us for light.\n\nI speak of stillness. When the last of the moonlight is under the mere, nothing will change ever again. No more seasons. No more knights. No more waking.\n\nThat is the gift, my King. Let the south freeze. It will be at peace at last.\n\n— H.' },
+    { id: 'decree', x: 6, z: 124.8, title: "The Rat King's Decree", text: 'By Morrowgnaw, King of the Warren of Winter, it is decreed:\n\nThe moon is ours by right of taking. Every warren and every goblin fire in the south has paid its share. When the last light is under the ice, the south will be dark and cold, and the Court will be warm, and every lord who served us will be warm with it.\n\nKnights are to be frozen at the Vigil. The Hexer says it is kinder. The Hexer is not kind.' },
+  ],
+  pixies: [
+    { id: 'p1', x: -6.4, z: .6 },
+    { id: 'p2', x: 1.8, z: 41, inside: 'surn' },
+    { id: 'p3', x: -12.2, z: 64.4, inside: 'hbarrel' },
+    { id: 'p4', x: 35.6, z: 76.6, y: 1.4 },
+    { id: 'p5', x: -16.2, z: 133.8, inside: 'kcrystal' },
   ],
 
   gate: { x: 0, z: 121.3, width: 6.8, guardian: 'knight', style: 'ice', toast: 'The ice wall shatters', banner: 'RIME KNIGHT FELLED', charm: 'mirrorguard' },
@@ -139,7 +167,7 @@ export default {
 
     // Rock walls, capped with snow.
     ringCliffs(w, PASS, PASS.r, 20, [9, 10], 8, 3, R, 1.8);
-    ringCliffs(w, HAMLET, HAMLET.r, 28, [0, 27, 13, 14], 9, 3, R, 2);
+    ringCliffs(w, HAMLET, HAMLET.r, 28, [0, 27, 13, 14, 6, 7], 9, 3, R, 2);
     ringCliffs(w, VIGIL, VIGIL.r, 20, [0, 19, 9, 10], 9, 3, R, 2);
     const S = pathSides(STAIR);
     for (const side of [S.L, S.R]) for (let i = 0; i < side.length - 1; i++) w.cliff(...side[i], ...side[i + 1], { h: 9 + R() * 3, th: 2 });
@@ -221,6 +249,56 @@ export default {
       const x = -18 + R() * 36, z = 123 + R() * 33;
       if (clear(x, z, 2)) w.drift(x, z, 1 + R() * 1.8, i + 40);
     }
+
+    // The Frozen Boathouse: a shed of weathered timber half-buried in snow, boats locked in the shore ice,
+    // nets and stores, and the open mere beyond a low ridge.
+    for (const P of [BH_NORTH, BH_SOUTH]) for (let i = 0; i < P.length - 1; i++) w.cliff(...P[i], ...P[i + 1], { h: 8 + R() * 2.5, th: 2 });
+    for (let i = 0; i < BH_RIDGE.length - 1; i++) w.prop(w.icefall(...BH_RIDGE[i], ...BH_RIDGE[i + 1], 1.5));
+    w.floor(38, 40, 110, 100, 'lake', 7, -.006);
+    w.disc(36.5, 69, 6.5, 'lake', 5, .008);
+    const shed = new THREE.Group(), SX = 24, SZ = 68;
+    const beam = (a, b, c, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(boxGeo(a, b, c, 1.5), M.wood); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = true; m.receiveShadow = true; shed.add(m); return m; };
+    for (const [px, pz] of [[-4, -7], [4, -7], [-4, 0], [4, 0], [-4, 7], [4, 7]]) { beam(.3, 4.2, .3, px, 2.1, pz); w.prop(w.addCyl(SX + px, SZ + pz, .25, 4)); }
+    for (const pz of [-7, 0, 7]) beam(8.6, .3, .3, 0, 4.2, pz);
+    for (const s of [-1, 1]) {
+      beam(4.8, .14, 15.2, s * 2.2, 5.1, 0, 0, s * -.45);
+      const cap = new THREE.Mesh(boxGeo(4.9, .3, 15.4, 2), M.snowcap); cap.position.set(s * 2.25, 5.3, 0); cap.rotation.z = s * -.45; cap.castShadow = true; shed.add(cap);
+    }
+    for (let i = 0; i < 8; i++) beam(.12, 2.4 + (i % 3) * .5, 1.6, -4.1, 1.2 + (i % 3) * .25, -6.2 + i * 1.75);   // plank wall, landward side
+    w.addBox(SX - 4.1, SZ, .2, 7, 0, 3);
+    shed.position.set(SX, 0, SZ); g.add(shed);
+    const moored = (x, z, ry, tilt) => {
+      const b = new THREE.Group();
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(.8, .55, 3.6, 10, 1, true, 0, Math.PI), M.wood); h.material.side = THREE.DoubleSide; h.rotation.set(Math.PI / 2, 0, Math.PI); b.add(h);
+      const seat = new THREE.Mesh(boxGeo(1.4, .08, .3, 1), M.wood); seat.position.y = -.1; b.add(seat);
+      b.position.set(x, .15, z); b.rotation.set(tilt, ry, tilt * .5); b.traverse(o => { o.castShadow = true; }); g.add(b);
+      w.prop(w.addBox(x, z, .8, 1.8, ry, 1));
+    };
+    moored(34, 74.6, .4, .12); moored(38.5, 66.2, -.3, -.1); moored(24, 66, .1, 0);
+    for (const [x, z, r] of [[36.6, 64.6, .5], [33.4, 67, .45]]) {
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(r, 16), M.water); hole.rotation.x = -Math.PI / 2; hole.position.set(x, .012, z); g.add(hole);
+      const rim = new THREE.TorusGeometry(r + .08, .13, 5, 18); rim.rotateX(Math.PI / 2); rim.scale(1, .6, 1); rim.translate(x, .04, z); w.batch('snowcap', rim);
+    }
+    w.pile(21.6, 76.6, [['crate', 0, 0, { id: 'bcrate' }], ['crate', 1.1, .2], ['barrel', .2, -1.1], ['barrel', 1.2, -1]], 0);
+    w.pile(21.4, 59.6, [['barrel', 0, 0], ['barrel', .9, .3], ['crate', .3, 1.1]], 0);
+    w.pile(26.8, 55.8, [['crate', 0, 0], ['keg', 1, .4], ['keg', 1.8, .1]], .3);
+    for (const [x, z, s] of [[41.4, 75, .9], [41.4, 62.6, .8], [30.6, 82.6, .8], [35.8, 57.2, .7]]) w.breakable('crystal', x, z, { s, color: ICE });
+    w.campfire(28.5, 78.4, .8);
+    for (const [x, z, r] of [[19.8, 70.4, 1.4], [29.2, 58.4, .2]]) {
+      const rack = new THREE.Group();
+      for (const s2 of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(.07, .08, 2.2, 5), M.stake); post.position.set(s2 * .9, 1.1, 0); rack.add(post); }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 2, 5), M.stake); bar.rotation.z = Math.PI / 2; bar.position.y = 2; rack.add(bar);
+      const net = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.5, 6, 5), new THREE.MeshStandardMaterial({ color: 0x8a8070, wireframe: true })); net.position.y = 1.2; rack.add(net);
+      rack.position.set(x, 0, z); rack.rotation.y = r; rack.traverse(o => { o.castShadow = true; }); g.add(rack); w.prop(w.addBox(x, z, 1, .15, r, 2.2));
+    }
+
+    // Urns, stores and ice to smash through the pass, the stair, the hamlet and the court.
+    for (const [x, z, id] of [[1.8, 41, 'surn'], [-7.6, -2.6], [7.8, 1.4], [-2.4, 24.6], [2.8, 49]]) w.breakable('urn', x, z, { id });
+    w.pile(-12.2, 64.4, [['barrel', 0, 0, { id: 'hbarrel' }], ['crate', .9, .5], ['barrel', .2, 1]], .3);
+    w.pile(7.4, 79.4, [['crate', 0, 0], ['barrel', 1, .1]], .2);
+    w.pile(-4.6, 76.2, [['keg', 0, 0], ['keg', .8, .2], ['keg', .3, .85]], 0);
+    for (const [x, z, id] of [[-16.2, 133.8, 'kcrystal'], [16.4, 141.6], [-12.6, 154.2], [4.4, 131.6]]) w.breakable('crystal', x, z, { id, s: .85, color: ICE });
+    for (const [x, z] of [[-17.4, 124.8], [10.6, 155.2], [-8.6, 155.6]]) w.breakable('urn', x, z);
 
     // Snow in drifts along every wall; boulders and firs fill the dark beyond.
     for (let i = 0; i < 60; i++) {

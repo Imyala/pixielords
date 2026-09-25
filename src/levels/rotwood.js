@@ -1,20 +1,23 @@
 // Mission 2: the Rotwood Hollow, a goblin-held forest walked from south to north.
 //   Hollow's Edge (first Moonwell) → the Thornback Trail → Grubnest village (Brakka holds the palisade gate)
-//   → the Rotting Glade (second Moonwell) → Briar Seal → the Pyre of Grimtusk.
+//   → the Rotting Glade (second Moonwell) → Briar Seal → the Pyre of Grimtusk. West of Grubnest: the Tanner's Camp.
 import * as THREE from 'three';
 import { boxGeo } from '../world.js';
 import { ring, pathSides, distToPath } from './shape.js';
 
 // The trail winds between cliffs: centreline and half-width at each bend.
 const TRAIL = [[0, 11, 3.55], [1, 20, 3.8], [6, 30, 4.2], [11, 40, 5.5], [9, 50, 4.5], [3, 57, 4], [0, 63, 4]];
-const VILLAGE = { x: 0, z: 84, r: 19 }, ARENA = { x: 0, z: 160, r: 17 }, EDGE_R = 11.5;
+const VILLAGE = { x: 0, z: 84, r: 19 }, ARENA = { x: 0, z: 160, r: 17 }, EDGE_R = 11.5, CAMP = { x: -33, z: 84 };
+// The Tanner's Camp's cliffs, from the palisade's west gap round to where it closes again.
+const CAMP_WALL = [[-18.7, 87.3], [-23, 97.5], [-35, 101], [-46, 94], [-47.5, 78], [-38, 67.5], [-24, 69.5], [-18.7, 80.7]];
 const EDGE_LAMPS = [[-5, -8.2], [2.5, -9]];
 const distToTrail = (x, z) => distToPath(TRAIL, x, z);
 
 // Anywhere the knight can walk, plus a margin for the cliffs: kept clear of backdrop trees.
 function playable(x, z, m = 0) {
   return Math.hypot(x, z) < EDGE_R + 2 + m || distToTrail(x, z) < 6.5 + m || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < VILLAGE.r + 2 + m
-    || (Math.abs(x) < 21 + m && z > 98 && z < 138 + m) || Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 2.5 + m || (Math.abs(x) < 6 && z > 134 && z < 146);
+    || (Math.abs(x) < 21 + m && z > 98 && z < 138 + m) || Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 2.5 + m || (Math.abs(x) < 6 && z > 134 && z < 146)
+    || Math.hypot(x - CAMP.x, z - CAMP.z) < 16 + m;
 }
 
 export default {
@@ -27,7 +30,7 @@ export default {
   forest: true,
   leaves: true,
   tier: 1.25,
-  fog: { color: 0x0b1512, byArea: { edge: .03, trail: .034, village: .026, glade: .04, pyre: .016 }, base: .032 },
+  fog: { color: 0x0b1512, byArea: { edge: .03, trail: .034, village: .026, camp: .03, glade: .04, pyre: .016 }, base: .032 },
   light: { sky: 0x7f9fb0, ground: 0x24301c, hemi: 1.5, moonColor: 0xb8d0ff, moon: 1.9 },
   intro: 'Smoke rises over the Rotwood.\nFollow it to the pyre. Put out the fire.',
   outro: 'Grimtusk falls into his own fire and the Rotwood breathes again. In the ashes lies a tribute-map scratched on hide: every goblin fire burned to feed something below the mountains. The ratmen call it the Gnawed Deep.',
@@ -38,7 +41,8 @@ export default {
   areas: [
     { id: 'edge', name: "The Hollow's Edge", x0: -14, x1: 14, z0: -14, z1: 11 },
     { id: 'trail', name: 'The Thornback Trail', x0: -8, x1: 20, z0: 11, z1: 64 },
-    { id: 'village', name: 'Grubnest', x0: -22, x1: 22, z0: 64, z1: 102 },
+    { id: 'village', name: 'Grubnest', x0: -19.2, x1: 22, z0: 64, z1: 102 },
+    { id: 'camp', name: "The Tanner's Camp", x0: -49, x1: -19.2, z0: 66, z1: 102 },
     { id: 'glade', name: 'The Rotting Glade', x0: -21, x1: 21, z0: 102, z1: 142 },
     { id: 'pyre', name: 'The Pyre of Grimtusk', x0: -19, x1: 19, z0: 142, z1: 180 },
   ],
@@ -64,6 +68,13 @@ export default {
     { id: 'v6', type: 'goblin-archer', x: -8, z: 97.5, yaw: 2.6 },
     { id: 'v7', type: 'goblin-trapper', x: 10, z: 96.5, yaw: -2.6 },
     { id: 'brakka', type: 'brakka', x: 0, z: 99, yaw: Math.PI, elite: 'warden' },
+    // The Tanner's Camp
+    { id: 't1', type: 'goblin-trapper', x: -30, z: 91, yaw: 1.2 },
+    { id: 't2', type: 'goblin-shaman', x: -40, z: 84, yaw: Math.PI / 2 },
+    { id: 't3', type: 'goblin-scout', x: -27, z: 80, yaw: -1.4, patrol: [[-27, 80], [-36, 75], [-40, 90], [-30, 94]] },
+    { id: 't4', type: 'goblin-berserker', x: -38.6, z: 79.8, yaw: .8, idle: 'sleep' },
+    { id: 't5', type: 'goblin-spearguard', x: -24.5, z: 86, yaw: -Math.PI / 2 },
+    { id: 't6', type: 'goblin-archer', x: -36, z: 96.5, yaw: Math.PI },
     // The Rotting Glade
     { id: 'm1', type: 'ratman-skirmisher', x: 5, z: 113.5, yaw: Math.PI },
     { id: 'm2', type: 'ratman-skirmisher', x: -10, z: 126, yaw: Math.PI, patrol: [[-10, 126], [-14, 117.5], [-4, 123]] },
@@ -107,6 +118,21 @@ export default {
     { id: 'c-emberwing', x: -4, z: 87, kind: 'charm', charm: 'emberwing', label: 'Charm' },
     { id: 'c-skyward', x: -11, z: 97.5, kind: 'charm', charm: 'skyward', label: 'Charm' },
     { id: 'c-glimmerseed', x: -17.5, z: 121, kind: 'charm', charm: 'glimmerseed', label: 'Charm' },
+    { id: 'glimmer-camp', x: -44.6, z: 84.6, kind: 'glimmer', amount: 1100, label: 'Glimmer Shard', desc: '+1100 Glimmer', inside: 'ccrate' },
+    { id: 'grace-camp', x: -35, z: 71, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+  ],
+  letters: [
+    { id: 'maelis2', x: 5.8, z: -3.4, title: 'A Second Letter, Left at the Well', text: 'The forest is burning from the inside.\n\nThe goblins feed their fires with root-wood: the old roots that carry moonlight up from the wells into the trees. They are not burning it for warmth. The smoke goes up green and then it goes north, always north, as if something were drawing it in on a string.\n\nSomeone is collecting. I mean to find out who.\n\n— M.' },
+    { id: 'skulls', x: -3.6, z: 97.6, title: "Brakka's Tally, on a Skull", text: 'Knights: 1. (Blue one. Got away. Does not count.)\nRats who said the gate was theirs: 4.\nHexers who said the fire was too big: 1.\nHexers who say it now: 0.\n\nGRIMTUSK SAYS HOLD THE GATE. BRAKKA HOLDS THE GATE.' },
+    { id: 'tribute', x: -39.6, z: 89.4, title: 'A Tribute Map, Scratched on Hide', text: 'Every tenth fire, the ash is swept up and carried down to the Deep. The rats carry it and grumble. The Seer reads it.\n\nWhat the Seer reads, she writes on bone and sends up the mountain to the Spire. What goes up the Spire does not come down again.\n\nWe do not ask what the Seer reads. We ask for more meat.' },
+    { id: 'hexer', x: -11.6, z: 106.4, title: "A Hexer's Worry", text: 'The chant still mends, but the green in it is fading.\n\nThe roots we burn were never ours. Grimtusk says the Court of Winter will give us back more than we burn: warm fires forever, and no knights. I have lived through forty winters. I have never seen winter give anything back.\n\nI will not say this to Grimtusk.' },
+  ],
+  pixies: [
+    { id: 'p1', x: 8.2, z: 3.8 },
+    { id: 'p2', x: 5.4, z: 35.2, y: 1.3 },
+    { id: 'p3', x: 13, z: 82.6, inside: 'vbarrel' },
+    { id: 'p4', x: -44.8, z: 82, inside: 'ccrate2' },
+    { id: 'p5', x: 16.2, z: 126.4 },
   ],
 
   gate: { x: 0, z: 102.75, width: 6.6, guardian: 'brakka', style: 'palisade', toast: 'The palisade gate sinks into the mud', banner: 'SKULLSPLITTER FELLED', charm: 'skullbead' },
@@ -143,7 +169,7 @@ export default {
     // Grubnest: a palisade ring, open to the south, gated to the north.
     const VN = 36;
     for (let i = 0; i < VN; i++) {
-      if (i === 0 || i === 35 || i === 17 || i === 18) continue;
+      if (i === 0 || i === 35 || i === 17 || i === 18 || i === 26 || i === 27) continue;
       w.palisade(...ring(VILLAGE, VILLAGE.r, i / VN * Math.PI * 2), ...ring(VILLAGE, VILLAGE.r, (i + 1) / VN * Math.PI * 2));
     }
     // The Rotting Glade: cliffs from the palisade to the seal.
@@ -200,7 +226,7 @@ export default {
     const bonfire = w.campfire(0, 84, 2.1);
     bonfire.base *= 1.6;
     for (const [x, z] of [[-4.6, 101.2], [4.6, 101.2], [-3.2, 66.8], [3.2, 66.8], [-7.5, 133.6], [7.5, 133.6]]) w.totem(x, z);
-    for (const [x, z, r] of [[-5, 90.5, .4], [15, 83, 1.5], [-15.5, 86, -1.4]]) {
+    for (const [x, z, r] of [[-5, 90.5, .4], [15, 78, 1.5], [-14.4, 72.6, -.6], [-38.5, 72.8, .3], [-45.4, 91.2, 1.3]]) {
       // Drying racks: two posts and a crossbar.
       const rack = new THREE.Group();
       for (const s of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(.07, .08, 2.2, 5), M.stake); post.position.set(s * .9, 1.1, 0); rack.add(post); }
@@ -209,9 +235,33 @@ export default {
       rack.position.set(x, 0, z); rack.rotation.y = r; rack.traverse(o => { o.castShadow = true; });
       g.add(rack); w.prop(w.addBox(x, z, 1, .15, r, 2.2));
     }
-    const crate = boxGeo(1, 1, 1, 1);
-    for (const [x, z, r] of [[-16, 78, .2], [-15.2, 76.9, .6], [16.2, 88, .1], [-4, 69.5, .4], [7, 99.5, .3]]) { w.add(crate, 'wood', x, .5, z, r); w.prop(w.addBox(x, z, .5, .5, r, 1)); }
+    // Stores to smash round the village, and powder kegs kept far too near the huts.
+    w.pile(-15.6, 77.2, [['crate', 0, 0], ['crate', .9, .6], ['barrel', -.4, 1.1]], .2);
+    w.pile(16.4, 87.6, [['crate', 0, 0], ['barrel', 0, 1.1]], .1);
+    w.pile(-4.2, 69.5, [['crate', 0, 0], ['barrel', 1, .2]], .4);
+    w.pile(7.4, 99.2, [['crate', 0, 0], ['crate', 1, 0]], .3);
+    w.pile(13, 82.6, [['barrel', 0, 0, { id: 'vbarrel' }], ['barrel', .95, .3], ['barrel', .2, 1]], 0);
+    w.pile(-7.2, 76.8, [['keg', 0, 0], ['keg', .85, .15], ['keg', .35, .85]], 0);
+    for (const [x, z] of [[4.4, 26.2], [12.6, 38.4], [.4, 55.6], [10.2, 53.4]]) w.breakable(x > 12 ? 'crate' : 'urn', x, z);
     w.banner(-5.2, 101.6, 0, 0x5a2a10, 3.4); w.banner(5.2, 101.6, 0, 0x5a2a10, 3.4);
+
+    // The Tanner's Camp: a clearing ringed by cliffs, hide tents round a fire, racks of skins, and stores.
+    for (let i = 0; i < CAMP_WALL.length - 1; i++) w.cliff(...CAMP_WALL[i], ...CAMP_WALL[i + 1], { h: 8 + R() * 2.5 });
+    const hide = M.hide = new THREE.MeshStandardMaterial({ color: 0x6a4a34, roughness: 1, side: THREE.DoubleSide, flatShading: true });
+    for (const [x, z, r, ry] of [[-41, 77.5, 2.4, .6], [-42, 92, 2.2, 2.2], [-30.5, 96.5, 2, 2.8], [-28, 71.5, 2.1, -.4]]) {
+      const tent = new THREE.ConeGeometry(r, r * 1.6, 7, 1, true); tent.translate(0, r * .8, 0); tent.rotateY(ry); tent.translate(x, 0, z); w.batch('hide', tent);
+      for (let k = 0; k < 3; k++) { const pole = new THREE.CylinderGeometry(.04, .05, r * .6, 4); const a = ry + k * 2.1; pole.translate(x + Math.sin(a) * .15, r * 1.75, z + Math.cos(a) * .15); w.batch('stake', pole); }
+      const flap = boxGeo(.9, 1.3, .1, 1); flap.translate(0, .65, r * .62); flap.rotateY(ry); flap.translate(x, 0, z); w.batch('shadowMat', flap);
+      w.addCyl(x, z, r * .85, r * 1.6);
+    }
+    w.campfire(CAMP.x, CAMP.z, 1.3);
+    w.pile(-44.6, 84.6, [['crate', 0, 0, { id: 'ccrate' }], ['crate', 0, 1.1], ['barrel', .3, 2.2], ['crate', -.2, -2.6, { id: 'ccrate2' }]], 0);
+    w.pile(-24.4, 76.4, [['barrel', 0, 0], ['barrel', .9, .2], ['crate', .4, -1]], .5);
+    w.pile(-37.8, 95.2, [['keg', 0, 0], ['keg', .8, -.3], ['keg', .2, .8]], 0);
+    for (const [x, z] of [[-33.2, 99], [-46, 80], [-21.4, 91]]) w.breakable('urn', x, z);
+    for (const [x, z] of [[-19.8, 91], [-19.8, 77]]) w.totem(x, z);
+    for (let i = 0; i < 16; i++) { const a = R() * 6.28, r = 3 + R() * 7; w.add(new THREE.SphereGeometry(.13, 8, 6), 'bone', CAMP.x + Math.sin(a) * r, .1, CAMP.z + Math.cos(a) * r, 0, false); }
+    for (const [x, z, h] of [[-43, 97.5, 7], [-46.5, 72, 8], [-24, 99.5, 6.5], [-21.5, 70.5, 7]]) w.tree(x, z, h, Math.round(x * z));
 
     // Campfires light the trail and the glade; the pyre burns at the far end of the arena.
     for (const [x, z, s] of [[6.8, 27, .8], [13.2, 46, .8], [-.8, 59.5, .8], [-5, 114, .7], [9.5, 133, .7]]) w.campfire(x, z, s);

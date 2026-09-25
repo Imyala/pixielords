@@ -30,7 +30,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Thorn Counter | F | LT |
 | Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick / D-pad right |
 | Drink Moondew | R | X |
-| Interact | E | A |
+| Interact · read a letter | E | A |
 | Fae Shift (Faelight full) | G | Y |
 | Pause | Esc | Start |
 
@@ -47,6 +47,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   foe (Low). Every hit with the Fangs builds **Frenzy**, up to six stacks, each one 5% faster and 4% harder
   while you keep cutting. Switch weapons as a strike ends for a **Switch Strike**, a wheeling cut with the
   weapon you draw, which also counts as Resonance if the window is open.
+- **Turning.** The knight leans into turns rather than snapping round: a quick reversal at a run takes about
+  half a second and a sprint carves a wider arc, while lock-on keeps turns tight.
 - **Stamina** fuels strikes, dashes and blocked blows. As a strike ends, blue light gathers around the
   knight: tap guard then for **Resonance** and the stamina flows back. Change stance in that moment for a
   Resonant Shift.
@@ -77,6 +79,21 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   feed Faelight. The coloured motes wait where they fell until you come close.
 - Strikes, Deflects and Resonance fill **Faelight**. At full, **Fae Shift**: wings flare, damage rises, and
   hits drain Faelight instead of health.
+- **Awareness.** Idle foes look about and wander near their posts; sentries walk their rounds. A foe notices
+  you by sight (a cone ahead of it, and anything close) and by sound (sprinting and dashing are loud, walking
+  quieter, standing still quietest); walls block sight and muffle noise. A **?** over a head means it has
+  half-noticed something and is turning to look; a **!** means it has seen you, and it calls the allies
+  around it. Sneak up slowly from behind for an Ambush.
+- **Breakables.** Crates, barrels, urns and moon-crystals shatter when struck (a heavy or a slam breaks
+  sturdier ones at once) and spill Glimmer, sometimes a green mote, sometimes something hidden inside.
+  Skull-marked **powder kegs** explode a moment after they break: they burn the ground, hurt everything
+  nearby (you too) and set off any keg beside them. Lure foes to them. Everything breakable is back the next
+  time you rest or fall.
+- **Letters.** Notes, orders and diaries lie about every mission, glowing faintly. Press E to read one. Read
+  letters stay in the **Journal** (from the pause menu or any Moonwell), mission by mission. Many are from
+  Maelis, a fae knight who went ahead of you, and they often hint at what's coming.
+- **Lost Pixies.** Five in every mission, some in plain sight, some shut in crates and urns. Walk into one to
+  free it. Each freed pixie is kept for good (even into New Game+) and adds 1% to your health and stamina.
 - **Moonwells** heal you, refill Moondew and bring every foe back. Spend Glimmer there to level up, or
   travel between awakened Moonwells. Fall and your Glimmer stays with your **Echo** where you fell.
 - **Snares and fire.** Goblin Trappers hurl bolas: while snared you move slowly and can't sprint, so
@@ -98,36 +115,40 @@ glowing stones between them. Your knight walks the road: arrows, WASD, the d-pad
 landmark to landmark, clicking a landmark walks there, and Enter (A) sets out, stepping into the Pixie Gate
 ring. Sealed missions lie under fae mist; clear the one before and, the next time the map opens, the road
 lights up stone by stone to the new one and the mist lifts. The panel shows each mission's state, Moonwells
-awakened and charms found. Open the map from the title ("The Fae Crossroads"), from any Moonwell ("Journey
-elsewhere…"), or by going onward from a cleared mission. Each mission keeps its own Moonwells, fallen
+awakened, charms found, and the letters and Lost Pixies found there. Open the map from the title ("The Fae
+Crossroads"), from any Moonwell ("Journey elsewhere…"), or by going onward from a cleared mission. Each mission keeps its own Moonwells, fallen
 warlords and items. Level, Glimmer and Moondew carry over.
 
 1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
-   portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren.
+   portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Off the yard,
+   through a gap in the west wall: the Goblin Larder, with its meat hooks and a stack of powder kegs.
 2. **The Rotwood Hollow** (level 12+): a winding cliff trail, the goblin village of Grubnest (Brakka the
    Skullsplitter holds its palisade gate), the Rotting Glade with its poison pools and ratman pack, then
-   the Pyre of Grimtusk, Warlord of the Pyre. New foes: Goblin Hexers, whose chant heals nearby allies;
-   Goblin Trappers; and the Ratman Packleader, whose howl wakes the glade.
+   the Pyre of Grimtusk, Warlord of the Pyre. West of Grubnest, through the palisade: the Tanner's Camp.
+   New foes: Goblin Hexers, whose chant heals nearby allies; Goblin Trappers; and the Ratman Packleader,
+   whose howl wakes the glade.
 3. **The Gnawed Deep** (level 24+): a ratman mine lit by moon-crystals. The Upper Drift, the Crystal
    Gallery, the Lower Drift, the Breaker's Pit (Grinder the Tunnel-Breaker brings the roof down on you
    and holds the mine gate), the Brood Warren, then the Seer's Hollow and Mother Skritch, the Plague Seer:
    she blinks away when cornered, casts orbs in fans and rings, rains plague vials and bursts in a Dread
    nova. Her crystals block orbs, so use them as cover. New foes: Ratman Delvers, who burrow under you and
-   erupt; and Glowseers, who blink away.
+   erupt; and Glowseers, who blink away. Off the Crystal Gallery: the Glimmer Grotto, where a great crystal
+   heart holds a hoard.
 4. **The Moonspire** (level 36+): a ruined fae temple above the clouds. The Moonstair Landing, the Broken
    Bridge, the Terrace of Chimes, the Pilgrim's Stair, the Moon Gate (Varkh the Moon-Pike holds it), the
    Garden of Still Water, then the Crown of the Spire and Silkclaw, the Moonless Blade: a fast duelist who
    steps behind you, throws fans of knives, lunges in Dread and, at half health, splits into shadows. New
    foes: Goblin Skyguards, whose shields turn aside blows from the front (go round, or break the guard
    with heavies); Warchanters, whose chant makes nearby allies burn red, hit harder and ignore stagger;
-   and Ratman Shadowblades, who vanish and reappear behind you.
+   and Ratman Shadowblades, who vanish and reappear behind you. A bridge off the Terrace of Chimes leads to
+   the Starlit Library, its shelves round a great orrery.
 5. **The Frostmere** (level 48+): a frozen mere under the aurora, where the stolen moonlight ran. The
    Shivering Pass, the Rimefall Stair with its frozen waterfall, the Icefisher's Hamlet on its iced-over
    pond, the Causeway across the mere, the Knight's Vigil, the Frozen Court (a ruined winter palace), then
-   the Mirror of the Mere. New foes, all rimed and carrying chill: Goblin Rimecallers (frost shards and ice
-   waves), Ratman Frostfangs (quick pack biters), Goblin Hailslingers (hail pots that leave the ground
-   freezing), Goblin Rimebreakers (hammer slams that fan out ice waves), and rimed Rimeguards, Snowdelvers
-   and Rimebrutes. Clear it to unlock New Game+.
+   the Mirror of the Mere. East of the hamlet, on the shore: the Frozen Boathouse. New foes, all rimed and
+   carrying chill: Goblin Rimecallers (frost shards and ice waves), Ratman Frostfangs (quick pack biters),
+   Goblin Hailslingers (hail pots that leave the ground freezing), Goblin Rimebreakers (hammer slams that
+   fan out ice waves), and rimed Rimeguards, Snowdelvers and Rimebrutes. Clear it to unlock New Game+.
 
 Later missions field hardier rank-and-file: in the Rotwood regular foes have 1.25× the health, in the Deep
 1.6×, on the Moonspire 2×, on the Frostmere 2.4×, and they hit harder and drop more Glimmer to match.
@@ -159,28 +180,28 @@ leg, placed and weighted from the vertex layout. That lets foes stride with bend
 arms, turn their heads to track you, sidestep when strafing, and wind blows up through the torso.
 
 Missions are data. Each file in `src/levels/` describes one: where it sits on the Fae Crossroads, its areas,
-fog and light, Moonwells, foes, items, gate, seal and exit (and, for a fight whose arena gives way, where
-the ice breaks), plus a `build()` that dresses the world with the engine's builders. A mission's `boss` can
-name one warlord or a pair.
+fog and light, Moonwells, foes, items (an item can wait inside a breakable), letters, Lost Pixies, gate,
+seal and exit (and, for a fight whose arena gives way, where the ice breaks), plus a `build()` that dresses
+the world with the engine's builders. A mission's `boss` can name one warlord or a pair.
 
 ## Code
 
 ```
 index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
-src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), saving
+src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
 src/player.js     the knight's controller: weapons and stances, chains, charge, Frenzy, Switch Strike, launcher and air combos, dash, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
 src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and all three weapons, built from primitives, with pose blending and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI, procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, projectiles and hazards
-src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, projectiles and hazards
+src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
 src/camera.js     third-person camera with lock-on, wall collision and shake
-src/fx.js         particles, sword trails, slash arcs, telegraphs
+src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
-src/hud.js        bars, lock-on reticle, boss bar, prompts and banners
-src/menu.js       title, pause, Moonwell, charms, the map's overlay (labels and mission panel), controls, settings and ending screens
+src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
+src/menu.js       title, pause, Moonwell, charms, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

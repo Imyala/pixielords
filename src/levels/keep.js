@@ -1,6 +1,6 @@
 // Mission 1: the Grubhold, a ruined keep climbed from south to north.
 //   Fallen Grove (first Moonwell) → Gatehouse Yard (Gatewarden) → portcullis → Gnawing Halls (second Moonwell)
-//   → Briar Seal → Throne of the Warren (Gnawfang).
+//   → Briar Seal → Throne of the Warren (Gnawfang). Off the yard's west wall: the Goblin Larder.
 import * as THREE from 'three';
 import { boxGeo, scaleUV, merge } from '../world.js';
 import { rng } from '../util.js';
@@ -12,7 +12,7 @@ export default {
   level: 1,
   map: { x: -17, z: -19 },   // where it sits on the Fae Crossroads
   seed: 1234,
-  fog: { color: 0x0d1122, byArea: { grove: .028, yard: .024, halls: .03, throne: .014 }, base: .026 },
+  fog: { color: 0x0d1122, byArea: { grove: .028, yard: .024, larder: .03, halls: .03, throne: .014 }, base: .026 },
   intro: 'The warren gnaws at the roots of the fae realm.\nClimb the keep. Fell its lord.',
   outro: 'Gnawfang is dust upon his throne. The Pixie Gate hums with a light older than the keep, and through it the smell of wet leaves and smoke: the Rotwood Hollow, where the goblins keep their fires.',
   exitToast: 'A Pixie Gate opens beyond the throne',
@@ -22,6 +22,7 @@ export default {
   areas: [
     { id: 'grove', name: 'The Fallen Grove', x0: -11, x1: 11, z0: -12, z1: 10 },
     { id: 'yard', name: 'Grubhold Gatehouse', x0: -18, x1: 28, z0: 10, z1: 64 },
+    { id: 'larder', name: 'The Goblin Larder', x0: -38.6, x1: -18.01, z0: 28, z1: 58.6 },
     { id: 'halls', name: 'The Gnawing Halls', x0: -19, x1: 12, z0: 64, z1: 120.2 },
     { id: 'throne', name: 'Throne of the Warren', x0: -17, x1: 17, z0: 120.2, z1: 152 },
   ],
@@ -41,6 +42,12 @@ export default {
     { id: 'g6', type: 'goblin-bomber', x: 13, z: 56, yaw: -2.6 },
     { id: 'g7', type: 'goblin-berserker', x: -7, z: 50, yaw: 2.8, idle: 'sleep' },
     { id: 'g8', type: 'goblin-poisoner', x: 24.5, z: 41, yaw: -Math.PI / 2 },
+    // The Goblin Larder
+    { id: 'l1', type: 'goblin-bomber', x: -31, z: 51, yaw: Math.PI / 2 },
+    { id: 'l2', type: 'goblin-scout', x: -24, z: 35, yaw: -Math.PI / 2, patrol: [[-24, 35], [-33, 38], [-26, 40]] },
+    { id: 'l3', type: 'goblin-berserker', x: -34.5, z: 33.5, yaw: .6, idle: 'sleep' },
+    { id: 'l4', type: 'goblin-spearguard', x: -22, z: 50, yaw: -Math.PI / 2 },
+    { id: 'l5', type: 'goblin-poisoner', x: -33.5, z: 43, yaw: Math.PI / 2 },
     { id: 'warden', type: 'goblin-clubber', x: 0, z: 59, yaw: Math.PI, elite: 'warden' },
     { id: 'r1', type: 'ratman-scout', x: -4, z: 81, yaw: Math.PI },
     { id: 'r2', type: 'ratman-skirmisher', x: 4.5, z: 83, yaw: Math.PI },
@@ -81,8 +88,24 @@ export default {
     { id: 'c-dewdrop', x: -9.3, z: -10.3, kind: 'charm', charm: 'dewdrop', label: 'Charm' },
     { id: 'c-wardstone', x: 15.8, z: 49, kind: 'charm', charm: 'wardstone', label: 'Charm' },
     { id: 'c-thornheart', x: 9.5, z: 103.8, kind: 'charm', charm: 'thornheart', label: 'Charm' },
+    { id: 'glimmer-larder', x: -36.2, z: 40, kind: 'glimmer', amount: 500, label: 'Glimmer Shard', desc: '+500 Glimmer', inside: 'lcrate' },
+    { id: 'grace-larder', x: -20.4, z: 56.2, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glaive', x: -8.6, z: 76.4, kind: 'weapon', weapon: 'glaive', label: 'Moonglaive', desc: 'a polearm of moon-silver',
       tip: 'The Moonglaive reaches far and bites deep into posture. V (D-pad ← on a gamepad) switches weapons.\nSwitch as a strike ends for a Switch Strike. Hold a heavy strike to charge it.' },
+  ],
+
+  letters: [
+    { id: 'maelis1', x: 6.6, z: -10.2, title: 'A Note Pinned to a Grave', text: 'To whoever the Lantern Court sends after me:\n\nThe grove is quiet, but the keep is not. Goblins hold the gate and something older gnaws in the halls beneath it. The Moonwells are dimmer every night I rest at them, as though someone were drawing the water off from the other end.\n\nI am going ahead to find where the moonlight is going. If you are reading this, then I was right to be afraid, and you should be too.\n\n— Maelis, of the Lantern Court' },
+    { id: 'orders', x: 25.6, z: 38.4, title: 'Orders from the Gatewarden', text: 'GATE STAYS SHUT. NOBODY IN, NOBODY OUT.\n\nRATS GET THE HALLS. WE GET THE YARD. RATS GET PAID IN MEAT, NOT IN SHINY.\n\nALL SHINY GOES NORTH TO THE PYRE LIKE GRIMTUSK SAYS. ANY GOBLIN CAUGHT KEEPING SHINY GOES IN THE CAGE WITH THE LAST KNIGHT.\n\n— GRUBSKULL, GATEWARDEN (I CAN WRITE NOW)' },
+    { id: 'tally', x: -36.2, z: 55.4, title: 'Larder Tally, Scratched on a Plank', text: 'Barrels of blackpowder: 14.\nBarrels of blackpowder after Snikt got bored: 11.\nSnikt: 0.\n\nDO NOT keep the kegs by the fire. DO NOT hit the kegs. If a knight comes, hit the knight, NOT the kegs. The kegs are for the Pyre.' },
+    { id: 'oath', x: 9.6, z: 91.4, title: "Gnawfang's Oath, in Tooth-Marks", text: 'The Warblade swears to the Court of Winter, that sits upon the ice in the far north:\n\nThe keep is ours. The gate is ours. The knights who come are ours to eat.\nIn return, when the moon is gone from the sky, the warren will be warm, and the cold will pass us by.\n\nSigned in tooth,\nGnawfang' },
+  ],
+  pixies: [
+    { id: 'p1', x: 1.9, z: -11.2 },
+    { id: 'p2', x: 23, z: 43.5, inside: 'ycrate' },
+    { id: 'p3', x: -27, z: 47.2, y: 1.55 },
+    { id: 'p4', x: -37, z: 29.6, inside: 'lbarrel' },
+    { id: 'p5', x: -10.4, z: 86, inside: 'hurn' },
   ],
 
   gate: { x: 0, z: 66, width: 6, guardian: 'warden', style: 'portcullis', toast: 'The portcullis rises', banner: 'GATEWARDEN VANQUISHED', charm: 'gateseal' },
@@ -106,7 +129,10 @@ export default {
     // Walls.
     w.wallPath([[-3, 10], [-11, 10], [-11, -12], [11, -12], [11, 10], [3, 10]]);
     w.wall(-3, 10, -3, 28); w.wall(3, 10, 3, 28);
-    w.wallPath([[-3, 28], [-18, 28], [-18, 64], [-3, 64]]);
+    w.wallPath([[-3, 28], [-18, 28], [-18, 40]]); w.wallPath([[-18, 46], [-18, 64], [-3, 64]]);
+    // The Goblin Larder, through a broken doorway in the yard's west wall.
+    w.wallPath([[-18, 28], [-38, 28], [-38, 58], [-18, 58]], { h: 5.5 });
+    w.batch('wall', boxGeo(1.4, 1.6, 6.2, 3).translate(-18, 5.7, 43));   // the doorway's lintel
     w.wallPath([[3, 28], [18, 28], [18, 37], [28, 37], [28, 45], [18, 45], [18, 64], [3, 64]]);
     w.wall(-3, 64, -3, 74, { h: 8 }); w.wall(3, 64, 3, 74, { h: 8 });
     w.batch('wall', boxGeo(7.2, 2, 2.4, 3).translate(0, 7, 66));
@@ -185,10 +211,14 @@ export default {
 
     // Crates, a cart and goblin banners in the yard.
     const crate = boxGeo(1, 1, 1, 1);
-    for (const [x, z, r] of [[-15.5, 33, .2], [-15.4, 34.2, .5], [-14.5, 33.3, .1], [15.5, 60.5, .3], [14.4, 61, -.2], [23, 43.5, .1]]) {
-      w.add(crate, 'wood', x, .5, z, r); w.prop(w.addBox(x, z, .5, .5, r, 1));
-    }
-    w.add(crate, 'wood', -15.1, 1.5, 33.6, .3).scale.setScalar(.9);
+    // Crates, barrels and urns to smash: in the yard, the grove's ruin and the halls.
+    w.pile(-15, 33.6, [['crate', 0, 0], ['crate', 1.1, .3], ['barrel', -.2, 1.2], ['crate', .9, 1.4]], .2);
+    w.pile(15, 60.6, [['crate', 0, 0], ['barrel', 1.1, -.2], ['barrel', -.9, .3]], .3);
+    w.breakable('crate', 23, 43.5, { id: 'ycrate' }); w.breakable('barrel', 24.4, 44.2);
+    w.pile(-13.5, 58.5, [['barrel', 0, 0], ['barrel', .95, .2], ['crate', .3, -1]], .1);
+    for (const [x, z] of [[-8.5, -11], [8.6, -10.8], [-9.4, 8.4]]) w.breakable('urn', x, z);
+    for (const [x, z, id] of [[-10.4, 86, 'hurn'], [-10.5, 94], [10.4, 83], [10.3, 108.6], [-10.4, 109.5]]) w.breakable('urn', x, z, { id });
+    w.pile(9.8, 97.2, [['barrel', 0, 0], ['crate', 0, 1.1]], 0);
     const cart = new THREE.Group();
     const bed = new THREE.Mesh(boxGeo(2.4, .3, 1.4, 1), M.wood); bed.position.y = .8; cart.add(bed);
     for (const [wx, wz] of [[-.8, .75], [.8, .75], [-.8, -.75], [.8, -.75]]) {
@@ -227,6 +257,39 @@ export default {
     throne.position.set(0, 0, 148.5); g.add(throne);
     w.prop(w.addBox(0, 148.5, 3, 2, 0, 1.2));
     w.addBox(0, 149.8, 1.4, .6, 0, 6);
+
+    // The Goblin Larder: stacked stores, sacks, a long table, and the blackpowder kept (unwisely) all together.
+    for (const [x, z, n, r] of [[-36.6, 31, 3, .1], [-36.4, 36.2, 2, -.2], [-20.2, 31.2, 2, .3]]) {
+      for (let i = 0; i < n; i++) w.add(crate, 'wood', x + (i % 2) * .1, .5 + i, z + (i % 2) * .15, r + i * .3);
+      w.prop(w.addBox(x, z, .55, .55, r, n));
+    }
+    w.pile(-36.2, 40, [['crate', 0, 0, { id: 'lcrate' }], ['crate', 0, 1.2], ['barrel', .1, -1.1]], 0);
+    w.pile(-36.4, 45.5, [['barrel', 0, 0], ['barrel', 0, 1], ['barrel', 0, 2], ['barrel', -.2, 3.1]], 0);
+    w.pile(-37, 29.6, [['barrel', 0, 0, { id: 'lbarrel' }], ['barrel', 1, .1]], 0);
+    w.pile(-20.5, 35, [['crate', 0, 0], ['barrel', 0, 1.1], ['crate', 0, 2.2]], 0);
+    // Powder kegs, piled in the middle of the room.
+    w.pile(-29, 54.4, [['keg', 0, 0], ['keg', .9, .1], ['keg', -.9, 0], ['keg', .4, .9], ['keg', -.5, .9], ['keg', 2.4, -.4]], 0);
+    M.sack = new THREE.MeshStandardMaterial({ color: 0x8a7050, roughness: 1 });
+    for (const [x, z, r] of [[-35.8, 34.2, .2], [-33.6, 31.2, 1.4], [-32.2, 33.8, 2.2], [-37, 35.2, .9], [-24, 55.6, .5], [-22.6, 56.2, 2.5]]) {
+      const sk = w.rock(.55, 7, .15); sk.scale(1, .55, .8); sk.rotateY(r); sk.translate(x, .25, z); w.batch('sack', sk);
+    }
+    const table = new THREE.Group();
+    const tb2 = (a, b, c, x, y, z) => { const m = new THREE.Mesh(boxGeo(a, b, c, 1), M.wood); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; table.add(m); };
+    tb2(1.4, .12, 5, 0, .9, 0);
+    for (const [lx, lz] of [[-.55, -2.2], [.55, -2.2], [-.55, 2.2], [.55, 2.2]]) tb2(.12, .9, .12, lx, .45, lz);
+    const food = [0xa0502a, 0xd8c070, 0x7a3a2a, 0xc8a060];
+    for (let i = 0; i < 9; i++) { const m = new THREE.Mesh(i % 3 ? new THREE.SphereGeometry(.12 + R() * .08, 8, 6) : boxGeo(.3, .14, .22, 1), new THREE.MeshStandardMaterial({ color: food[i % 4], roughness: .8 })); m.position.set((R() - .5) * .9, 1.02, -2 + i * .5); m.castShadow = true; table.add(m); }
+    table.position.set(-27, 0, 45.2); g.add(table); w.prop(w.addBox(-27, 45.2, .75, 2.55, 0, 1));
+    for (const [x, z] of [[-21, 40.2], [-21, 45.8]]) w.totem(x, z, 2.6);
+    w.banner(-37.3, 44, Math.PI / 2, 0x6b1414, 3.2); w.banner(-28, 57.3, Math.PI, 0x6b1414, 3.2);
+    const hooks = new THREE.Group();   // meat hanging from a beam
+    const beam = new THREE.Mesh(boxGeo(6, .2, .2, 1), M.wood); beam.position.set(0, 3.4, 0); hooks.add(beam);
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Mesh(new THREE.CapsuleGeometry(.16, .5, 4, 8), new THREE.MeshStandardMaterial({ color: 0x7a2a22, roughness: .8 })); m.position.set(-2.4 + i * 1.2, 2.7, 0); hooks.add(m);
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, .5, 3), M.iron); c.position.set(-2.4 + i * 1.2, 3.15, 0); hooks.add(c);
+    }
+    hooks.position.set(-30, 0, 29.2); hooks.traverse(o => { o.castShadow = true; }); g.add(hooks);
+    for (const [x, z] of [[-24, 29.4], [-37, 51], [-21.2, 52.6]]) w.brazier(x, z);
 
     // Braziers: moon-blue in the grove, fire in the yard, rot-green in the halls, blood-red at the throne.
     for (const [x, z] of [[-6, -9], [6, -9]]) w.brazier(x, z, 0x6fd8ff);

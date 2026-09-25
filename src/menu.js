@@ -131,6 +131,8 @@ export class Menu {
       case 'node': G.overworld.select(b.dataset.id); break;
       case 'setout': G.overworld.enter(b.dataset.id); break;
       case 'charms': this.push('charms'); break;
+      case 'journal': this.push('journal'); break;
+      case 'letter': { const y = this.el.querySelector('.map')?.scrollTop || 0; this.top.scroll = y; this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break; }
       case 'charm': { const f = this.focus; if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); const y = this.el.querySelector('.map')?.scrollTop || 0; this.render(); this.focus = f; this.paint(); const m = this.el.querySelector('.map'); if (m) m.scrollTop = y; break; }
     }
   }
@@ -162,7 +164,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
@@ -210,6 +212,7 @@ export class Menu {
         <div class="btns">
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
+          <button class="btn" data-act="journal">Journal <small>${sv.data.letters.length} letters · ${sv.data.pixies.length} Lost Pixies freed</small></button>
           ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
           <button class="btn" data-act="leave">Rise</button>
         </div>
@@ -239,11 +242,30 @@ export class Menu {
           <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
           ${opening ? '<div class="kicker">A new path opens</div>' : ''}
           <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
-          ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span></div>` : ''}
+          ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span></div>` : ''}
           <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${back}</div>
           <div class="foot">${keys}</div>
         </div>
         <div class="owfade"></div>`;
+    } else if (screen === 'journal') {
+      // Letters found, mission by mission, and the Lost Pixies freed.
+      const d = G.save.data;
+      const rows = G.ORDER.filter(id => d.unlocked.includes(id)).map(id => {
+        const L = G.LEVELS[id], ls = L.letters || [], ps = L.pixies || [];
+        const read = ls.filter(l => d.letters.includes(id + ':' + l.id)).length, freed = ps.filter(q => d.pixies.includes(id + ':' + q.id)).length;
+        const btns = ls.map(l => d.letters.includes(id + ':' + l.id)
+          ? `<button class="btn lt" data-act="letter" data-m="${id}" data-id="${l.id}">${esc(l.title)}</button>`
+          : '<button class="btn lt" disabled>— a letter not yet found —</button>').join('');
+        return `<div class="entry"><b>${esc(L.name)}</b><small>Letters ${read} / ${ls.length} · Lost Pixies ${freed} / ${ps.length}</small>${btns}</div>`;
+      }).join('');
+      h = `<div class="panel wide missions journal"><div class="kicker">Journal · ${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed (+${d.pixies.length}% health and stamina)</div><h2>What the paths remember</h2>
+        <div class="map">${rows}</div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'letter') {
+      const L = G.LEVELS[data.m], l = (L.letters || []).find(x => x.id === data.id);
+      h = `<div class="panel wide"><div class="kicker">${esc(L.name)}</div><h2>${esc(l.title)}</h2>
+        <div class="parchment"><p>${esc(l.text)}</p></div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'charms') {
       const d = G.save.data, worn = d.equipped;
       const rows = d.charms.map(id => {
@@ -266,6 +288,7 @@ export class Menu {
     this.el.innerHTML = h;
     if (screen === 'map') G.overworld.bindLabels(this.el);
     this.focus = 0;
+    if (this.top.scroll) { const m = this.el.querySelector('.map'); if (m) m.scrollTop = this.top.scroll; }
     this.paint();
   }
 }

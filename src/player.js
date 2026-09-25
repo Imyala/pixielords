@@ -165,6 +165,9 @@ export class Player {
     if (this.has('gateseal')) this.maxHp = Math.round(this.maxHp * 1.1);
     if (this.has('seereye')) this.animaGain *= 1.25;
     if (this.has('wintercrown')) this.shiftDur *= 1.33;
+    // Every Lost Pixie freed lends its light: a hundredth more health and stamina each.
+    const px = this.G.save?.data.pixies?.length || 0;
+    this.maxHp = Math.round(this.maxHp * (1 + px * .01)); this.maxKi = Math.round(this.maxKi * (1 + px * .01));
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
@@ -173,7 +176,7 @@ export class Player {
   spawnAt(x, z, yaw) {
     this.pos.set(x, 0, z); this.yaw = yaw; this.vel.set(0, 0, 0);
     this.hp = this.maxHp; this.ki = this.maxKi; this.anima = this.anima ?? 0;
-    this.state = 'free'; this.st = 0; this.alive = true;
+    this.state = 'free'; this.st = 0; this.alive = true; this.heading = yaw;
     this.poison = 0; this.poisoned = 0; this.snared = 0; this.chill = 0; this.frozen = 0; this.vy = 0; this.airCount = 0; this.airDashed = false;
     this.buffer = null; this.pulse = null; this.lock = null; this.flash = null; this.riposte = null; this.chain = 0; this.chargeMul = 1;
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
@@ -802,9 +805,22 @@ export class Player {
         this.sprinting = !!this.sprintArmed && inp.down('dodge') && mag > .3 && !this.guarding && !(this.snared > 0);
         const speed = this.guarding ? 3 : this.sprinting ? 8.2 : this.lock ? 5 : 6.2;
         const s = speed * mag * (this.snared > 0 ? .45 : 1) * (this.frozen > 0 ? .62 : 1);
-        if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
+        if (moveInput()) {
+          // The heading swings toward the stick rather than snapping to it: tight at a walk, a wider arc at a
+          // run. From a standstill it takes the new direction at once and the body pivots to follow.
+          const sp = Math.hypot(this.vel.x, this.vel.z), diff = angleDiff(this.heading, this.inputYaw);
+          if (sp < 1.2) this.heading = this.inputYaw;
+          else {
+            const k = this.lock ? 16 : this.sprinting ? 7 : 11, max = (this.lock ? 14 : this.sprinting ? 6.5 : 9.5) * dt;
+            this.heading += clamp(diff * (1 - Math.exp(-k * dt)), -max, max);
+          }
+          // A hard reversal bleeds speed while the knight wheels round; so does setting off facing away.
+          const lag = Math.abs(angleDiff(this.heading, this.inputYaw)), face = this.lock ? 0 : Math.abs(angleDiff(this.yaw, this.heading));
+          const k2 = clamp(Math.cos(Math.max(lag, face) * .5) * 1.25, .3, 1);
+          want = { x: Math.sin(this.heading) * s * k2, z: Math.cos(this.heading) * s * k2 };
+        }
         if (this.lock && !this.sprinting) turn = yawTo(this.pos.x, this.pos.z, this.lock.pos.x, this.lock.pos.z);
-        else if (moveInput()) turn = this.inputYaw;
+        else if (moveInput()) { turn = this.heading; turnRate = 13; }
         break;
       }
       case 'attack': {
@@ -927,7 +943,7 @@ export class Player {
       case 'drink': {
         const s = 2 * mag;
         if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
-        if (moveInput() && !this.lock) turn = this.inputYaw;
+        if (moveInput() && !this.lock) { turn = this.inputYaw; turnRate = 8; }
         if (!this.healed && this.st >= .48) {
           this.healed = true;
           this.heal((this.maxHp * .42 + 40) * (this.has('dewdrop') ? 1.33 : 1));
@@ -1023,6 +1039,9 @@ export class Player {
       this.pos.y = Math.max(0, this.pos.y + this.vy * dt);
       if (this.pos.y <= 0 && this.vy <= 0) this.land();
     }
+
+    // Outside free movement the heading follows where the body is actually going (or facing, at rest).
+    if (this.state !== 'free') { const sp = Math.hypot(this.vel.x, this.vel.z); this.heading = sp > 1 ? Math.atan2(this.vel.x, this.vel.z) : this.yaw; }
 
     // Knockback from blocks and hits decays smoothly.
     if (this.knock) {
@@ -1127,6 +1146,7 @@ export class Player {
         if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
         if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < a.aoe + e.radius) this.strike(e, a);
       }
+      G.world.smash(c.x, c.z, a.aoe);
     }
     // Hex orbs can be cut out of the air.
     for (const pr of G.projectiles.list) {
@@ -1147,6 +1167,14 @@ export class Player {
       const ang = Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz)));
       if (ang > a.arc * Math.PI / 360 && d > e.radius + .7) continue;
       this.strike(e, a);
+    }
+    // Crates, barrels, urns and crystals in the arc.
+    for (const b of G.world.breakables) {
+      if (b.broken || this.hitSet.has(b) || this.pos.y > b.h + 1.2) continue;
+      const dx = b.x - this.pos.x, dz = b.z - this.pos.z, d = Math.hypot(dx, dz);
+      if (d > reach + b.r) continue;
+      if (Math.abs(angleDiff(this.yaw, Math.atan2(dx, dz))) > a.arc * Math.PI / 360 && d > b.r + .7) continue;
+      this.hitSet.add(b); G.world.hitBreakable(b, a.heavy ? 3 : 1, this.yaw);
     }
   }
 

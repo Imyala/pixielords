@@ -26,6 +26,8 @@ G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: 
 // Game-time timers: they pause with the game and stretch with slow motion.
 const timers = [];
 G.after = (sec, fn) => timers.push({ t: G.time + sec, fn });
+// A tip that waits its turn: it never covers a letter or another tip already open, nor opens over a menu.
+G.tipAfter = (sec, text) => G.after(sec, function show() { if (G.hud.messageOpen || G.menu.open || G.state !== 'play') G.after(.4, show); else G.hud.message(text); });
 function runTimers() {
   for (let i = timers.length - 1; i >= 0; i--) if (G.time >= timers[i].t) { const f = timers[i].fn; timers.splice(i, 1); f(); }
 }
@@ -192,7 +194,10 @@ function applyWorldState() {
   G.world.setBreaks(false);
   G.world.setFogGate(!bossDead);
   G.world.setExit(bossDead);
+  G.world.resetBreakables();
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, m.items.includes(it.id));
+  for (const l of G.world.letters) G.world.setLetterRead(l.id, d.letters.includes(L.id + ':' + l.id));
+  for (const px of G.world.pixieList) G.world.setPixie(px.id, d.pixies.includes(L.id + ':' + px.id));
   for (const s of Object.values(L.shrines)) s.fx.lit = m.kindled.includes(s.id) ? 1 : 0;
   G.projectiles.clear();
   for (const h of L.hazards || []) G.projectiles.hazard(h.x, h.z, h.r, Infinity, h.poison ?? 45, h.kind, true);
@@ -273,7 +278,7 @@ G.startMission = async id => {
 };
 G.newGamePlus = async () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -320,6 +325,57 @@ G.onEnemyKilled = (e, hit = {}) => {
   if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else bossDefeated(); }
   else if (e === G.gatekeeper) gatekeeperDefeated();
 };
+
+// ---------------------------------------------------------------- breakables, letters and Lost Pixies
+// Broken crates and urns spill a little Glimmer (more in later missions), now and then a mote of healing, and
+// whatever was shut inside. A powder keg goes up a moment later.
+G.onBreak = b => {
+  const L = G.level, p = G.player, mult = (L.tier || 1) * (1 + (L.level || 1) / 16) * G.ngMul;
+  const at = { x: b.x, y: b.h * .5 + .3, z: b.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
+  if (b.glim[1]) {
+    const amt = Math.round(rand(b.glim[0], b.glim[1]) * mult);
+    G.save.glimmer += amt; G.hud.addGlimmer(amt);
+    G.fx.wisps(at, Math.min(10, 2 + Math.round(amt / 40)), to, () => G.audio.sfx('glimmer', { vol: .4 }));
+  }
+  if (!b.blast && Math.random() < .22) G.fx.wisps(at, 1, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
+  if (b.blast) G.after(.18, () => blast(b));
+};
+
+function blast(b) {
+  const p = G.player, r = b.blast;
+  G.fx.explosion({ x: b.x, y: .2, z: b.z }, r); G.audio.sfx('explode', { x: b.x, z: b.z }); G.cam.shake(.6, b);
+  G.projectiles.hazard(b.x, b.z, 1.8, 3, 30, 'fire');
+  for (const e of G.enemies) {
+    if (!e.alive || Math.hypot(e.pos.x - b.x, e.pos.z - b.z) > r + e.radius) continue;
+    e.takeHit({ dmg: e.boss ? 120 : 190, ki: 90, poise: 80, dir: Math.atan2(e.pos.x - b.x, e.pos.z - b.z), heavy: true });
+  }
+  if (p.alive && Math.hypot(p.pos.x - b.x, p.pos.z - b.z) < r * .85 + p.radius) p.receiveHit({ dmg: 75, aoe: true, heavy: true, dirYaw: Math.atan2(b.x - p.pos.x, b.z - p.pos.z) });
+  G.world.smash(b.x, b.z, r);   // and the kegs beside it
+}
+
+// A letter is read in full and kept in the Journal.
+function readLetter(it) {
+  const d = G.save.data, key = G.level.id + ':' + it.id, first = !d.letters.includes(key);
+  G.hud.letter(it.letter.title, it.letter.text, first ? 'Kept in your Journal' : '');
+  G.audio.sfx('page');
+  if (first) { d.letters.push(key); G.world.setLetterRead(it.id, true); G.save.write(); }
+}
+
+// A Lost Pixie flies into the knight's wisp; each one freed adds a little health and stamina for good.
+function freePixie(px) {
+  const d = G.save.data, p = G.player, L = G.level, key = L.id + ':' + px.id;
+  if (d.pixies.includes(key)) return;
+  d.pixies.push(key);
+  G.world.setPixie(px.id, true);
+  G.fx.wisps({ x: px.g.position.x, y: px.g.position.y, z: px.g.position.z }, 8, () => ({ x: p.pos.x, y: 1.8, z: p.pos.z }), null, 0xff9cf0);
+  G.fx.ring(p.pos, 0xff9cf0, 1.8, .4, 1.2);
+  G.audio.sfx('pixie');
+  const here = (L.pixies || []).filter(q => d.pixies.includes(L.id + ':' + q.id)).length;
+  p.setCharms(d.equipped); p.heal(p.maxHp * .02);
+  G.hud.toast(`Lost Pixie freed · ${here} of ${(L.pixies || []).length} here · health and stamina +1%`, 'item');
+  if (d.pixies.length === 1) G.tipAfter(.9, 'A Lost Pixie: one of the fae\'s little lights, scattered when the moon began to fade.\nEach one you free lends you its light for good: a little more health and stamina. Five hide in every mission, some shut inside crates and urns.');
+  G.save.write();
+}
 
 // ---------------------------------------------------------------- charms
 // A new charm goes straight into a free slot; otherwise it waits to be worn at a Moonwell.
@@ -522,7 +578,7 @@ function findInteractable() {
   const p = G.player, w = G.world;
   let best = null, bd = Infinity;
   for (const it of w.interactables) {
-    if (it.kind === 'item' && it.taken) continue;
+    if (it.kind === 'item' && (it.taken || it.hidden)) continue;   // an item still shut in a crate can't be picked up through it
     if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.bosses.some(b => b.alive))) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
@@ -536,6 +592,7 @@ function interact(it) {
   switch (it.kind) {
     case 'shrine': rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
+    case 'letter': readLetter(it); break;
     case 'item': {
       const item = it.item;
       m.items.push(item.id);
@@ -545,11 +602,11 @@ function interact(it) {
       if (item.kind === 'charm') {
         const first = !d.charms.length;
         grantCharm(item.charm, true);
-        if (first) G.after(.8, () => G.hud.message('Charms bend the rules a little. Up to three can be worn at once; change them at any Moonwell.'));
+        if (first) G.tipAfter(.8, 'Charms bend the rules a little. Up to three can be worn at once; change them at any Moonwell.');
       }
       if (item.kind === 'weapon' && !d.arms.includes(item.weapon)) {
         d.arms.push(item.weapon); p.arms = [...d.arms]; p.setWeapon(p.weapon);
-        G.after(.8, () => G.hud.message(item.tip || item.desc));
+        G.tipAfter(.8, item.tip || item.desc);
       }
       const c = item.kind === 'charm' && CHARMS[item.charm];
       G.hud.toast(c ? `${c.name} — ${c.desc}` : `${item.label} — ${item.desc}`, 'item');
@@ -669,6 +726,13 @@ function step(dt, rdt) {
     G.save.data.grave = null; G.save.write(); updateGrave();
   }
   if (grave.visible) { echoAnim.update(rdt, { speed: 0 }); grave.userData.core.rotation.y += rdt * 2; grave.userData.core.position.y = 1.9 + Math.sin(G.time * 2) * .1; if (Math.random() < rdt * 20) G.fx.motes({ x: grave.position.x, y: .3, z: grave.position.z }, 0x9dff9a, 1, .3, 1.2, .08, 1); }
+
+  // Lost Pixies are freed by coming close.
+  if (G.state === 'play' && p.alive) for (const px of G.world.pixieList) {
+    if (px.taken || px.hidden) continue;
+    if (Math.hypot(p.pos.x - px.x, p.pos.z - px.z) < 1.5 && Math.abs(p.pos.y + 1 - px.y) < 1.9) freePixie(px);
+    else if (Math.random() < rdt * 4 && Math.hypot(p.pos.x - px.x, p.pos.z - px.z) < 40) G.fx.motes(px.g.position, 0xffb8f4, 1, .1, .3, .06, .9);
+  }
 
   // Area names.
   const area = G.world.areaAt(p.pos.x, p.pos.z);

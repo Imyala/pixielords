@@ -1,7 +1,7 @@
 // Mission 3: the Gnawed Deep, a ratman mine under the mountains, lit by moon-crystals. Walked south to north.
 //   The Mine Mouth (first Moonwell) → the Upper Drift → the Crystal Gallery → the Lower Drift
 //   → the Breaker's Pit (Grinder holds the mine gate) → the Brood Warren (second Moonwell)
-//   → Briar Seal → the Seer's Hollow (Mother Skritch).
+//   → Briar Seal → the Seer's Hollow (Mother Skritch). West of the Crystal Gallery: the Glimmer Grotto.
 import * as THREE from 'three';
 import { boxGeo } from '../world.js';
 import { ring, pathSides, distToPath, ringCliffs } from './shape.js';
@@ -12,11 +12,15 @@ const DRIFT_B = [[0, 72.6, 3.7], [5, 80, 3.6], [7, 88, 3.8], [2, 95, 3.6], [0, 9
 // The warren's walls, from the mine gate round to the seal corridor (the left side mirrors it).
 const WARREN = [[3.4, 120.5], [10, 121.5], [17.5, 127], [17.5, 146], [11, 151], [3.8, 152], [3.8, 159.6]];
 const CRYSTAL = 0x7fe8ff, AMETHYST = 0xb88cff;
+// The Glimmer Grotto: a pocket of raw crystal through a gap in the gallery's west wall.
+const GROTTO = { x: -30.5, z: 56 };
+const GROTTO_WALL = [[-16.57, 59.8], [-20, 66.5], [-29, 70], [-39.5, 65.5], [-44, 55], [-38.5, 45], [-28, 42], [-19.5, 46.5], [-16.57, 52.2]];
 
 function playable(x, z, m = 0) {
   const near = (c, r) => Math.hypot(x - c.x, z - c.z) < r + m;
   return near(MOUTH, MOUTH.r + 2) || distToPath(DRIFT_A, x, z) < 6 + m || near(GALLERY, GALLERY.r + 2.5) || distToPath(DRIFT_B, x, z) < 6 + m
-    || near(PIT, PIT.r + 2.5) || (Math.abs(x) < 19.5 + m && z > 118 - m && z < 153 + m) || (Math.abs(x) < 6 && z > 150 && z < 161) || near(HOLLOW, HOLLOW.r + 3);
+    || near(PIT, PIT.r + 2.5) || (Math.abs(x) < 19.5 + m && z > 118 - m && z < 153 + m) || (Math.abs(x) < 6 && z > 150 && z < 161) || near(HOLLOW, HOLLOW.r + 3)
+    || near(GROTTO, 15.5);
 }
 
 export default {
@@ -28,7 +32,7 @@ export default {
   seed: 2468,
   cave: true,
   tier: 1.6,
-  fog: { color: 0x0c0a14, byArea: { mouth: .03, driftA: .036, gallery: .024, driftB: .036, pit: .028, warren: .032, hollow: .018 }, base: .03 },
+  fog: { color: 0x0c0a14, byArea: { mouth: .03, driftA: .036, gallery: .024, grotto: .026, driftB: .036, pit: .028, warren: .032, hollow: .018 }, base: .03 },
   light: { sky: 0x8a7ac8, ground: 0x221a2c, hemi: 1.55, moonColor: 0xa89cff, moon: 1.5 },
   enemyGlow: .2,   // foes catch a little crystal light so they read against the dark
   intro: 'The warren was only ever a mouth.\nGo down into the Deep, and silence the Seer.',
@@ -40,7 +44,8 @@ export default {
   areas: [
     { id: 'mouth', name: 'The Mine Mouth', x0: -12, x1: 12, z0: -12, z1: 10.5 },
     { id: 'driftA', name: 'The Upper Drift', x0: -9, x1: 9, z0: 10.5, z1: 39.5 },
-    { id: 'gallery', name: 'The Crystal Gallery', x0: -19, x1: 19, z0: 39.5, z1: 72.6 },
+    { id: 'gallery', name: 'The Crystal Gallery', x0: -17.2, x1: 19, z0: 39.5, z1: 72.6 },
+    { id: 'grotto', name: 'The Glimmer Grotto', x0: -45, x1: -17.2, z0: 41, z1: 71 },
     { id: 'driftB', name: 'The Lower Drift', x0: -6, x1: 13, z0: 72.6, z1: 99.3 },
     { id: 'pit', name: "The Breaker's Pit", x0: -12, x1: 12, z0: 99.3, z1: 120.5 },
     { id: 'warren', name: 'The Brood Warren', x0: -19, x1: 19, z0: 120.5, z1: 157 },
@@ -65,6 +70,11 @@ export default {
     { id: 'g5', type: 'ratman-poisoner', x: 11, z: 62, yaw: -2.2 },
     { id: 'g6', type: 'ratman-delver', x: -12, z: 54, yaw: 2 },
     { id: 'g7', type: 'goblin-bomber', x: 8, z: 68, yaw: -2.8 },
+    // The Glimmer Grotto
+    { id: 'x1', type: 'ratman-delver', x: -27, z: 51, yaw: -1.6 },
+    { id: 'x2', type: 'ratman-glowseer', x: -38, z: 60, yaw: 1.4 },
+    { id: 'x3', type: 'ratman-skirmisher', x: -24, z: 62, yaw: -2, patrol: [[-24, 62], [-34, 64], [-36, 50], [-26, 46]] },
+    { id: 'x4', type: 'ratman-brute', x: -34, z: 52, yaw: 1.2, idle: 'sleep' },
     // The Lower Drift
     { id: 'b1', type: 'ratman-delver', x: 5, z: 79.5, yaw: Math.PI },
     { id: 'b2', type: 'ratman-assassin', x: 7, z: 87.5, yaw: -2.6, idle: 'sleep' },
@@ -107,6 +117,21 @@ export default {
     { id: 'c-echo', x: 6, z: 3.5, kind: 'charm', charm: 'echo', label: 'Charm' },
     { id: 'c-moonpetal', x: -3, z: 70, kind: 'charm', charm: 'moonpetal', label: 'Charm' },
     { id: 'c-rootbound', x: -16, z: 144, kind: 'charm', charm: 'rootbound', label: 'Charm' },
+    { id: 'glimmer-grotto', x: -40.8, z: 56.4, kind: 'glimmer', amount: 2400, label: 'Glimmer Shard', desc: '+2400 Glimmer', inside: 'gheart' },
+    { id: 'grace-grotto', x: -21, z: 64, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+  ],
+  letters: [
+    { id: 'maelis3', x: 3, z: 44.2, title: 'A Third Letter, Wedged in a Cart', text: 'The crystals are moonlight gone hard. The rats dig them out, the Seer drinks their song, and every seventh night a sealed cart goes up the old road toward the Spire.\n\nThe Seer reads the future in the ash the goblins send her. She does not read it for herself. She reads it for someone who pays in cold.\n\nI am following the cart. The rats hate light: carry a lantern, and they will come to you slower.\n\n— M.' },
+    { id: 'miner', x: -33.6, z: 65.4, title: "A Miner's Last Shift", text: 'We dig the moon-crystals for the Seer. They sing when you strike them and go dark when you carry them out of the Deep. The Seer says the singing is the moon crying.\n\nShe says it like it is a good thing.\n\nThe Glimmer Grotto is the last of the old seam. When it is dug out, she says, we will not need to dig any more, because the cold will come and keep everything.' },
+    { id: 'grinder', x: -6.2, z: 107.2, title: "Grinder's Complaint", text: 'Roof is weak. Told her. Told her twice.\n\nShe says bring it down on the knight when the knight comes. Fine. Who digs us out after?\n\nAlso somebody left the goblins\' blackpowder by the pit again. I am not moving it. If it goes up it goes up.\n\n— G.' },
+    { id: 'scrying', x: -9.5, z: 147, title: "The Seer's Scrying, on Bone", text: 'I have read the ash and the ash says: a knight will come, in blue light, looking for the one before.\n\nAnd after the knight comes, the ash says nothing at all. Not dark, not bright. Nothing. As though the page of the future were torn out.\n\nI have written to the Court of Winter. The Court does not answer. Grinder, double the gate.' },
+  ],
+  pixies: [
+    { id: 'p1', x: 5.2, z: 2.8 },
+    { id: 'p2', x: 1.6, z: 26.8, inside: 'durn' },
+    { id: 'p3', x: -33, z: 45.8, inside: 'gcr1' },
+    { id: 'p4', x: -40.2, z: 60.6, y: 1.3 },
+    { id: 'p5', x: 15.4, z: 135 },
   ],
 
   gate: { x: 0, z: 120.5, width: 6.8, guardian: 'grinder', style: 'portcullis', toast: 'The mine gate grinds open', banner: 'TUNNEL-BREAKER FELLED', charm: 'knuckle' },
@@ -128,7 +153,8 @@ export default {
 
     // Chambers and drifts.
     ringCliffs(w, MOUTH, MOUTH.r, 20, [9, 10], 10, 3, R, 2);
-    ringCliffs(w, GALLERY, GALLERY.r, 28, [0, 27, 13, 14], 12, 4, R, 2);
+    ringCliffs(w, GALLERY, GALLERY.r, 28, [0, 27, 13, 14, 20, 21], 12, 4, R, 2);
+    for (let i = 0; i < GROTTO_WALL.length - 1; i++) w.cliff(...GROTTO_WALL[i], ...GROTTO_WALL[i + 1], { h: 11 + R() * 3, th: 2 });
     ringCliffs(w, PIT, PIT.r, 20, [0, 19, 9, 10], 11, 3, R, 2);
     ringCliffs(w, HOLLOW, HOLLOW.r, 28, [0, 27], 13, 4, R, 2);
     for (const P of [DRIFT_A, DRIFT_B]) {
@@ -158,6 +184,25 @@ export default {
     w.rails(DRIFT_A.map(([x, z]) => [x, z]).concat([[-3, 48], [-10, 58], [-13, 64]]));
     w.cart(-4.2, 44.5, .5, true); w.cart(14, 124.5, -.9); w.cart(-6.5, 21.5, .4);
 
+    // The Glimmer Grotto: raw crystal to smash for Glimmer, a heart-crystal at the back, and the miners' leavings.
+    const gc = (x, z, s, id, c) => w.breakable('crystal', x, z, { s, id, color: c ?? (R() < .5 ? CRYSTAL : AMETHYST) });
+    gc(-33, 45.8, 1, 'gcr1'); gc(-24.5, 47.6, .8); gc(-39.6, 49.4, .9); gc(-35.6, 64, 1); gc(-27.5, 67.4, .8); gc(-21.6, 50.4, .7); gc(-30, 60.5, .7); gc(-35.5, 57.2, .75);
+    gc(-40.8, 56.4, 1.5, 'gheart', AMETHYST);
+    w.crystal(-31, 55.4, 3.2, CRYSTAL, 777, true);
+    w.rails([[-17, 56], [-24, 57], [-31, 59.5], [-36, 63]]);
+    w.cart(-25.5, 57.4, 1.4); w.timber(-18.2, 53.2, -18.2, 58.8, 5);
+    w.pile(-22.4, 65.2, [['crate', 0, 0], ['barrel', 1, .3], ['crate', .2, 1.1]], .6);
+    for (const [x, z, r] of [[-41.5, 51.5, 1.2], [-26, 44.2, 1], [-20.2, 62.4, .9]]) w.nest(x, z, r);
+    for (let i = 0; i < 10; i++) { const a = R() * 6.28, r = 12 + R() * 1.5; const x = GROTTO.x + Math.sin(a) * r, z = GROTTO.z + Math.cos(a) * r; if (x < -19) w.stalagmite(x, z, 2 + R() * 2.5, 600 + i); }
+
+    // Urns and stores along the drifts; blackpowder by the Breaker's Pit (a keg or two may bring the gatekeeper down).
+    for (const [x, z, id] of [[1.6, 26.8, 'durn'], [-4.2, 14.4], [4.2, 33.6], [7.6, 82.4], [-2, 92.6]]) w.breakable('urn', x, z, { id });
+    w.pile(-5.6, 6, [['crate', 0, 0], ['barrel', .9, .4]], 0);
+    w.pile(-8, 108.8, [['keg', 0, 0], ['keg', .8, .2], ['keg', .2, .8]], 0);
+    w.pile(8.2, 111.2, [['keg', 0, 0], ['keg', -.1, .85]], 0);
+    w.pile(-15.4, 133.4, [['crate', 0, 0], ['barrel', .9, .5]], .4);
+    for (const [x, z] of [[12.5, 132.4], [-12.4, 144.6], [9.4, 149.6]]) w.breakable('urn', x, z);
+
     // Moon-crystals: cyan in the upper mine, violet deeper down, great pillars round the Hollow.
     const cr = (x, z, h, c, light = true) => { if (clear(x, z, 1.6)) w.crystal(x, z, h, c, Math.round(x * 7 + z * 3), light); };
     cr(-6, 4, 1.8, CRYSTAL); cr(6.5, -2.5, 2.4, CRYSTAL); cr(-7.5, -5, 1.4, CRYSTAL, false);
@@ -175,7 +220,7 @@ export default {
     // Stalagmites and boulders: at the walls' feet, and filling the rock beyond so the dark reads as stone.
     for (let i = 0; i < 70; i++) {
       const C = [MOUTH, GALLERY, PIT, HOLLOW][i % 4], a = R() * Math.PI * 2, [x, z] = ring(C, C.r - .8, a);
-      if (Math.abs(Math.sin(a / 2)) < .15 || Math.abs(Math.cos(a / 2)) < .15 || !clear(x, z, 2.5)) continue;
+      if (Math.abs(Math.sin(a / 2)) < .15 || Math.abs(Math.cos(a / 2)) < .15 || !clear(x, z, 2.5) || (C === GALLERY && Math.abs(a - Math.PI * 1.5) < .4)) continue;
       w.boulder(x, z, .7 + R() * 1.1, 400 + i);
     }
     let placed = 0;
