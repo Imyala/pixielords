@@ -24,6 +24,7 @@ import { OMENS, phaseOf } from './moontonight.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
 import { gravePetals } from './graves.js';
 import { bestiary, ACTS, ROLE_COLOR, traits, coreOf, artsOf, known } from './bestiary.js';
+import { TRIALS, TRIAL_GROUPS, TRIAL_PAY, trialLock, trialsPassed } from './trials.js';
 import { MARKET_TABS, VIAL_MAX } from './market.js';
 import { CUP_MAX } from './kindred.js';
 import { DYES, DYE_ORDER, LOOK_PARTS } from './wardrobe.js';
@@ -57,6 +58,7 @@ const SETTINGS = [
   ] },
   { name: 'Display', rows: [
     { k: 'quality', label: 'Quality', vals: [1, 0], names: ['High', 'Fast'], desc: 'High: moonlit shadows and a sharper image. Fast: for slower machines.' },
+    { k: 'glow', label: 'Glow and grade', vals: [true, false], names: ['On', 'Off'], desc: 'Light that blooms past white, each place\'s own colour, a vignette and fine grain, and the moment\'s colour (low health, the Fae Shift, a realm). Off: a plainer, lighter image.' },
   ] },
 ];
 
@@ -342,6 +344,11 @@ export class Menu {
       case 'underbriar': this.push('underbriar', { from: this.top.data?.from }); break;
       case 'descend': G.menu.close(); G.enterUnderbriar(+b.dataset.depth); break;
       case 'leaveAbyss': G.leaveUnderbriar(); break;
+      case 'thornyard': G.menu.close(); G.enterYard(); break;
+      case 'trial': G.startTrial(b.dataset.id); break;
+      case 'trialLocked': G.audio.sfx('ui'); G.hud.toast(trialLock(TRIALS.find(t => t.id === b.dataset.id), G.save.data) || '', 'warn'); break;
+      case 'abandonTrial': G.abandonTrial(); break;
+      case 'leaveYard': G.leaveYard(); break;
       case 'pledge': {
         const id = b?.dataset.id || this.cur()?.dataset.id;
         if (b?.dataset.locked || !G.setPatron(id)) { G.audio.sfx('ui'); G.hud.toast(`Fell the warlord of ${G.LEVELS[PATRONS[id]?.from]?.name || 'its mission'} to free this spirit`); }
@@ -532,6 +539,8 @@ Menu.prototype.screens = {
         bestiary: 'Every foe met, its arts and its ways.', deeds: 'Long goals kept across every mission, Way and depth.', settings: 'Camera, reading, sound and display.', controls: 'Keys, the gamepad, and the ways of the fight.' }[id] })),
       side && row({ act: 'abandon', icon: 'sides', title: 'Abandon side mission', desc: `${side.name}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.` }),
       L.depth && row({ act: 'leaveAbyss', icon: 'rise', title: 'Leave the Underbriar', desc: 'Climb back up to the Fae Crossroads.' }),
+      G.trials.run && row({ act: 'abandonTrial', icon: 'quit', title: 'Abandon the trial', desc: `${G.trials.run.T.name}: end it and stand before the Trial Stone again.` }),
+      L.yard && row({ act: 'leaveYard', icon: 'rise', title: 'Leave the Thornyard', desc: 'Back to the Fae Crossroads.' }),
       row({ act: 'quit', icon: 'quit', title: 'Quit to title', desc: 'Progress is saved each time you rest at a Moonwell or vanquish a warlord.' }),
     ].filter(Boolean).join('');
     const K = G.kindred?.alive ? G.kindred : null;
@@ -746,6 +755,7 @@ Menu.prototype.screens = {
       row({ act: 'setout', icon: 'travel', title: 'Set out', extra: `data-id="${id}"`, off: !shown || opening, desc: shown ? `Walk into ${L.name}.` : '' }),
       st === 'cleared' && !opening && row({ act: 'sides', icon: 'sides', title: 'Side missions', right: G.hud.key('mAlt'), extra: `data-id="${id}"`, desc: 'Twilight, a Hunt and a Duel.' }),
       d.missions.keep?.cleared && !opening && row({ act: 'underbriar', icon: 'abyss', title: 'The Underbriar', right: `deepest ${d.abyss?.best || 0}`, desc: 'The endless maze beneath the Crossroads.' }),
+      !opening && row({ act: 'thornyard', icon: 'sword', title: 'The Thornyard', right: `${trialsPassed(d)} / ${TRIALS.length}`, desc: 'Trials that teach every technique of the fight. A fall there costs nothing.' }),
       data?.from === 'shrine' ? row({ act: 'back', icon: 'moon', title: 'Stay', desc: 'Back to the Moonwell.' }) : data?.from === 'title' ? row({ act: 'back', icon: 'quit', title: 'Back' }) : row({ act: 'title', icon: 'quit', title: 'Return to title' }),
     ].filter(Boolean).join('');
     const tags = shown ? `<div class="owtags"><span class="t ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span>${st === 'cleared' ? sidesOf(id).map(S => `<span class="t ${d.sides?.[S.id] ? 'cleared' : 'new'}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('') : ''}</div>` : '';
@@ -893,6 +903,35 @@ Menu.prototype.screens = {
           ${meter(next ? n / next : 1, 'gold')}<div class="mx-fx plain"><span>${n.toLocaleString()}${next ? ` of ${next.toLocaleString()}` : ''}</span><span class="v">${next ? `${Math.round(n / next * 100)}%` : 'complete'}</span></div>
           ${sec('Tiers')}${D.tiers.map((t, k) => `<div class="mx-fx ${k < tier ? 'set' : 'off'}"><span>${TIER[k]} · ${t.toLocaleString()}</span><span class="v">${DEED_GLIMMER[k].toLocaleString()} Glimmer · ${(k + 1) * 5} Moonpetals</span></div>`).join('')}
           ${sec('Each tier, for good')}<div class="mx-fx"><span>${esc(fxText(D.fx[0], D.fx[1]))}</span></div>`);
+      } };
+  },
+  // The Thornyard's Trial Stone: the trials by group, and the chosen one's lesson, keys, record and reward.
+  trials(data) {
+    const G = this.G, d = G.save.data, run = G.trials.run, passed = trialsPassed(d), tier = G.level.tier || 1;
+    if (data.focus) { this.top.focus = Math.max(0, TRIALS.findIndex(t => t.id === data.focus)); data.focus = null; }
+    let rows = '';
+    TRIAL_GROUPS.forEach((gn, g) => {
+      rows += divider(gn);
+      rows += TRIALS.filter(T => T.g === g).map(T => {
+        const r = d.trials?.[T.id], lock = trialLock(T, d);
+        return row({ act: lock ? 'trialLocked' : 'trial', icon: lock ? 'lock' : r?.n ? 'check' : ['sword', 'sparkle', 'crown'][g], color: lock ? 'var(--mx-faint)' : r?.unhurt ? 'var(--mx-gold)' : r?.n ? 'var(--mx-rose)' : null,
+          title: T.name, tag: r?.unhurt ? 'Unhurt' : '', right: r?.n ? `${r.best.toFixed(1)}s` : '', extra: `data-id="${T.id}"`, desc: lock || T.goal });
+      }).join('');
+    });
+    rows += row({ act: run ? 'abandonTrial' : 'back', icon: 'quit', title: run ? 'Abandon the trial' : 'Step away', desc: run ? 'End the trial under way.' : 'Back to the yard.' });
+    const body = panel(list(rows), 'lst', ['Trials', `${passed} of ${TRIALS.length} passed`]) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'The Trial Stone', crumb: 'The Thornyard · where the fae knights learned the fight', sigil: 'sword', layout: 'browse', chips: this.chips('lvl', 'glim', 'petal'), body,
+      hints: [['confirm', 'Begin the trial'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const T = TRIALS.find(t => t.id === el?.dataset.id);
+        if (!T) { this.fill(`<div class="mx-kick"><span>The Thornyard</span></div><h3>The Trial Stone</h3><div class="mx-lore">Each trial teaches one thing and passes the moment it is done. A fall here costs nothing, and the yard's foes leave nothing. A first pass pays Glimmer and Moonpetals; a pass unhurt, three petals more.</div>`); return; }
+        const r = d.trials?.[T.id], lock = trialLock(T, d), [gl, pt] = TRIAL_PAY[T.g];
+        this.fill(`<div class="mx-kick"><span>${esc(TRIAL_GROUPS[T.g])}</span><span>${r?.n ? `passed ×${r.n}` : 'not yet passed'}</span></div>
+          <h3>${esc(T.name)}</h3><div class="sub">${esc(T.goal)}</div><div class="mx-lore">${esc(T.teach)}</div>
+          ${sec('The keys')}${T.keys.map(([a, what]) => `<div class="mx-fx plain"><span>${esc(what)}</span><span class="v">${glyph(G, a)}</span></div>`).join('')}
+          ${sec('Record')}<div class="mx-fx ${r?.n ? 'set' : 'off'}"><span>Passed</span><span class="v">${r?.n ? `×${r.n} · best ${r.best.toFixed(1)}s` : 'not yet'}</span></div><div class="mx-fx ${r?.unhurt ? 'set' : 'off'}"><span>Unhurt</span><span class="v">${r?.unhurt ? 'yes' : 'not yet'}</span></div>
+          ${sec('First pass')}<div class="mx-fx ${r?.n ? 'off' : ''}"><span>${Math.round(gl * tier).toLocaleString()} Glimmer · ${pt} Moonpetals</span><span class="v">${r?.n ? 'taken' : ''}</span></div><div class="mx-fx ${r?.unhurt ? 'off' : ''}"><span>Unhurt: 3 Moonpetals more</span><span class="v">${r?.unhurt ? 'taken' : ''}</span></div>
+          ${lock ? `<div class="mx-note" style="color:var(--mx-red)">${esc(lock)}</div>` : ''}`);
       } };
   },
   charms() {

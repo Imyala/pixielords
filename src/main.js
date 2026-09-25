@@ -14,6 +14,7 @@ import { wares, nightOf, VIAL_MAX } from './market.js';
 import { Kindred, kindredOffers, CUP_MAX } from './kindred.js';
 import { Realm, realmHost, REALM } from './umbral.js';
 import { FX } from './fx.js';
+import { Post } from './post.js';
 import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
@@ -34,6 +35,7 @@ import { SIDES } from './sides.js';
 import { wayName, wayDesc, WAY_TIER, wayGlimmer } from './ways.js';
 import { makeFloor, isCheckpoint, checkpointOf, isBossDepth } from './underbriar.js';
 import { DEEDS, TIER, DEED_GLIMMER, deedTier } from './deeds.js';
+import { Trials, makeYard } from './trials.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -87,7 +89,10 @@ G.deedsView = () => DEEDS.map(D => ({ D, n: G.save.data.tally?.[D.tally] || 0, t
 
 // In the Underbriar (underbriar.js): its depths are made as they are reached, not kept in LEVELS.
 const abyss = () => G.level?.id === 'underbriar';
+// In the Thornyard (trials.js): made for the knight's furthest mission, whenever it is entered.
+const yard = () => !!G.level?.yard;
 const levelFor = id => {
+  if (id === 'thornyard') return G.level?.id === 'thornyard' ? G.level : makeYard(G.save.data);
   if (id !== 'underbriar') return LEVELS[id] || LEVELS.keep;
   const a = G.save.data.abyss ||= freshAbyss();
   return G.level?.id === 'underbriar' && G.level.depth === a.depth ? G.level : makeFloor(a.depth, a.seed);
@@ -114,12 +119,14 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// The look (post.js): bloom, each place's grade, vignette and grain, and the moment's colour.
+const post = new Post(renderer);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0d1122, .026);
 scene.background = new THREE.Color(0x0d1122);
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 900);
-Object.assign(G, { renderer, scene, camera });
+Object.assign(G, { renderer, scene, camera, post });
 
 const hemi = new THREE.HemisphereLight(0x7d8fc4, 0x2a2016, 1.35);
 scene.add(hemi);
@@ -167,6 +174,8 @@ G.overworld = new Overworld(G);
 G.projectiles = new Projectiles(G);
 G.loot = new Loot(G);
 G.player = new Player(G);
+G.trials = new Trials(G);
+G.did = (ev, data) => G.trials.on(ev, data);   // what the knight does, for the Thornyard's trials
 const envTex = makeEnv();
 for (const m of Object.values(G.player.k.mats)) if (m.isMeshStandardMaterial) { m.envMap = envTex; m.envMapIntensity = .9; }
 
@@ -184,6 +193,7 @@ function applySettings() {
   const hi = !!s.quality;
   renderer.setPixelRatio(hi ? Math.min(devicePixelRatio, 1.75) : Math.min(devicePixelRatio, 1));
   moon.castShadow = hi;
+  post.enabled = post.supported && s.glow !== false; post.setQuality(hi);
   if (G.world) G.world.lightPool.forEach((l, i) => { l.visible = hi || i < 3; });
   if (G.fx) resize();
 }
@@ -220,7 +230,10 @@ function applyLevelLook() {
     hemi.color.setHex(tint(lt.sky ?? 0x7d8fc4, 0xc4586a, .5)); moon.color.setHex(0xff7a5a); moon.intensity *= .9;
   }
   G.fogBase = scene.fog.color.clone(); G.realmK = 0; G.realmTinted = false;
+  post.setGrade(gradeKey(), true);
 }
+// Which grade (post.js) the place takes: the map's, a Twilight's blood moon, or the mission's (a depth: its look's).
+const gradeKey = () => G.overworld?.active ? 'map' : sideDef()?.kind === 'twilight' ? 'twilight' : G.level.theme || G.level.id;
 
 async function loadEnemies() {
   const L = G.level, all = [...L.spawns, ...(L.adds || [])];
@@ -309,7 +322,7 @@ function applyWorldState() {
   const bossDead = G.bosses.every(b => m.dead.includes(b.id));
   G.world.setBreaks(false);
   G.world.setFogGate(!bossDead);
-  G.world.setExit(abyss() ? !!m.cleared : bossDead && !S);
+  G.world.setExit(abyss() ? !!m.cleared : yard() ? false : bossDead && !S);
   G.world.resetBreakables();
   // A side run finds the mission's items already taken (they were, the first time through).
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, !!S || m.items.includes(it.id));
@@ -377,6 +390,22 @@ G.enterUnderbriar = async (depth, descending = false, carry = null) => {
   return true;
 };
 G.leaveUnderbriar = () => { G.menu.close(); G.openMap('cleared', G.save.data.abyss?.from || 'keep'); };
+
+// ---------------------------------------------------------------- the Thornyard
+// Into the yard from the Crossroads map; out again the same way. A trial begins at its Trial Stone.
+G.enterYard = async () => {
+  const d = G.save.data;
+  if (d.mission !== 'thornyard') d.yardFrom = d.mission === 'underbriar' ? d.abyss?.from || 'keep' : d.mission;
+  d.mission = 'thornyard'; d.side = null; d.sideRun = null;
+  d.missions.thornyard = freshMission();
+  G.save.write();
+  await startRun();
+  G.after(1, () => G.hud.big('THE THORNYARD', 'intro side', 4.5, 'Read the Trial Stone to begin a trial'));
+  if (!d.yardTip) { d.yardTip = true; G.tipAfter(5.5, 'The Thornyard: trials that teach the fight, one technique at a time. Read the Trial Stone to choose one. A fall here costs nothing; a first pass pays Glimmer and Moonpetals, and a pass unhurt a few petals more.'); }
+};
+G.leaveYard = () => { G.trials.clear(); G.menu.close(); G.openMap('cleared', G.save.data.yardFrom || 'keep'); };
+G.startTrial = async id => { G.menu.close(); G.onMenuClosed(); return G.trials.start(id); };
+G.abandonTrial = () => { G.trials.clear(); G.trials.toStone(); G.menu.close(); G.onMenuClosed(); };
 function descend() {
   const p = G.player, a = G.save.data.abyss;
   G.controlsOn = false; p.iframesT = 99;
@@ -497,7 +526,7 @@ G.addPetals = (n, quiet = false) => {
 // Everyone foes can strike: the knight, and a Kindred walking with it.
 G.bodies = () => (G.kindred?.alive ? [G.player, G.kindred] : [G.player]);
 // A Duel is fought alone.
-G.kinAllowed = () => sideDef()?.kind !== 'duel';
+G.kinAllowed = () => sideDef()?.kind !== 'duel' && !yard();
 G.kinOffers = () => kindredOffers(G.level.theme || G.level.id, nightOf(), G.save.level);
 // Moon Cups: poured out at a Moonwell to call a Kindred.
 G.addCups = (n, quiet = false) => {
@@ -595,7 +624,7 @@ G.refreshTonight = (id = G.save.data.mission) => {
 };
 function announceTonight() {
   const T = G.tonight, key = `${G.level.id}|${Math.floor(Date.now() / 36e5)}`;
-  if (!T || G.level.depth || G.tonightShown === key) return;
+  if (!T || G.level.depth || yard() || G.tonightShown === key) return;
   G.tonightShown = key;
   G.after(7.2, () => {
     G.hud.toast(`Tonight: ${T.phase.name} — ${T.phase.desc}`, 'anima');
@@ -604,6 +633,7 @@ function announceTonight() {
 }
 async function startRun() {
   G.audio.init();
+  G.trials.clear();
   syncUnlocks();
   G.refreshTonight();
   G.traveling = false;
@@ -678,6 +708,7 @@ G.newGamePlus = async () => {
 
 G.quitToTitle = () => {
   timers.length = 0;
+  G.trials.clear();
   sendKindred(null, true);
   if (G.state === 'play' || G.state === 'dead') G.save.write();
   G.state = 'title'; G.controlsOn = false;
@@ -703,6 +734,8 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
+  // The Thornyard's foes are echoes: they leave nothing but the lesson (trials.js).
+  if (yard()) { G.did('kill', { e, flash: !!hit.flash }); return; }
   // A Flashcut kill yields half again as much Glimmer.
   const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (e.umbral ? 3 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + G.player.gf('glimmer') / 100) * (G.tonight?.glimmer || 1));
   if (e.spawn.grave == null) G.loot.dropFrom(e, e === G.sideTarget);   // a grave's Revenant leaves its own spoils
@@ -1008,6 +1041,15 @@ function startBossFight() {
 
 G.onPlayerDeath = () => {
   const p = G.player, d = G.save.data;
+  // A fall in the Thornyard only ends the trial: nothing is lost, and you wake at its Moonwell.
+  if (yard()) {
+    G.state = 'dead'; G.controlsOn = false; G.hud.closeMessage();
+    G.audio.sfx('died'); G.slowmo = .8;
+    if (!G.trials.fail('You fell. Nothing is lost in the yard.')) G.after(.7, () => G.hud.big('FALLEN', 'died', 3, 'Nothing is lost in the yard'));
+    G.after(3.4, () => G.hud.fadeTo(true, 1));
+    G.after(4.6, () => { G.trials.clear(); respawn(); });
+    return;
+  }
   sendKindred('Your kindred fades with you');
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
@@ -1039,6 +1081,7 @@ function respawn() {
 // ---------------------------------------------------------------- Moonwells & interaction
 function rest(shrine) {
   const p = G.player, d = G.save.data, m = G.save.m;
+  G.trials.clear();   // resting ends a trial under way
   sendKindred();   // resting sends a Kindred home (call another from the Moonwell)
   const first = !m.kindled.includes(shrine.id);
   if (first) m.kindled.push(shrine.id);
@@ -1239,6 +1282,10 @@ function interact(it) {
       if (it.shrine.dim) { G.hud.toast('This Moonwell is dim: only those past a warlord burn', 'warn'); G.audio.sfx('ui'); break; }
       rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
+    case 'trials':   // the Thornyard's Trial Stone (trials.js)
+      G.controlsOn = false; G.input.wantLock = false; G.input.releaseLock();
+      G.menu.show('trials', {}); G.audio.sfx('page');
+      break;
     case 'kinRevive':
       p.hp = Math.max(1, p.hp - p.maxHp / 3); G.kindred.revive();
       p.setState('pickup'); p.anim.play('pickup'); G.audio.sfx('heal'); G.hud.toast(`${G.kindred.name} rises again`, 'anima');
@@ -1345,13 +1392,21 @@ function frame(fixed, draw = true) {
     titleFrame(rdt);
   }
   inp.endFrame();
-  if (draw) { if (G.overworld.active) G.overworld.render(renderer); else renderer.render(scene, camera); }
+  if (draw) draw3d(rdt);
+}
+// Draw the world (or the Crossroads map) through the look.
+function draw3d(rdt) {
+  const O = G.overworld, p = G.player, play = G.state === 'play' || G.state === 'dead';
+  const gk = gradeKey(); if (gk !== G.gradeShown) { G.gradeShown = gk; post.setGrade(gk); }
+  post.render(O.active ? O.scene : scene, O.active ? O.camera : camera, rdt, O.active || !play ? {} : {
+    hurt: p.alive ? clamp((.34 - p.hp / p.maxHp) / .26, 0, 1) : 0, shift: p.shifted ? 1 : 0, realm: G.realmK || 0, grey: G.state === 'dead' ? 1 : 0 });
 }
 G.tick = (n = 1, dt = 1 / 60, draw = false) => { for (let i = 0; i < n; i++) frame(dt, draw && i === n - 1); };
 
 function step(dt, rdt) {
   const p = G.player, inp = G.input;
   runTimers();
+  if (G.trials.run) G.trials.update(dt);
   if (dt > 0) {
     p.update(dt);
     // Moonstep: the world slows while the knight doesn't.
@@ -1503,6 +1558,7 @@ function titleFrame(dt) {
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight);
+  post.setSize(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio());
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   G.fx.setScale(innerHeight * renderer.getPixelRatio(), camera.fov);
 }

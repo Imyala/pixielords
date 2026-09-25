@@ -1,5 +1,8 @@
-// In-game HUD, drawn with DOM elements over the canvas.
+// In-game HUD, drawn with DOM elements over the canvas and styled by hud.css in the menus' moonglass and briar:
+// the stance crest and bars top left, the quick-slot cross bottom left (laid out as the d-pad), Glimmer bottom
+// right, and over the world foes' bars, the warlord's bar, toasts, banners and the great words.
 import * as THREE from 'three';
+import { icon } from './menuui.js';
 import { KEY_LABEL, PAD_LABEL, PS_LABEL } from './input.js';
 import { CHARMS } from './charms.js';
 import { COMBO } from './movesets.js';
@@ -19,23 +22,32 @@ export class HUD {
     const el = this.el = document.getElementById('hud');
     el.innerHTML = `
       <div class="stats">
-        <div class="bar hp"><i class="trail"></i><i class="fill"></i></div>
-        <div class="bar ki"><i class="pool"></i><i class="fill"></i></div>
-        <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
-        <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
+        <div class="vitals">
+          <div class="stance"><span data-s="high">▲</span><span data-s="mid">◆</span><span data-s="low">▼</span><b>Mid</b><small></small></div>
+          <div class="vbars">
+            <div class="bar hp"><i class="trail"></i><i class="fill"></i></div>
+            <div class="bar ki"><i class="pool"></i><i class="fill"></i></div>
+            <div class="bar anima"><i class="fill"></i><span class="ready">G · FAE SHIFT</span></div>
+          </div>
+        </div>
         <div class="weapon"><b>Fae Sword</b><small></small></div>
         <div class="charmrow"></div>
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="frozen" hidden>❄ Frostbitten</span><span class="pbuild"><i></i></span><span class="pbuild cbuild"><i></i></span></div>
         <div class="kin" hidden><small></small><div class="kbar"><i></i></div></div>
       </div>
       <div class="realm" hidden><b>UMBRAL REALM</b><small>stamina returns slower · foes hit harder · Faelight comes faster</small></div>
-      <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
-      <div class="artslot" hidden><i>◆</i><div><b></b><small></small></div></div>
+      <div class="qcross">
+        <div class="q up elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
+        <div class="q left swapq" hidden>${icon('sword')}<small class="key"></small></div>
+        <div class="q down artslot" hidden><i>◆</i><em></em><small class="key"></small><div><b></b></div></div>
+        <div class="q right nextq" hidden>${icon('chev')}<small class="key"></small></div>
+        <span class="hub"></span>
+      </div>
       <div class="rangedslot" hidden><i>➶</i><div><b></b><small></small><s><u></u></s></div></div>
       <div class="reticle" hidden><i></i><b></b></div>
       <div class="coreslots"></div>
       <div class="objective" hidden><small></small><b></b></div>
-      <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
+      <div class="glimmer"><span class="gain"></span><div><small>Glimmer</small><b>0</b></div></div>
       <div class="combo"><b>0</b><small>hits</small></div>
       <div class="lock"></div>
       <div class="ebars"></div>
@@ -62,7 +74,8 @@ export class HUD {
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
       combo: $('.combo', el), comboN: $('.combo b', el), comboS: $('.combo small', el),
-      art: $('.artslot', el), artI: $('.artslot i', el), artB: $('.artslot b', el), artS: $('.artslot small', el),
+      art: $('.artslot', el), artI: $('.artslot > i', el), artB: $('.artslot b', el), artS: $('.artslot .key', el), artN: $('.artslot em', el),
+      swapQ: $('.swapq', el), swapK: $('.swapq .key', el), nextQ: $('.nextq', el), nextK: $('.nextq .key', el),
       rng: $('.rangedslot', el), rngI: $('.rangedslot i', el), rngB: $('.rangedslot b', el), rngS: $('.rangedslot small', el), rngH: $('.rangedslot s', el), rngHI: $('.rangedslot u', el),
       ret: $('.reticle', el), retRing: $('.reticle b', el),
       kin: $('.kin', el), kinN: $('.kin small', el), kinBar: $('.kin .kbar i', el), realm: $('.realm', el),
@@ -123,6 +136,8 @@ export class HUD {
   screenFlash(kind) {
     const f = this.q.flash;
     f.className = 'flash'; void f.offsetWidth; f.className = 'flash ' + kind;
+    const P = this.G.post;   // and the look answers: colour splits on a Flashcut or a counter, light blooms
+    if (P) ({ flashcut: () => { P.pulse('split', 1); P.pulse('bloom', .6); }, burst: () => { P.pulse('split', .7); P.pulse('bloom', .9); }, hurt: () => P.pulse('split', .3), moon: () => P.pulse('bloom', .5), shift: () => P.pulse('bloom', 1) })[kind]?.();
   }
 
   burstWarn() {
@@ -153,7 +168,7 @@ export class HUD {
     el.querySelector('b').textContent = WEAPONS[id]?.name || id;
     el.dataset.w = id;
     const note = p.weaponNote?.(), fz = note ? `  ·  ${note}` : '';
-    el.querySelector('small').textContent = `${p.form?.name || ''}` + (p.arms.length > 1 ? `  ${this.key('swap')} ⇄` : '') + fz;
+    el.querySelector('small').textContent = `${p.form?.name || ''}` + fz;   // the other weapon waits on the cross
   }
 
   floatText(e, text, cls) {
@@ -251,16 +266,22 @@ export class HUD {
       q.kin.classList.toggle('fallen', K.state === 'fallen');
     }
     q.realm.hidden = !G.inRealm;
+    // The quick-slot cross: Moondew up, the other weapon left, the Fae Art down, the next art right. Keys are
+    // written on the slots for the keyboard; with a pad, the cross is the d-pad itself.
+    this.el.classList.toggle('pad', !!G.input.usingPad);
     q.flaskN.textContent = p.elixirs;
     q.flask.classList.toggle('empty', p.elixirs <= 0);
     q.flaskKey.textContent = this.key('heal');
-    // The Fae Art at hand: its uses left, the key to use it and, with more than one, the key to change it.
-    const A = ARTS[p.art], ak = A && `${p.art}|${p.artUses?.[p.art]}|${this.key('art')}|${p.arts?.length}|${p.brand?.kind === p.art}`;
+    const two = p.arms.length > 1;
+    q.swapQ.hidden = !two; if (two) q.swapK.textContent = this.key('swap');
+    // The Fae Art at hand: its uses left, its name beside the cross, and with more than one, the next.
+    const A = ARTS[p.art], ak = A && `${p.art}|${p.artUses?.[p.art]}|${this.key('art')}|${this.key('artNext')}|${p.arts?.length}|${p.brand?.kind === p.art}`;
     q.art.hidden = !A;
+    q.nextQ.hidden = !A || !(p.arts?.length > 1);
     if (A && ak !== this.artShown) {
       this.artShown = ak;
-      q.artI.style.color = A.color; q.artB.textContent = `${A.name} ×${p.artUses[p.art] ?? 0}`;
-      q.artS.textContent = `${this.key('art')}${p.arts.length > 1 ? `  ·  ${this.key('artNext')} to change` : ''}`;
+      q.artI.style.color = A.color; q.artB.textContent = A.name; q.artN.textContent = p.artUses[p.art] ?? 0;
+      q.artS.textContent = this.key('art'); q.nextK.textContent = this.key('artNext');
       q.art.classList.toggle('empty', !(p.artUses[p.art] > 0));
     }
     // Soul Cores set: each skill, its keys, and whether there is Faelight enough.

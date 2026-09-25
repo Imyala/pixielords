@@ -306,7 +306,7 @@ export class Player {
       if (resonant) this.doPulse(true);
       this.startAttack(this.W.switch);
       this.ghosts.spawn(this.W.color, .4, .55);
-      G.hud.toast('Switch Strike', 'pulse');
+      G.hud.toast('Switch Strike', 'pulse'); G.did?.('switch');
     } else {
       this.setState('swap'); this.anim.play('swap', 1.3, .04);
     }
@@ -343,7 +343,7 @@ export class Player {
     G.fx.ring(this.pos, stanceShift ? this.S.color : 0x7ff0ff, 2.2, .35);
     G.fx.motes({ x: this.pos.x, y: .6, z: this.pos.z }, 0x9ff3ff, 18, .6, 2.2, .1, .7);
     G.audio.sfx('pulse', { vol: perfect ? 1 : .6 });
-    G.hud.toast(stanceShift ? 'Resonant Shift' : perfect ? 'Perfect Resonance' : 'Resonance', 'pulse');
+    G.hud.toast(stanceShift ? 'Resonant Shift' : perfect ? 'Perfect Resonance' : 'Resonance', 'pulse'); G.did?.('resonance', { perfect });
   }
 
   gainAnima(n) {
@@ -670,7 +670,7 @@ export class Player {
     if (a.fin) {
       const n = this.combo.n, fm = this.sk('fin');
       this.finMul = 1 + Math.min(COMBO.finMax + (fm ? .4 : 0), n * COMBO.fin * (fm ? 1.33 : 1)); this.combo.n = 0;
-      G.hud.toast(n >= 4 ? `${this.moveName(key)} ×${this.finMul.toFixed(1)}` : this.moveName(key), 'anima');
+      G.hud.toast(n >= 4 ? `${this.moveName(key)} ×${this.finMul.toFixed(1)}` : this.moveName(key), 'anima'); G.did?.('finisher');
     } else if (c.kind === 'pause' && c.list?.[0] === key) G.hud.toast(this.moveName(key), 'pulse');
     return true;
   }
@@ -800,7 +800,7 @@ export class Player {
       if (!this.hitSet.has(e)) this.strike(e, a);
     }
     this.setState('land'); this.anim.play('plungeLand', 1.2, .02);
-    G.hud.toast('Starfall', 'pulse');
+    G.hud.toast('Starfall', 'pulse'); G.did?.('starfall');
   }
 
   startExecution(e, kind) {
@@ -815,7 +815,7 @@ export class Player {
     this.grapple.x = e.pos.x - Math.sin(toE) * stand; this.grapple.z = e.pos.z - Math.cos(toE) * stand;
     this.setState('grapple'); this.anim.play('grapple', 1.25, .04);
     this.iframes = true; this.iframesT = .1;   // nothing may interrupt it on its first frame
-    G.hud.toast(kind === 'ambush' ? 'Ambush' : 'Execution', 'crit'); G.tally?.('executions');
+    G.hud.toast(kind === 'ambush' ? 'Ambush' : 'Execution', 'crit'); G.tally?.('executions'); G.did?.('execute');
     G.audio.sfx('swingHeavy');
     this.lock = this.lock || e;
     return true;
@@ -879,7 +879,7 @@ export class Player {
       G.audio.sfx('burstCounter');
       G.fx.ring(this.pos, 0xff7ae0, 3, .4, 1.1);
       if (h.from && !h.projectile && h.from.alive) {
-        if (h.burst) { h.from.countered(true); G.hud.toast('Thorn Counter', 'burst'); this.startFlashcut(h.from); return 'countered'; }
+        if (h.burst) { h.from.countered(true); G.hud.toast('Thorn Counter', 'burst'); G.did?.('thorn'); this.startFlashcut(h.from); return 'countered'; }
         h.from.countered(false);
         this.flash = { until: G.time + FLASH_WINDOW, e: h.from };
       }
@@ -923,7 +923,7 @@ export class Player {
       G.fx.spark(_a.set(this.pos.x, 1.2, this.pos.z), { x: 0, z: 0 }, 14, this.shiftCol(), 5);
       if (this.anima <= 0) this.endShift();
     }
-    this.hp -= dmg;
+    this.hp -= dmg; G.did?.('hurt');
     this.chain = 0;
     this.resetChain(); this.combo.n = Math.floor(this.combo.n / 2);   // a blow breaks the chain and halves the combo
     if (h.poison) this.addPoison(h.poison);
@@ -958,7 +958,7 @@ export class Player {
     if (!h.projectile && h.from?.alive) {
       h.from.deflected(h);
       this.flash = { until: G.time + FLASH_WINDOW, e: h.from };
-      G.hud.toast('Deflect', 'pulse'); G.tally?.('deflects');
+      G.hud.toast('Deflect', 'pulse'); G.tally?.('deflects'); G.did?.('deflect');
     }
     return 'deflected';
   }
@@ -974,7 +974,7 @@ export class Player {
     this.ghosts.spawn(0xb8c8ff, .6, .7);
     G.audio.sfx('moonstep');
     G.hud.screenFlash('moon');
-    G.hud.toast('Moonstep', 'pulse');
+    G.hud.toast('Moonstep', 'pulse'); G.did?.('moonstep');
   }
 
   die() {
@@ -991,7 +991,7 @@ export class Player {
     this.setShiftLook(true);
     G.fx.ring(this.pos, col, 5, .6);
     G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, col, 40, 1, 3, .14, 1.2);
-    G.hud.toast(this.patron === 'lantern' ? 'Fae Shift' : `Fae Shift · ${P.name}`, 'anima');
+    G.hud.toast(this.patron === 'lantern' ? 'Fae Shift' : `Fae Shift · ${P.name}`, 'anima'); G.did?.('shift');
     G.hud.screenFlash('shift');
     // The patron's burst: everything near is thrown back, and takes its element.
     const [bd, br] = this.pshift?.burst || [90, 3];
@@ -1052,7 +1052,7 @@ export class Player {
     const G = this.G, id = this.art, A = ARTS[id];
     if (!A || !this.arts.includes(id)) return false;
     if (!(this.artUses[id] > 0)) { G.hud.toast(`No ${A.name} left — more at a Moonwell`); return false; }
-    this.artUses[id]--; G.tally?.('arts');
+    this.artUses[id]--; G.tally?.('arts'); G.did?.('art');
     this.artKind = id; this.artFired = false; this.pulse = null;
     this.setState('art'); this.anim.play(A.brand || A.self ? 'brand' : 'throw', 1.2, .04);
     this.faceTarget(true);
@@ -1725,7 +1725,7 @@ export class Player {
     this.chain = G.time - (this.chainT || -9) < 3 ? this.chain + 1 : 1;
     this.chainT = G.time;
     const res = e.takeHit({ dmg: dmg * (this.shifted ? 1.3 : 1), ki: big ? 140 : 999, poise: 99, dir: this.yaw, heavy: true, crit: true, flash: true });
-    if (res) G.tally?.('flashcuts');
+    if (res) { G.tally?.('flashcuts'); G.did?.('flashcut', { riposte: this.fc.kind === 'riposte' }); }
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 5.5, 0xffffff);
     G.fx.spark(p, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 50, 0xffffff, 12);
@@ -1855,6 +1855,7 @@ export class Player {
     const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1) * (1 + this.gf('ki') / 100);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? this.pshift?.ki ?? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
+    G.did?.('hit', { e, res, stance: this.stance, a });   // the Thornyard's trials (trials.js) listen
     this.combo.n++; this.combo.t = G.time;
     this.gainMastery(res === 'kill' ? XP.kill : a.heavy || a.fin ? XP.heavy : XP.hit);
     if (a.slam && e.alive && e.state === 'air') e.slam();   // an air finisher drives airborne foes down
@@ -1904,9 +1905,9 @@ export class Player {
         G.audio.sfx('glint', { vol: .8 });
       }
     }
-    if (a.launch && res !== 'kill' && e.launch(a.launch)) G.hud.toast('Launch', 'pulse');
+    if (a.launch && res !== 'kill' && e.launch(a.launch)) { G.hud.toast('Launch', 'pulse'); G.did?.('launch'); }
     // Pops: small ones trip a foe off its feet, big ones throw it up for the taking.
-    if (a.pop && res !== 'kill' && res !== 'blocked' && e.state !== 'air' && e.launch(a.pop, true) && a.pop >= 8) G.hud.toast('Launch', 'pulse');
+    if (a.pop && res !== 'kill' && res !== 'blocked' && e.state !== 'air' && e.launch(a.pop, true) && a.pop >= 8) { G.hud.toast('Launch', 'pulse'); G.did?.('launch'); }
     const p = _a.set(e.pos.x - dx / d * e.radius * .6, e.pos.y + Math.min(1.3, e.height * .55), e.pos.z - dz / d * e.radius * .6);
     const side = this.atkKey === 'light1' || this.atkKey === 'light4' ? 1 : -1;
     const sdir = { x: Math.cos(dir) * side, z: -Math.sin(dir) * side };

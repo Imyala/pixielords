@@ -614,6 +614,37 @@ function rimeShell(model) {
 
 // Knight-shaped foes play the knight's own actions. Each enemy step names one, and the hit frame
 // (the second number) is lined up with the end of the windup.
+// ---- The Thornyard's sparring knights (trials.js): echoes of the yard's old masters, who teach by striking.
+// The Sparring Knight only takes blows; the Yard-Knight cuts slowly and plainly, to be Deflected; the Thorn-Knight
+// thrusts red, to be met with the Thorn Counter; the Yard-Master fights as a Revenant does. They leave nothing.
+const YARD = { dark: 0x161a26, visor: 0xf2b8ff, glow: 0xb08ae8, trail: 0xf2d0ff };
+Object.assign(TYPES, {
+  'yard-post': { knight: { ...YARD, steel: 0x8a94a8, cloth: 0x3a3048, trim: 0xc8d0e4, blade: 0xdfe8ff, wing: 0xd8c8ff }, weapon: 'sword', name: 'Sparring Knight',
+    scale: 1.05, radius: .5, hp: 1500, ki: 150, poise: 40, walk: 1, run: 1.4, glimmer: 0, voice: 'growl', pitch: 1.2, yard: true, glow: .1, track: 3, aggro: .2, dmgScale: .4,
+    attacks: [A('Stand Ready', 2, [S('roar', 1, .1, .5, 0)], { minRange: 99 })] },
+  'yard-knight': { knight: { ...YARD, steel: 0xb8c0d4, cloth: 0x4a3a6a, trim: 0xe8ecf8, blade: 0xe8f0ff, wing: 0xe8c8ff }, weapon: 'sword', name: 'Yard-Knight',
+    scale: 1.08, radius: .5, hp: 1400, ki: 220, poise: 45, walk: 1.8, run: 3.6, glimmer: 0, voice: 'growl', pitch: 1.15, yard: true, glow: .12, track: 4, aggro: .9, dmgScale: .45,
+    attacks: [
+      A('Measured Cut', 2.7, [S('swing', .8, .12, .95, 40, { reach: 2.7, arc: 150, lunge: .9 })]),
+      A('Measured Pair', 2.7, [S('swing', .75, .12, .25, 36, { reach: 2.7, arc: 150, lunge: .8 }), S('backswing', .5, .12, .95, 36, { reach: 2.7, arc: 150, lunge: .8 })], { w: .7 }),
+      A('Measured Fall', 2.9, [S('overhead', .9, .14, 1, 46, { reach: 2.9, arc: 70, lunge: 1 })], { w: .6 }),
+    ] },
+  'yard-thorn': { knight: { ...YARD, steel: 0x6a5a6e, cloth: 0x4a1a2a, trim: 0xff9aa8, visor: 0xff4a6a, blade: 0xffd0d8, wing: 0xff9ab8, glow: 0xd84a6a, trail: 0xff8aa8 }, weapon: 'sword', name: 'Thorn-Knight',
+    scale: 1.08, radius: .5, hp: 1400, ki: 220, poise: 45, walk: 1.8, run: 3.8, glimmer: 0, voice: 'growl', pitch: 1.1, yard: true, glow: .14, track: 4, aggro: .9, dmgScale: .45,
+    attacks: [
+      A('Dread Thrust', 3, [S('thrust', .95, .18, 1, 50, { reach: 3, arc: 50, lunge: 2.4, burst: true })], { w: 2.2, cd: 1.5 }),
+      A('Dread Leap', 8, [S('thrust', 1, .3, 1, 56, { reach: 2.8, arc: 70, lunge: 6.5, burst: true })], { minRange: 3.5, cd: 4 }),
+      A('Plain Cut', 2.7, [S('swing', .7, .12, .9, 36, { reach: 2.7, arc: 150, lunge: .9 })], { w: .5 }),
+    ] },
+  'yard-master': revenant('Dame Ysolde, Master of the Yard', 'sword', { ...YARD, steel: 0xd8dcea, cloth: 0x3a2a5a, trim: 0xf2d0ff, blade: 0xf0f4ff, wing: 0xf2c8ff }, 2600, [
+    A('Mirror Chain', 2.8, [S('swing', .42, .12, .06, 56, { reach: 2.8, arc: 160, lunge: 1.1 }), S('backswing', .22, .12, .06, 56, { reach: 2.8, arc: 160, lunge: 1.1 }), S('overhead', .3, .14, .1, 62, { reach: 2.8, arc: 80, lunge: 1.2 }), S('spin', .3, .3, .8, 68, { reach: 3, arc: 360 })]),
+    A('Quick Cut', 2.7, [S('swing', .34, .12, .55, 52, { reach: 2.7, arc: 150, lunge: 1.2 })], { w: .7 }),
+    A('Needle Rush', 9, [S('thrust', .7, .25, .9, 90, { reach: 2.8, arc: 50, lunge: 7, burst: true })], { minRange: 4, cd: 6, w: .9 }),
+    A('Skyfall', 10, [S('leap', .55, .62, 1, 100, { reach: 0, aoe: 2.6, burst: true, hyper: true, shake: .8 })], { minRange: 4.5, cd: 7, w: .8 }),
+    A('Blink Flashcut', 12, [S('cast', .45, .08, .02, 0, { blink: true, behind: true, kact: 'dash' }), S('swing', .2, .12, .9, 80, { reach: 3, arc: 170, lunge: .6, kact: 'flashcut' })], { minRange: 3, cd: 8, w: .9 }),
+  ], { yard: true, glimmer: 0, dmgScale: .8 }),
+});
+
 export const KNIGHT_ACT = {
   swing: ['light1', .22], backswing: ['light2', .2], overhead: ['light3', .33], thrust: ['needle', .26], spin: ['light4', .3],
   leap: ['skyfall', .56], cast: ['counter', .12], roar: ['shift', .38], throw: ['light2', .2], shoot: ['light1', .2],

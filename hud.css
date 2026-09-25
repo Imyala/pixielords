@@ -1,0 +1,233 @@
+/* PixieLords HUD, in the menus' moonglass and briar (menu.css holds the shared tokens). src/hud.js builds it.
+   Top left: the stance crest and the three bars (health, stamina, Faelight), the weapon in hand, charms and
+   ailments. Bottom left: the quick-slot cross, laid out as the d-pad (Moondew up, the other weapon left, the
+   Fae Art down, the next art right), with the ranged weapon and Soul Cores beside it. Bottom right: Glimmer.
+   Over the world: foes' bars, the lock-on mark, the warlord's bar, toasts, area banners and the great words. */
+#hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .6s;color:var(--mx-text);font-family:var(--f-ui);-webkit-font-smoothing:antialiased}
+#hud.on{opacity:1}
+#hud:has(~ #menu.on){opacity:0;transition:opacity .15s}
+#hud .ico{width:20px;height:20px}
+@keyframes blink{from{opacity:.55}to{opacity:1}}
+
+/* ---------------- vitals (top left) */
+.stats{position:absolute;left:26px;top:22px;display:flex;flex-direction:column;gap:6px}
+.vitals{display:flex;align-items:center;gap:12px}
+.vbars{display:flex;flex-direction:column;gap:5px}
+/* Bars are blades: slanted ends, a hairline of silver, a bright edge along the top of the fill. */
+.bar{position:relative;height:9px;background:rgba(6,8,16,.72);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);transition:width .4s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.bar::after{content:'';position:absolute;inset:0;clip-path:inherit;box-shadow:inset 0 0 0 1px rgba(206,214,238,.3);pointer-events:none}
+.bar i{position:absolute;inset:2px 3px;transform-origin:left;display:block}
+.bar.hp .fill{background:linear-gradient(180deg,#ff8a96 0,#d6344c 35%,#8e1830);box-shadow:inset 0 1px rgba(255,220,225,.35)}
+.bar.hp .trail{background:#f4dcae;opacity:.6}
+.bar.ki{height:7px}
+.bar.ki .fill{background:linear-gradient(180deg,#ffffff,#b9d4e4 60%,#7d98ae)}
+.bar.ki .pool{background:var(--mx-cyan);opacity:0;transition:opacity .1s}
+.bar.ki.pulse .pool{opacity:.9;box-shadow:0 0 10px var(--mx-cyan)}
+.bar.ki.low .fill{background:linear-gradient(180deg,#ffe0b0,#d07a44);animation:blink .5s infinite alternate}
+.bar.anima{height:5px;width:12vw;overflow:visible;clip-path:none}
+.bar.anima::after{clip-path:none}
+.bar.anima i{inset:1px}
+.bar.anima .fill{background:linear-gradient(90deg,#6a3fd8,#f2b8ff)}
+.bar.anima.full{box-shadow:0 0 12px rgba(242,184,255,.7)}
+.bar.anima.shift .fill{background:linear-gradient(90deg,#ff5ad0,#8ff0ff)}
+.bar.anima .ready{position:absolute;left:calc(100% + 10px);top:-6px;font:700 12px var(--f-disp);letter-spacing:.12em;color:var(--mx-rose);white-space:nowrap;opacity:0;text-shadow:0 0 10px rgba(242,184,255,.6),0 1px 3px #000}
+.bar.anima.full .ready{opacity:1;animation:blink .8s infinite alternate}
+
+/* The stance crest: a moon-ring holding the three stances, the one held lit. */
+.stance{position:relative;width:52px;height:52px;flex:none;border-radius:50%;display:grid;grid-template-rows:repeat(3,1fr);place-items:center;padding:7px 0;
+  background:radial-gradient(circle,rgba(242,184,255,.12),rgba(8,10,18,.85) 68%);box-shadow:inset 0 0 0 1px rgba(206,214,238,.32),0 0 0 3px rgba(6,8,16,.7),0 0 0 4px rgba(206,214,238,.14),0 2px 10px rgba(0,0,0,.6)}
+.stance span{font-size:9px;line-height:1;opacity:.28;transition:opacity .15s,transform .15s,text-shadow .15s}
+.stance span.on{opacity:1;transform:scale(1.55);text-shadow:0 0 8px currentColor}
+.stance[data-s=high]{color:#ffbe78}.stance[data-s=mid]{color:var(--mx-cyan)}.stance[data-s=low]{color:#a8f5a0}
+.stance b{position:absolute;left:50%;top:calc(100% + 7px);transform:translateX(-50%);font:700 11px var(--f-disp);letter-spacing:.14em;white-space:nowrap;text-shadow:0 1px 3px #000}
+.stance small{display:none}
+
+.weapon{margin:12px 0 0 64px;font:700 13px var(--f-disp);letter-spacing:.08em;color:#dfe6f6;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.6);white-space:nowrap}
+.weapon[data-w=glaive]{color:#d6c4ff} .weapon[data-w=fangs]{color:#ffc4d4} .weapon[data-w=hammer]{color:#ffd79a} .weapon[data-w=fists]{color:#aeeeff}
+.weapon small{margin-left:8px;color:var(--mx-sub);font:italic 400 13px var(--f-lore);letter-spacing:0}
+.charmrow{display:flex;gap:6px;margin-left:64px;font-size:10px;min-height:11px}
+.charmrow i{font-style:normal;text-shadow:0 0 6px currentColor}
+.status{margin-left:64px;font:500 13px var(--f-ui);color:#b6e884;display:flex;gap:12px;align-items:center;min-height:14px;text-shadow:0 1px 3px #000}
+.status .snared{color:#ecc98a} .status .burning{color:#ffa060} .status .frozen{color:#cbeaff;text-shadow:0 0 8px #6fc8ff}
+.pbuild{width:80px;height:4px;background:rgba(0,0,0,.6);position:relative;display:none}
+.pbuild i{position:absolute;inset:0;background:#8fe040;transform-origin:left}
+.pbuild.cbuild i{background:#9fdcff}
+#hud .kin{width:min(15vw,220px);margin:4px 0 0 64px;font:700 11px var(--f-disp);letter-spacing:.1em;color:#a8ecff;text-shadow:0 1px 3px #000}
+#hud .kin .kbar{height:5px;margin-top:3px;background:rgba(6,8,16,.7);box-shadow:inset 0 0 0 1px rgba(159,232,255,.35)} #hud .kin .kbar i{display:block;height:100%;background:linear-gradient(90deg,#4ab8ff,#bdf0ff);transform-origin:left}
+#hud .kin.fallen{color:#ff9a8a}
+
+/* ---------------- the quick-slot cross (bottom left) */
+.qcross{position:absolute;left:28px;bottom:26px;width:140px;height:140px}
+.qcross .hub{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;transform:rotate(45deg);background:rgba(206,214,238,.35);box-shadow:0 0 8px rgba(242,184,255,.4)}
+.q{position:absolute;width:50px;height:50px;display:grid;place-items:center;color:var(--mx-text)}
+.q[hidden]{display:none}
+.q::before{content:'';position:absolute;inset:7px;transform:rotate(45deg);background:linear-gradient(135deg,rgba(26,30,52,.92),rgba(8,10,18,.92));box-shadow:inset 0 0 0 1px rgba(206,214,238,.3),0 3px 10px rgba(0,0,0,.55)}
+.q > *{position:relative}
+.q.up{left:45px;top:0} .q.down{left:45px;bottom:0} .q.left{left:0;top:45px} .q.right{right:0;top:45px}
+.q .key{position:absolute;font:700 11px var(--f-ui);color:var(--mx-rose);background:rgba(8,10,18,.9);box-shadow:inset 0 0 0 1px rgba(242,184,255,.45);border-radius:9px;min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;white-space:nowrap}
+.q.up .key{left:-8px;top:0} .q.left .key{left:-6px;top:-4px} .q.down .key{left:-8px;bottom:0} .q.right .key{right:-6px;top:-4px}
+#hud.pad .q .key{display:none}
+/* Moondew */
+.flask{width:16px;height:22px;position:relative;margin-top:-2px}
+.flask:before{content:'';position:absolute;left:5px;top:0;width:6px;height:6px;border:1.5px solid #e2d6c2;border-bottom:0;border-radius:2px 2px 0 0}
+.flask i{position:absolute;left:0;right:0;bottom:0;height:16px;border:1.5px solid #e2d6c2;border-radius:40% 40% 45% 45%;background:radial-gradient(circle at 50% 70%,#ff9ad0,#a1225e 70%);box-shadow:0 0 10px rgba(255,90,170,.55)}
+.elixir.empty .flask i{background:#222;box-shadow:none}
+.elixir b{position:absolute;right:2px;bottom:1px;font:800 15px var(--f-disp);text-shadow:0 1px 3px #000,0 0 6px #000}
+.elixir.empty b{color:var(--mx-faint)}
+/* The Fae Art in hand, its uses, and its name beside the cross */
+.artslot > i{font-style:normal;font-size:18px;text-shadow:0 0 10px currentColor}
+.artslot em{position:absolute;right:0;bottom:1px;font:800 14px var(--f-disp);font-style:normal;text-shadow:0 1px 3px #000,0 0 6px #000}
+.artslot > div{position:absolute;left:62px;bottom:14px;white-space:nowrap}
+.artslot b{font:700 14px var(--f-disp);letter-spacing:.05em;text-shadow:0 1px 3px #000}
+.artslot.empty > i,.artslot.empty em{opacity:.4}
+.swapq .ico,.nextq .ico{width:18px;height:18px;opacity:.85}
+.nextq .ico{transform:rotate(-90deg)}
+/* The ranged weapon and the Soul Cores, stacked above the cross */
+.rangedslot{position:absolute;left:30px;bottom:180px;display:flex;align-items:center;gap:8px;text-shadow:0 1px 3px #000}
+.rangedslot i{font-style:normal;font-size:18px}
+.rangedslot b{display:block;font:700 14px var(--f-disp);letter-spacing:.05em}
+.rangedslot small{font:italic 13px var(--f-lore);color:var(--mx-sub)}
+.rangedslot.empty{opacity:.45}
+.rangedslot s{display:block;width:120px;height:4px;margin-top:4px;background:rgba(255,255,255,.12);text-decoration:none}
+.rangedslot s[hidden]{display:none}
+.rangedslot s u{display:block;height:100%;width:0;background:#cff6ff;text-decoration:none}.rangedslot s.hot u{background:#ff8a6a}
+.coreslots{position:absolute;left:30px;bottom:226px;display:flex;flex-direction:column;gap:4px;text-shadow:0 1px 3px #000}
+.coreslots div{display:flex;align-items:baseline;gap:7px;opacity:.5}.coreslots div.ready{opacity:1}
+.coreslots i{font-style:normal;color:#d0a8ff;font-size:13px}.coreslots b{font:700 13px var(--f-disp);letter-spacing:.04em;color:#ecdcff}.coreslots small{font:12px var(--f-ui);color:var(--mx-sub)}
+
+/* ---------------- Glimmer, the objective, the combo */
+.glimmer{position:absolute;right:28px;bottom:26px;text-align:right}
+.glimmer > div{display:flex;align-items:center;gap:10px;padding:6px 16px 6px 12px;background:linear-gradient(90deg,transparent,rgba(8,10,18,.7) 30%);clip-path:polygon(10px 0,100% 0,100% 100%,0 100%)}
+.glimmer small{font:700 10px var(--f-disp);letter-spacing:.2em;color:var(--mx-faint)}
+.glimmer b{font:800 24px var(--f-disp);color:var(--mx-gold);text-shadow:0 0 12px rgba(236,202,120,.35),0 2px 4px #000;min-width:3ch}
+.glimmer .gain{display:block;font:700 15px var(--f-disp);color:#ffe6a0;opacity:0;text-shadow:0 0 8px rgba(255,210,122,.6);margin:0 16px 2px 0}
+.objective{position:absolute;right:28px;top:24px;text-align:right;text-shadow:0 1px 3px #000;max-width:40vw}
+.objective small{display:block;font:700 11px var(--f-disp);letter-spacing:.2em;color:var(--mx-rose)}
+.objective b{font:italic 400 18px var(--f-lore);letter-spacing:.01em}
+.combo{position:absolute;right:34px;top:38%;text-align:right;opacity:0;transition:opacity .4s;pointer-events:none}
+.combo.on{opacity:1}
+.combo b{display:block;font:800 38px/1 var(--f-disp);color:#eef4ff;text-shadow:0 0 14px rgba(143,232,255,.45),0 2px 4px #000}
+.combo small{font:700 11px var(--f-disp);letter-spacing:.16em;color:var(--mx-sub)}
+.combo[data-tier="1"] b{color:#c4f2ff}.combo[data-tier="2"] b{color:#ffe8a8}.combo[data-tier="3"] b{color:#ffb878}.combo[data-tier="4"] b{color:var(--mx-rose)}
+.combo.bump b{animation:cbump .18s ease-out}
+@keyframes cbump{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+/* ---------------- over the world: lock-on, reticle, foes' bars, marks */
+.lock{position:absolute;left:0;top:0;width:0;height:0}
+.lock:before{content:'';position:absolute;left:-4px;top:-4px;width:8px;height:8px;transform:rotate(45deg);background:#fff;box-shadow:0 0 8px #fff,0 0 16px var(--mx-rose)}
+.lock:after{content:'';position:absolute;left:-11px;top:-11px;width:22px;height:22px;transform:rotate(45deg);box-shadow:inset 0 0 0 1px rgba(242,184,255,.6)}
+.reticle{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.reticle i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#e8f4ff;box-shadow:0 0 6px #9ff3ff}
+.reticle b{position:absolute;left:0;top:0;width:26px;height:26px;border:1.5px solid rgba(232,244,255,.75);border-radius:50%;transform:translate(-50%,-50%)}
+.reticle.wait i{background:#ff9a7a}.reticle.wait b{border-color:rgba(255,154,122,.5)}.reticle.lock b{border-color:var(--mx-rose)}
+.ebars{position:absolute;inset:0}
+.ebar{position:absolute;left:0;top:0;width:0;height:0}
+.ebar > div{position:absolute;left:-42px;width:84px;background:rgba(6,8,16,.72);clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%)}
+.ebar .eh{top:-10px;height:6px;box-shadow:inset 0 0 0 1px rgba(206,214,238,.22)}
+.ebar .ek{top:-3px;height:3px}
+.ebar i{position:absolute;inset:1px 2px;transform-origin:left;display:block}
+.ebar .ek i{inset:0 2px}
+.ebar .eh .fill{background:linear-gradient(180deg,#ec5064,#9a1a2c)}.ebar .eh .trail{background:#f4dcae;opacity:.65}
+.ebar .ek .fill{background:#f1f1e6}
+.ebar.broken .ek .fill{background:#ffd24a;animation:blink .25s infinite alternate}
+.ebar .cname{position:absolute;left:0;top:-28px;transform:translateX(-50%);font:700 11px var(--f-disp);letter-spacing:.12em;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 6px #000}
+.ebar.warded .eh{box-shadow:inset 0 0 0 1px #8fc8ff,0 0 6px #6ab4ff}
+.ebar .dmg{position:absolute;left:48px;top:-16px;font:800 14px var(--f-disp);color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
+.emark{position:absolute;left:0;top:0;font:800 26px var(--f-disp);text-shadow:0 0 10px rgba(0,0,0,.95),0 2px 3px #000;animation:pop .25s ease-out}
+.emark.alarm{color:#ff7a50;text-shadow:0 0 12px rgba(255,90,40,.7),0 2px 3px #000}
+.emark.sus{color:#ffd878;font-size:22px}
+@keyframes pop{from{font-size:8px}}
+.ftext{position:absolute;left:0;top:-42px;transform:translateX(-50%);font:800 16px var(--f-disp);letter-spacing:.14em;white-space:nowrap;animation:rise 1.4s forwards}
+.ftext.broken{color:#ffd24a;text-shadow:0 0 10px rgba(255,200,60,.8),0 2px 4px #000}
+@keyframes rise{from{opacity:1;transform:translate(-50%,6px)}to{opacity:0;transform:translate(-50%,-26px)}}
+
+/* ---------------- the warlord's bar: its name between sprigs of briar, a blade of a bar, its poise beneath */
+.boss{position:absolute;left:50%;bottom:6.5vh;width:min(56vw,820px);transform:translateX(-50%)}
+.bname{display:flex;align-items:center;gap:12px;font:700 18px var(--f-disp);letter-spacing:.08em;margin:0 0 6px;text-shadow:0 2px 6px #000}
+.bname::before{content:'';width:22px;height:22px;flex:none;background:var(--mx-briar) no-repeat;background-size:contain;opacity:.9}
+.bbar{position:relative;height:10px;background:rgba(6,8,16,.75);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+.bbar::after{content:'';position:absolute;inset:0;clip-path:inherit;box-shadow:inset 0 0 0 1px rgba(206,214,238,.34)}
+.bbar i,.bki i{position:absolute;inset:2px 4px;transform-origin:left;display:block}
+.bbar .fill{background:linear-gradient(180deg,#ff7080,#c02a3e 40%,#6e0f1e);box-shadow:inset 0 1px rgba(255,210,215,.3)}
+.bbar .trail{background:#f4dcae;opacity:.65}
+.bki{position:relative;height:4px;margin:4px 6px 0;background:rgba(6,8,16,.7)}
+.bki i{inset:0}
+.bki .fill{background:#ecebe0}
+.brow.broken .bki .fill{background:#ffd24a;animation:blink .25s infinite alternate}
+.brow.armored .bbar::after{box-shadow:inset 0 0 0 1px #bfe6ff} .brow.armored .bbar{filter:drop-shadow(0 0 6px rgba(143,210,255,.6))}
+.brow.armored .bname::after{content:'rime armour';font:italic 14px var(--f-lore);color:#bfe6ff;letter-spacing:.02em}
+.brow.fallen{opacity:.3;transition:opacity 1s}
+.boss .brow + .brow{margin-top:12px}
+.boss.duo .bname{font-size:15px}
+
+/* ---------------- words: toasts, area banners, the great words, the interact prompt, messages and letters */
+.toasts{position:absolute;left:50%;top:62%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px}
+.toast{font:700 16px var(--f-disp);letter-spacing:.1em;padding:3px 44px;background:linear-gradient(90deg,transparent,rgba(6,8,16,.55) 22%,rgba(6,8,16,.55) 78%,transparent);text-shadow:0 0 8px rgba(0,0,0,.9),0 1px 3px #000;transition:opacity .6s,transform .6s;white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-10px)}
+.toast.pulse{color:var(--mx-cyan)} .toast.burst{color:#ffd8f6;font-size:21px;text-shadow:0 0 14px #ff5ad0,0 2px 4px #000}
+.toast.flash{color:#fff;font-size:25px;letter-spacing:.3em;text-shadow:0 0 18px #fff,0 0 30px #8ff0ff,0 2px 4px #000}
+.toast.crit{color:#ffd890;font-size:19px} .toast.warn{color:var(--mx-red)} .toast.anima{color:var(--mx-rose)} .toast.poison{color:#b6e884}
+.toast.frost{color:#cbeaff;text-shadow:0 0 10px #4fa8ff,0 2px 4px #000} .toast.item{color:var(--mx-gold);font:italic 500 16px var(--f-lore);letter-spacing:.01em}
+.toast.loot{font:500 16px var(--f-lore);letter-spacing:.01em}.toast.loot.r0{color:#d8d8d8}.toast.loot.r1{color:#9fe07a}.toast.loot.r2{color:#6ab4ff}.toast.loot.r3{color:#c88aff}.toast.loot.r4{color:#ffd36a}.toast.loot.r5{color:#ff7ad8;text-shadow:0 0 12px rgba(255,122,216,.6)}
+.toast.realm{color:#dcb8ff;text-shadow:0 0 12px rgba(150,70,255,.7),0 2px 4px #000}
+.toast.petal{color:#ffc0dc;font:italic 500 16px var(--f-lore);letter-spacing:.01em;text-shadow:0 0 12px rgba(255,120,190,.55),0 2px 4px #000}
+
+.banner{position:absolute;left:0;right:0;top:23%;text-align:center;opacity:0}
+.banner span{position:relative;display:inline-block;font:500 clamp(24px,3.2vw,42px) var(--f-disp);letter-spacing:.16em;padding:10px 48px;text-shadow:0 2px 12px #000,0 0 30px rgba(0,0,0,.6)}
+.banner span::before,.banner span::after{content:'';position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(206,214,238,.5) 30%,rgba(242,184,255,.7) 50%,rgba(206,214,238,.5) 70%,transparent)}
+.banner span::before{top:0}.banner span::after{bottom:0}
+.banner.on{animation:banner 4.2s ease forwards}
+@keyframes banner{0%{opacity:0;letter-spacing:.3em}15%{opacity:1}75%{opacity:1}100%{opacity:0;letter-spacing:.16em}}
+
+.big{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;opacity:0;transition:opacity 1.2s;padding:3.2vh 0}
+.big.on{opacity:1}
+.big.died,.big.gold{background:linear-gradient(transparent,rgba(4,5,10,.8) 25%,rgba(4,5,10,.8) 75%,transparent)}
+.big span{font:500 clamp(40px,6.6vw,92px) var(--f-disp);letter-spacing:.12em}
+.big em{display:block;font:italic 18px var(--f-lore);color:#d6d0c4;margin-top:6px;letter-spacing:.02em}
+.big.died span{color:#c01c2a;text-shadow:0 0 30px rgba(192,28,42,.5)}
+.big.gold span{color:var(--mx-gold);text-shadow:0 0 30px rgba(236,202,120,.45)}
+.big.on.died span,.big.on.gold span{animation:grow 5s ease-out forwards}
+.big.intro span{font:italic 400 clamp(18px,2.1vw,27px)/1.7 var(--f-lore);letter-spacing:.01em;white-space:pre-line;color:#eceaf2;text-shadow:0 2px 12px #000}
+.big.intro{background:linear-gradient(transparent,rgba(4,5,10,.55) 30%,rgba(4,5,10,.55) 70%,transparent);top:38%}
+.big.shrine span{font-size:clamp(26px,3.4vw,46px);color:var(--mx-cyan);text-shadow:0 0 20px rgba(143,232,255,.55)}
+.big.side span{color:#ffbcac}
+@keyframes grow{from{letter-spacing:.08em}to{letter-spacing:.18em}}
+
+.prompt{position:absolute;left:50%;bottom:19vh;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(9,11,20,.82);box-shadow:inset 0 0 0 1px rgba(206,214,238,.22),0 8px 24px rgba(0,0,0,.4);border-radius:22px;padding:7px 18px 7px 8px;font:500 16px var(--f-ui);color:#eef1fa;white-space:nowrap}
+.prompt kbd{display:inline-grid;place-items:center;min-width:26px;height:26px;margin:0;padding:0 7px;box-sizing:border-box;border:0;border-radius:13px;background:linear-gradient(180deg,#262b40,#12141f);box-shadow:inset 0 0 0 1px rgba(242,184,255,.55);font:700 12px var(--f-ui);color:var(--mx-rose)}
+.msg{position:absolute;left:50%;bottom:16vh;transform:translateX(-50%);width:min(640px,90vw);background:var(--mx-frost),linear-gradient(180deg,rgba(19,22,40,.94),rgba(8,10,19,.95));box-shadow:inset 0 0 0 1px rgba(206,214,238,.16),0 20px 50px rgba(0,0,0,.5);clip-path:polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px);padding:22px 34px 16px;text-align:center}
+.msg::before,.msg::after{content:'';position:absolute;width:56px;height:56px;background:var(--mx-briar) no-repeat;background-size:contain;pointer-events:none} .msg::before{left:0;top:0} .msg::after{right:0;bottom:0;transform:rotate(180deg)}
+.msg p{margin:0 0 10px;font:italic 400 18px/1.6 var(--f-lore);color:#e6eaf6;white-space:pre-line}
+.msg small{font:500 13px var(--f-ui);color:var(--mx-sub)}
+.msg h3,.msg em{display:none}
+.msg.letter{width:min(560px,92vw);bottom:10vh;background:linear-gradient(170deg,#d9c9a4,#c2ad84);box-shadow:0 12px 40px rgba(0,0,0,.6),inset 0 0 40px rgba(90,60,20,.35);color:#2a1e10;text-align:left;padding:24px 30px 18px;clip-path:none}
+.msg.letter h3{display:block;margin:0 0 10px;font:700 21px var(--f-disp);letter-spacing:.03em;color:#4a2a10}
+.msg.letter p{font:italic 400 17px/1.65 var(--f-lore);color:#2a1e10;max-height:46vh;overflow-y:auto}
+.msg.letter::before,.msg.letter::after{display:none}
+.msg.letter em{display:block;font:italic 12px var(--f-ui);color:#6a4a20;margin-bottom:6px}
+.msg.letter small{color:#5a4a30}
+
+/* ---------------- the realm, flashes, fades, loading */
+#hud .realm{position:absolute;left:50%;top:9vh;transform:translateX(-50%);text-align:center;pointer-events:none;animation:realmPulse 3s ease-in-out infinite}
+#hud .realm b{display:block;font:700 15px var(--f-disp);letter-spacing:.34em;color:#dcb8ff;text-shadow:0 0 14px rgba(150,70,255,.8),0 2px 4px #000}
+#hud .realm small{font:italic 14px var(--f-lore);color:#cabce2;text-shadow:0 1px 3px #000}
+@keyframes realmPulse{50%{opacity:.7}}
+.flash{position:absolute;inset:0;opacity:0}
+.flash.hurt{background:radial-gradient(ellipse at center,transparent 45%,rgba(160,0,10,.5));animation:fl .6s ease-out}
+.flash.burst{background:radial-gradient(ellipse at center,rgba(255,255,255,.4),rgba(255,120,230,.18) 60%,transparent);animation:fl .35s ease-out}
+.flash.flashcut{background:#fff;animation:fl .45s ease-out}
+.flash.moon{background:radial-gradient(ellipse at center,rgba(120,150,255,.05),rgba(60,80,200,.3));animation:fl 1.2s ease-in}
+.flash.shift{background:radial-gradient(ellipse at center,rgba(255,120,230,.35),rgba(140,240,255,.2));animation:fl .8s ease-out}
+@keyframes fl{from{opacity:1}to{opacity:0}}
+.edge{position:absolute;inset:0;opacity:0;box-shadow:inset 0 0 120px rgba(255,20,20,.7)}
+.edge.on{animation:fl .8s ease-out}
+.fade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .8s}
+.fade.on{opacity:1}
+.loadingMsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#000;font:italic 20px var(--f-lore);color:var(--mx-sub);letter-spacing:.04em}
+.loadingMsg.on{display:flex}
+.loadingMsg span{animation:blink 1s infinite alternate}
+
+@media (max-width:700px){
+  .stats{left:14px;top:14px}.qcross{left:10px;bottom:12px;transform:scale(.8);transform-origin:left bottom}.rangedslot{left:14px;bottom:130px}.coreslots{left:14px;bottom:172px}.artslot > div{display:none}
+  .combo{right:16px}.glimmer{right:14px;bottom:14px}.objective{right:14px;top:14px}
+}

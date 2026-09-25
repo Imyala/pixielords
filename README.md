@@ -60,8 +60,22 @@ from there closes the menu or leaves the Moonwell. A crescent marks the chosen r
 at the foot says what the row does, the keys it answers to are listed beside it (and can be clicked), and
 holding up or down keeps scrolling.
 
+The HUD wears the same look. Top left, the **stance crest** (the stance held, lit in its colour) beside three
+blade-shaped bars: health, stamina and Faelight. Bottom left, the **quick-slot cross**, laid out as the d-pad:
+Moondew up, the other weapon left, the Fae Art in hand down (its uses on the slot, its name beside it) and the
+next art right; on the keyboard each slot shows its key. The ranged weapon and the Soul Cores' skills sit above
+the cross, Glimmer bottom right, and the warlord's bar bottom centre, its name between sprigs of briar.
+
+The world is drawn through a **look** of its own: light that runs past white (fires, glows, crystals, the
+Moonwell, a Flashcut) blooms; every mission (and the map, the Thornyard and a Twilight's blood moon) has its own
+grade, colouring shadows more than light; a vignette and fine grain sit over it all. The moment has its colour
+too: red breathing in at the corners when health runs low, the Fae Shift's rose, an Umbral Realm's violet
+dusk, a split of colour on a Flashcut or a Thorn Counter, and grey on a fall. *Glow and grade* in Display
+settings turns it off for a plainer, lighter image.
+
 Settings (title or pause menu) are in pages as Nioh's are: **Game** (pause while reading, tips, the lock-on
-camera's height, camera distance), **Camera** (sensitivity, invert, screen shake), **Sound** and **Display**.
+camera's height, camera distance), **Camera** (sensitivity, invert, screen shake), **Sound** and **Display**
+(quality, glow and grade).
 With *pause while reading* on (the default), the world waits while a lantern-wisp's words, a letter or a tip
 are open.
 
@@ -642,6 +656,27 @@ A tab of its own in the pause menu, beside the Journal: every foe of the fifteen
 where it is met, its arts, its ways (it parries, it shoots, it hides behind a shield, it rimes over...), its Soul
 Core and how many you have felled. A foe is known once felled, or once its mission has been cleared.
 
+### The Thornyard
+
+The fae knights' old training ground, reached from the Crossroads map at any time, as Nioh 2's Dojo is. Its
+**Trial Stone** lists fifteen trials, each teaching one thing and passing the moment it is done. Choose one and
+its lesson is read first (what the technique is for, and its keys, as your keyboard or pad names them); then its
+sparring knights step into the ring. Echoes of the yard's old masters: the **Sparring Knight** only takes blows,
+the **Yard-Knight** cuts slowly and plainly, to be Deflected, the **Thorn-Knight** thrusts red, to be met with
+the Thorn Counter.
+
+| Group | Trials |
+|-------|--------|
+| First Lessons | The Three Stances (a blow from each) · Resonance (three) · Deflect (three blows) · Flashcut (two) · Thorn Counter (two red strikes) · Chains and Finishers (two finishers) |
+| The Knight's Craft | Break and Execute · Switch Strike (three; carry two weapons) · Launcher and Starfall · Moonstep (two) · Fae Shift (fell the knight while shifted) · Fae Arts (two; carry one) |
+| Gauntlets | Three at Once (three goblins together) · The Warband (five, an archer at the back) · The Yard-Master (Dame Ysolde, who fights as a Revenant does) |
+
+A fall only ends the trial: nothing is lost in the yard, and you wake at its Moonwell. Its foes leave nothing (no
+Glimmer, gear or souls) but the lesson. A first pass pays Glimmer (by the tier of the furthest mission reached,
+which the yard's foes are made for) and Moonpetals (5, 8 or 12 by group); a pass without taking a hit, three
+Moonpetals more. The Stone keeps each trial's passes, whether it was passed unhurt and the best time. After a
+pass the Stone opens again on the next trial. **Yard-Trained** is a Deed for trials passed.
+
 ### Balance
 
 Every mission has a recommended level that its gear drops around: the Grubhold 1, then 10, 18, 26, 34, 42,
@@ -691,7 +726,8 @@ the world with the engine's builders. A mission's `boss` can name one warlord or
 ## Code
 
 ```
-index.html        the game: canvas, HUD styles
+index.html        the game: canvas, HUD and menus
+hud.css           the HUD's styles: stance crest and blade bars, the quick-slot cross, Glimmer, foes' and the warlord's bars, toasts, banners, great words, prompt and messages
 menu.css          the menus' styles: moonglass panels, briar corners, the tab spine, rows and the crescent cursor, pages, options, layouts and how screens enter
 fonts/            Alegreya SC, Alegreya and Alegreya Sans, served from here (fonts.css; OFL.txt is their licence)
 library.html      the asset library
@@ -712,7 +748,7 @@ src/sides.js      side missions: Twilight, Hunts and Duels for each mission, the
 src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in fifteen looks, foes, treasure, warlord arenas), checkpoints and scaling
 src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
 src/ways.js       the Ways (New Game+ cycles): names, what each asks, and Divine gear's weight
-src/deeds.js      Deeds: the 28 long goals, their tallies, tiers and bonuses
+src/deeds.js      Deeds: the 30 long goals, their tallies, tiers and bonuses
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
@@ -727,7 +763,9 @@ src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, ro
 src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision and shake
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
-src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
+src/hud.js        the HUD: stance crest, bars, the quick-slot cross, lock-on mark, boss bar, prompts, banners, letters and the ? / ! markers over foes
+src/post.js       the look: a half-float target drawn as the screen would be, bloom (a chain of blurs), each place's grade, vignette, grain, and the moment's colour
+src/trials.js     the Thornyard: its trials, the yard itself, and the runner (sparring knights, counting what the knight does, passing, failing, rewards)
 src/menu.js       the menus' flow (tabs, pages, held scrolling, the cursor) and every screen: title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
 src/patrons.js    Patron Spirits: their passives and what each does to the Fae Shift
 src/moontonight.js the Moon Tonight: the real moon's phase and blessings, and the night's omens
