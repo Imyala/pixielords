@@ -47,8 +47,18 @@ The Controls screen (title or pause menu) shows every key, a diagram of the game
 | Fae Shift (Faelight full) | G | B + Y together (○ + △) |
 | Soul Core skills: first · second | Hold G + left click · hold G + right click | RT + X · RT + Y (R2 + □ · R2 + △) |
 | Side missions · the Underbriar (on the Crossroads map) | F · R | Y · X |
-| Menus: choose · back · change page · the chosen item's other actions | Enter · Esc · Q / E · F / R | A · B · LB / RB · Y / X |
+| Menus: choose · back · tabs · pages within a screen · the chosen item's other actions | Enter · Esc · Q / E · Z / C · F / R | A · B · LB / RB · LT / RT · Y / X |
 | Pause | Esc | Start |
+
+The menus are one frame of moonglass and briar. The pause menu and a Moonwell are each a row of tabs along the
+top (the pause menu: Knight, Equipment, Arsenal, Skills, Movesets, Wardrobe, Journal, Bestiary, Deeds, Settings,
+Controls; a Moonwell: Moonwell, Level up, Equipment, Arsenal, Skills, Patronage, Kinship, Hidden Market,
+Wardrobe, Charms, Journal, Deeds), turned
+with Q / E (LB / RB) or clicked; a screen with pages of its own (Equipment's kinds, the Market's stalls, Settings,
+Controls, the Bestiary's acts) turns them with Z / C (LT / RT). Back from a tab returns to the first one; back
+from there closes the menu or leaves the Moonwell. A crescent marks the chosen row and slides as it moves, a line
+at the foot says what the row does, the keys it answers to are listed beside it (and can be clicked), and
+holding up or down keeps scrolling.
 
 Settings (title or pause menu) are in pages as Nioh's are: **Game** (pause while reading, tips, the lock-on
 camera's height, camera distance), **Camera** (sensitivity, invert, screen shake), **Sound** and **Display**.
@@ -592,7 +602,7 @@ change every night at noon, the same for everyone that night, and follow how far
 - **Dyes**: five of the night's, for the Wardrobe.
 
 What you buy is gone until the next night (lanterns aside). The stall, and what each ware is, shows like the Gear
-screen: a list by tab (Q / E, LB / RB) and the chosen ware in full.
+screen: a list by stall (Z / C, LT / RT) and the chosen ware in full.
 
 ### The Wardrobe
 
@@ -628,7 +638,7 @@ it on its bar. Fell it and the realm is **dispelled**: three times its Glimmer, 
 
 ### The Bestiary
 
-In the Journal (F / X there): every foe of the fifteen missions, act by act, from goblin scouts to the Eclipse:
+A tab of its own in the pause menu, beside the Journal: every foe of the fifteen missions, act by act, from goblin scouts to the Eclipse:
 where it is met, its arts, its ways (it parries, it shoots, it hides behind a shield, it rimes over...), its Soul
 Core and how many you have felled. A foe is known once felled, or once its mission has been cleared.
 
@@ -681,7 +691,9 @@ the world with the engine's builders. A mission's `boss` can name one warlord or
 ## Code
 
 ```
-index.html        the game: canvas, HUD and menu styles
+index.html        the game: canvas, HUD styles
+menu.css          the menus' styles: moonglass panels, briar corners, the tab spine, rows and the crescent cursor, pages, options, layouts and how screens enter
+fonts/            Alegreya SC, Alegreya and Alegreya Sans, served from here (fonts.css; OFL.txt is their licence)
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, side runs (a duel's Revenant, a hunt's quarry, spoils), Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
 src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
@@ -716,7 +728,7 @@ src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, w
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
+src/menu.js       the menus' flow (tabs, pages, held scrolling, the cursor) and every screen: title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
 src/patrons.js    Patron Spirits: their passives and what each does to the Fae Shift
 src/moontonight.js the Moon Tonight: the real moon's phase and blessings, and the night's omens
 src/graves.js     Revenant Graves: where the two graves lie in each mission, who fell there (name, weapon, harness, patron, how), the Revenant it rises as, the grave itself
@@ -725,7 +737,7 @@ src/wardrobe.js   the Wardrobe: dyes, the parts of a look, and the colours a loo
 src/kindred.js    Kindred Spirits: tonight's kindred at a mission's Moonwells, and the ally knight itself (following, choosing a foe, a Duel Revenant's strokes, guarding, sidestepping, falling and being raised)
 src/umbral.js     Umbral Realms: which foe hosts a mission's realm, its look, and who stands in it
 src/bestiary.js   the Bestiary: every foe placed in a mission, its role, act, arts, ways and Soul Core
-src/menuui.js     the menus' Nioh-style chrome: header plaque, gold-lit lists, key-hint bar (keys or pad buttons), option rows, the ink-wash ring, the gamepad diagram
+src/menuui.js     the menus' pieces: the frame (title, tab spine, chips, help line, key bar), panels, rows with the crescent cursor, pages, options, the icon set, the moon, the gamepad diagram
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs
@@ -786,3 +798,5 @@ goblin shaman has no leg swing. `userData.arms` and `userData.legs` list only th
 
 Models, concept art and the model pipeline are © 2026 Imyala, MIT licence. The pipeline that produced the
 models lives in TowerLords under `tools/model-pipeline/`. three.js is © three.js authors, MIT licence.
+The Alegreya, Alegreya SC and Alegreya Sans fonts are © The Alegreya Project Authors, SIL Open Font License
+1.1 (`fonts/OFL.txt`).

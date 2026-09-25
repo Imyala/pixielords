@@ -171,6 +171,7 @@ export class HUD {
   }
 
   message(text) {
+    this.prompt(null);   // the reading takes the prompt's place
     this.q.msg.classList.remove('letter'); this.q.msgH.textContent = ''; this.q.msgE.textContent = '';
     this.q.msgP.textContent = text;
     this.q.msgS.textContent = `${this.key('interact')} to close`;

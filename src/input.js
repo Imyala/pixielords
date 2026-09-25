@@ -43,23 +43,26 @@ const BIND = {
   mNext: ['KeyE', 'Pad5'],
   mAlt:  ['KeyF', 'Pad3'],
   mAlt2: ['KeyR', 'Pad2'],
+  // Menus: turn a screen's own pages (gear categories, settings pages, weapons...).
+  mSubPrev: ['KeyZ', 'Pad6'],
+  mSubNext: ['KeyC', 'Pad7'],
 };
 
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
   interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V', slide: 'Z', art: 'T', artNext: 'Y', aim: 'Ctrl',
-  core0: 'G + LMB', core1: 'G + RMB', pulse: 'Shift (tap)', confirm: 'Enter', back: 'Esc', mPrev: 'Q', mNext: 'E', mAlt: 'F', mAlt2: 'R', fire: 'LMB',
+  core0: 'G + LMB', core1: 'G + RMB', pulse: 'Shift (tap)', confirm: 'Enter', back: 'Esc', mPrev: 'Q', mNext: 'E', mAlt: 'F', mAlt2: 'R', mSubPrev: 'Z', mSubNext: 'C', left: '←', right: '→', up: '↑', down: '↓', fire: 'LMB',
 };
 export const PAD_LABEL = {
   light: 'X', heavy: 'Y', guard: 'LB', dodge: 'A', burst: 'RT + B', lock: 'R3', heal: 'D-pad ↑',
   interact: 'B', shift: 'B + Y', pause: 'Start', stance: 'RB + Y / X / A', swap: 'D-pad ←', slide: 'L3', art: 'D-pad ↓', artNext: 'D-pad →', aim: 'LT',
-  core0: 'RT + X', core1: 'RT + Y', pulse: 'RB', confirm: 'A', back: 'B', mPrev: 'LB', mNext: 'RB', mAlt: 'Y', mAlt2: 'X', fire: 'RT',
+  core0: 'RT + X', core1: 'RT + Y', pulse: 'RB', confirm: 'A', back: 'B', mPrev: 'LB', mNext: 'RB', mAlt: 'Y', mAlt2: 'X', mSubPrev: 'LT', mSubNext: 'RT', left: '◀', right: '▶', up: '▲', down: '▼', fire: 'RT',
 };
 // The same buttons as a PlayStation pad names them.
 export const PS_LABEL = {
   light: '□', heavy: '△', guard: 'L1', dodge: '✕', burst: 'R2 + ○', lock: 'R3', heal: 'D-pad ↑',
   interact: '○', shift: '○ + △', pause: 'Options', stance: 'R1 + △ / □ / ✕', swap: 'D-pad ←', slide: 'L3', art: 'D-pad ↓', artNext: 'D-pad →', aim: 'L2',
-  core0: 'R2 + □', core1: 'R2 + △', pulse: 'R1', confirm: '✕', back: '○', mPrev: 'L1', mNext: 'R1', mAlt: '△', mAlt2: '□', fire: 'R2',
+  core0: 'R2 + □', core1: 'R2 + △', pulse: 'R1', confirm: '✕', back: '○', mPrev: 'L1', mNext: 'R1', mAlt: '△', mAlt2: '□', mSubPrev: 'L2', mSubNext: 'R2', left: '◀', right: '▶', up: '▲', down: '▼', fire: 'R2',
 };
 
 export class Input {

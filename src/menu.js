@@ -1,7 +1,9 @@
-// Full-screen menus: title, pause, the Moonwell (level up, travel, charms), Gear, the Fae Crossroads map overlay,
-// controls, movesets, the Journal, settings and the cleared / ending screens. They follow Nioh's look (menuui.js):
-// a header plaque, gold-lit lists, a bar of key hints, pages switched with Q / E (LB / RB).
-// Mouse, keyboard (arrows + Enter/Esc) and gamepad (d-pad + A/B) all work.
+// Full-screen menus: title, pause, the Moonwell and all it opens onto, Gear, the Fae Crossroads map's overlay,
+// controls, movesets, the Journal, the Bestiary, settings, and the cleared and ending screens. Every one is laid out
+// in the same frame (menuui.js): title and place at the top left, the hub's tabs along the top (Q / E, LB / RB),
+// pages within a screen (Z / C, LT / RT), a line of help for whatever is chosen, and the keys. The pause menu and
+// the Moonwell are hubs: their first tab is a list of everything, the rest flip past one another as Nioh's do.
+// Mouse, keyboard (arrows, held to keep going) and gamepad (d-pad or stick) all work.
 import { derive, ATK, WEAPONS } from './player.js';
 import { FORMS, KIT } from './movesets.js';
 import { levelCost, forgeCost, FORGE, SETTINGS_DEFAULT } from './save.js';
@@ -16,7 +18,7 @@ import { SIDES, sidesOf } from './sides.js';
 import { wayName, wayDesc, wayLvl } from './ways.js';
 import { themeOf, depthScale } from './underbriar.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
-import { esc, glyph, head, keybar, entries, infoBox, option, inkWash, padDiagram } from './menuui.js';
+import { esc, glyph, keybar, shell, panel, list, row, divider, subtabs, stats, sec, option, meter, icon, moonDisc, padDiagram } from './menuui.js';
 import { PATRONS, PATRON_ORDER, shiftText } from './patrons.js';
 import { OMENS, phaseOf } from './moontonight.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
@@ -63,7 +65,7 @@ const KB = [
   ['Moving', [['Move', 'W A S D'], ['Camera', 'Mouse'], ['Dodge · hold to sprint', 'Space'], ['Slide (at a sprint)', 'Z', 'Shift'], ['Wingleap (from a slide)', 'Space'], ['Glide (while falling)', 'hold Space'], ['Interact', 'E']]],
   ['Fighting', [['Strike', 'LMB'], ['Strike hard', 'RMB'], ['Guard · tap as a blow lands to Deflect', 'Shift'], ['Stance: High / Mid / Low', '1 2 3'], ['Stance up / down', 'C', 'X'], ['Thorn Counter', 'F'], ['Lock on', 'Q', 'MMB'], ['Switch target', 'Wheel', 'Tab'], ['Switch weapon', 'V']]],
   ['Faelight and tools', [['Fae Shift', 'G'], ['Soul Core skills', 'G+LMB', 'G+RMB'], ['Use Fae Art', 'T', 'Shift+R'], ['Change Fae Art', 'Y'], ['Aim the ranged weapon', 'Ctrl', 'L'], ['Fire (hold to draw a bow)', 'LMB'], ['Drink Moondew', 'R'], ['Pause', 'Esc']]],
-  ['Menus', [['Choose', 'Enter'], ['Back', 'Esc'], ['Change page', 'Q', 'E'], ['The chosen item\'s other actions', 'F', 'R']]],
+  ['Menus', [['Choose', 'Enter'], ['Back', 'Esc'], ['Tabs', 'Q', 'E'], ['Pages within a screen', 'Z', 'C'], ['The chosen item\'s other actions', 'F', 'R'], ['Hold to keep scrolling', 'W', 'S']]],
 ];
 // Techniques, on both: [name, keyboard, gamepad (with P(action) for the pad's own labels)].
 const TECH = [
@@ -117,8 +119,23 @@ const CPAGES = ['Keyboard & Mouse', 'Gamepad', 'Techniques', 'How it plays'];
 
 const hex = n => '#' + n.toString(16).padStart(6, '0');
 const col = r => hex(RARITY[r].color);
-const SLOT_ICON = { head: '⛑', body: '⛨', hands: '✋', legs: '⛓' };
 const kbKeys = (...ks) => ks.map(k => k.split('+').map(x => `<kbd class="k kb">${esc(x)}</kbd>`).join(' + ')).join(' <i>or</i> ');
+
+// The tabs a hub opens onto, flipped through with Q / E (LB / RB): the pause menu's, the Moonwell's, and the title's.
+const TAB = {
+  pause: { name: 'Knight', icon: 'status' }, shrine: { name: 'Moonwell', icon: 'moon' }, title: { name: 'Title', icon: 'moon' },
+  levelup: { name: 'Level up', icon: 'levelup' }, gear: { name: 'Equipment', icon: 'equipment' }, arsenal: { name: 'Arsenal', icon: 'arsenal' },
+  skills: { name: 'Skills', icon: 'skills' }, moves: { name: 'Movesets', icon: 'moves' }, wardrobe: { name: 'Wardrobe', icon: 'wardrobe' },
+  journal: { name: 'Journal', icon: 'journal' }, bestiary: { name: 'Bestiary', icon: 'bestiary' }, deeds: { name: 'Deeds', icon: 'deeds' },
+  settings: { name: 'Settings', icon: 'settings' }, controls: { name: 'Controls', icon: 'controls' }, patrons: { name: 'Patronage', icon: 'patron' },
+  kinship: { name: 'Kinship', icon: 'kinship' }, market: { name: 'Hidden Market', icon: 'market' }, charms: { name: 'Charms', icon: 'charms' },
+};
+const PAUSE_TABS = ['pause', 'gear', 'arsenal', 'skills', 'moves', 'wardrobe', 'journal', 'bestiary', 'deeds', 'settings', 'controls'];
+const WELL_TABS = ['shrine', 'levelup', 'gear', 'arsenal', 'skills', 'patrons', 'kinship', 'market', 'wardrobe', 'charms', 'journal', 'deeds'];
+const TITLE_TABS = ['settings', 'controls'];
+const SLOT_ICON = { head: 'helm', body: 'mail', hands: 'hands', legs: 'legs' };
+const ROLE_ICON = { Foe: 'dot', Elite: 'diamond', Gatekeeper: 'lock', Warlord: 'crown', Revenant: 'grave' };
+const STANCE_ICON = { high: 'levelup', mid: 'diamond', low: 'chev' };
 
 export class Menu {
   constructor(G) {
@@ -126,15 +143,18 @@ export class Menu {
     this.el = document.getElementById('menu');
     this.stack = [];
     this.focus = 0;
+    this.rep = { dir: 0, t: 0, h: 0, ht: 0 };
     this.el.addEventListener('click', e => {
       const b = e.target.closest('[data-act]');
       // On the map, a click anywhere else picks the landmark under the pointer.
-      if (!b && this.top?.screen === 'map' && !e.target.closest('.panel')) { this.G.overworld.pick(e.clientX, e.clientY); return; }
+      if (!b && this.top?.screen === 'map' && !e.target.closest('.mx-panel,.mx-top,.mx-foot')) { this.G.overworld.pick(e.clientX, e.clientY); return; }
       if (!b || b.disabled) return;
       this.G.audio.init();
       this.G.audio.sfx('uiOk');
       this.run(b.dataset.act, b, +(e.target.closest('[data-dir]')?.dataset.dir || 1));
     });
+    // A list that scrolls fades at the edge where more waits.
+    this.el.addEventListener('scroll', e => this.edges(e.target), true);
     this.el.addEventListener('mousemove', e => {
       const i = this.items().indexOf(e.target.closest('.btn'));
       if (i >= 0 && i !== this.focus) { this.focus = i; this.paint(); }
@@ -147,12 +167,26 @@ export class Menu {
 
   items() { return [...this.el.querySelectorAll('.btn:not([disabled])')]; }
   cur() { return this.items()[this.focus]; }
-  // Light the chosen row; screens that show more of it (Gear's detail, a setting's description) hear of it.
+  // Light the chosen row, slide the crescent to it, and say what it is on the help line.
   paint(scroll = false) {
-    const list = this.items();
+    const list = this.items(), el = list[this.focus];
     if (this.top) this.top.focus = this.focus;
-    list.forEach((b, i) => { b.classList.toggle('focus', i === this.focus); if (scroll && i === this.focus) b.scrollIntoView?.({ block: 'nearest' }); });
-    this.onFocus?.(list[this.focus]);
+    list.forEach((b, i) => b.classList.toggle('focus', i === this.focus));
+    if (scroll && el) el.scrollIntoView?.({ block: 'nearest' });
+    for (const c of this.el.querySelectorAll('.mx-cursor')) {
+      const on = el && c.parentElement.contains(el) && el.classList.contains('mx-row');
+      c.style.opacity = on ? 1 : 0;
+      if (on) c.style.transform = `translateY(${el.offsetTop + el.offsetHeight / 2 - 9}px)`;
+    }
+    const help = this.el.querySelector('.mx-help');
+    if (help) help.textContent = el?.dataset.desc || this.help || '';
+    for (const l of this.el.querySelectorAll('.mx-list,.mx-scroll')) this.edges(l);
+    this.onFocus?.(el);
+  }
+  edges(l) {
+    if (!l.classList || !l.matches('.mx-list,.mx-scroll')) return;
+    l.classList.toggle('less', l.scrollTop > 2);
+    l.classList.toggle('more', l.scrollTop + l.clientHeight < l.scrollHeight - 2);
   }
 
   show(screen, data) { this.stack = [{ screen, data }]; this.G.hud?.clearOverlays(); this.render(); }
@@ -160,67 +194,138 @@ export class Menu {
   pop() { this.stack.pop(); if (this.stack.length) this.render(); else this.close(); }
   close() { this.stack = []; this.el.className = ''; this.el.innerHTML = ''; this.onFocus = null; this.lastTop = null; this.G.overworld?.setActive(false); this.G.onMenuClosed?.(); }
 
-  // Keyboard / gamepad navigation.
-  nav(inp) {
+  // ---- tabs
+  // The tabs open here: the hub at the bottom of the stack, and the tab shown above it.
+  spine() {
+    const root = this.stack[0]?.screen, d = this.G.save.data;
+    const tabs = root === 'pause' ? PAUSE_TABS : root === 'shrine' ? WELL_TABS.filter(t => t !== 'charms' || d.charms.length) : root === 'title' ? TITLE_TABS : null;
+    if (!tabs || this.stack.length > 2 || !tabs.includes(this.top.screen)) return null;
+    return tabs;
+  }
+  tabData(id) {
+    const G = this.G, p = G.player, well = this.atWell();
+    return { gear: { cat: 'w:' + p.weapon, forge: well }, arsenal: { forge: well }, skills: { w: p.weapon }, moves: { w: p.weapon }, market: { tab: 'gear' },
+      bestiary: { act: 0 }, settings: { page: 0 }, controls: { page: G.input.usingPad ? 1 : 0 }, levelup: this.stack[0]?.data }[id] || {};
+  }
+  // Open a tab: over the hub, in place of the tab shown, or back to the hub itself.
+  goTab(id) {
+    const root = this.stack[0]?.screen;
+    if (id === root) { this.stack.length = 1; this.stack[0].focus = this.stack[0].focus ?? 0; this.render(); return; }
+    const f = { screen: id, data: this.tabData(id) };
+    if (this.stack.length >= 2 && (this.spine() || []).includes(this.top.screen)) this.stack[this.stack.length - 1] = f; else this.stack.push(f);
+    this.render();
+  }
+  turnTab(dir) {
+    const tabs = this.spine();
+    if (!tabs) return false;
+    const i = tabs.indexOf(this.top.screen), at = this.stack.length === 1 ? 0 : i;
+    this.goTab(tabs[(at + dir + tabs.length) % tabs.length]);
+    return true;
+  }
+  // A screen's own pages: the tab strip inside it, turned one way or the other.
+  turnPage(dir) {
+    const on = this.el.querySelector('.mx-sub .st button.on');
+    if (!on) return false;
+    this.run(on.dataset.act, null, dir);
+    return true;
+  }
+
+  // ---- keyboard, gamepad and stick
+  nav(inp, dt = 1 / 60) {
     if (!this.open) return;
+    const G = this.G, st = inp.padStick || { lx: 0, ly: 0 };
+    const now = (this.clock = (this.clock || 0) + dt * 1000);   // held keys repeat on the menu's own clock
     // The map: directions travel between landmarks, confirm sets out, back returns (unless the map is all there is).
     if (this.top.screen === 'map') {
-      const O = this.G.overworld;
+      const O = G.overworld;
       if (!O.entering) for (const d of ['left', 'right', 'up', 'down']) if (inp.hit(d)) O.step(d);
       if (inp.hit('confirm')) this.el.querySelector('.owpanel [data-act=setout]:not([disabled])')?.click();
       if (inp.hit('mAlt') && !O.entering) this.el.querySelector('.owpanel [data-act=sides]:not([disabled])')?.click();
       if (inp.hit('mAlt2') && !O.entering) this.el.querySelector('.owpanel [data-act=underbriar]')?.click();
-      if (inp.hit('back') && ['shrine', 'title'].includes(this.top.data?.from) && !O.entering) { this.G.audio.sfx('ui'); this.pop(); }
+      if (inp.hit('back') && ['shrine', 'title'].includes(this.top.data?.from) && !O.entering) { G.audio.sfx('ui'); this.pop(); }
       return;
     }
-    // The key bar: change page (Q / E, LB / RB) and the chosen item's other actions (F / R, Y / X).
-    for (const [a, dir] of [['mPrev', -1], ['mNext', 1], ['mAlt', 1], ['mAlt2', 1]]) {
+    // Tabs first (Q / E, LB / RB), then the screen's own pages (Z / C, LT / RT).
+    for (const [a, dir] of [['mPrev', -1], ['mNext', 1]]) if (inp.hit(a)) { if (this.turnTab(dir) || this.turnPage(dir)) G.audio.sfx('ui'); return; }
+    for (const [a, dir] of [['mSubPrev', -1], ['mSubNext', 1]]) if (inp.hit(a)) { if (this.turnPage(dir)) G.audio.sfx('ui'); return; }
+    // The chosen item's other actions (F / R, Y / X), from the key bar.
+    for (const a of ['mAlt', 'mAlt2']) {
       if (!inp.hit(a)) continue;
       const k = this.el.querySelector(`.nkeys [data-key~=${a}][data-act]:not([disabled])`);
-      if (k) { this.G.audio.sfx('uiOk'); this.run(k.dataset.act, k, dir); return; }
+      if (k) { G.audio.sfx('uiOk'); this.run(k.dataset.act, k, 1); return; }
     }
     const list = this.items();
-    if (list.length <= 1) {   // a page of reading: up and down scroll it
-      const panel = [...this.el.querySelectorAll('.map,.spanel,.panel')].find(e => e.scrollHeight > e.clientHeight + 2);
-      if (panel && inp.hit('up')) panel.scrollBy({ top: -120, behavior: 'smooth' });
-      if (panel && inp.hit('down')) panel.scrollBy({ top: 120, behavior: 'smooth' });
-    } else {
-      if (inp.hit('up')) { this.focus = (this.focus - 1 + list.length) % list.length; this.paint(true); this.G.audio.sfx('ui'); }
-      if (inp.hit('down')) { this.focus = (this.focus + 1) % list.length; this.paint(true); this.G.audio.sfx('ui'); }
+    // Up and down, held to keep going (keys, d-pad or stick).
+    const vy = inp.down('up') || st.ly < -.55 ? -1 : inp.down('down') || st.ly > .55 ? 1 : 0;
+    let step = 0;
+    if (vy !== this.rep.dir) { this.rep.dir = vy; this.rep.t = now + 360; step = vy; }
+    else if (vy && now >= this.rep.t) { this.rep.t = now + 65; step = vy; }
+    if (step) {
+      if (list.length <= 1) {   // a page of reading: scroll it
+        const panel = [...this.el.querySelectorAll('.mx-scroll,.mx-detail,.parch,.mx-list')].find(e => e.scrollHeight > e.clientHeight + 2);
+        panel?.scrollBy({ top: step * 90, behavior: 'smooth' });
+      } else {
+        const grid = list[this.focus]?.classList.contains('skill');
+        this.focus = grid ? this.gridStep(list, step, 0) : (this.focus + step + list.length) % list.length;
+        this.paint(true); G.audio.sfx('ui');
+      }
     }
     const cur = list[this.focus];
-    // Left and right: change a setting, or else turn the page.
-    for (const [d, dir] of [['left', -1], ['right', 1]]) {
-      if (!inp.hit(d)) continue;
-      if (['opt', 'lookOpt'].includes(cur?.dataset.act)) { this.G.audio.sfx('ui'); this.run(cur.dataset.act, cur, dir); return; }
-      const k = this.el.querySelector(`.nkeys [data-key~=${dir < 0 ? 'mPrev' : 'mNext'}][data-act]`);
-      if (k) { this.G.audio.sfx('ui'); this.run(k.dataset.act, k, dir); return; }
+    // Left and right: change an option, move about a grid of skills, or turn the screen's pages.
+    const vx = inp.down('left') || st.lx < -.6 ? -1 : inp.down('right') || st.lx > .6 ? 1 : 0;
+    let sx = 0;
+    if (vx !== this.rep.h) { this.rep.h = vx; this.rep.ht = now + 380; sx = vx; }
+    else if (vx && now >= this.rep.ht && ['opt', 'lookOpt'].includes(cur?.dataset.act)) { this.rep.ht = now + 110; sx = vx; }
+    if (sx) {
+      if (['opt', 'lookOpt'].includes(cur?.dataset.act)) { G.audio.sfx('ui'); this.run(cur.dataset.act, cur, sx); return; }
+      if (cur?.classList.contains('skill')) { this.focus = this.gridStep(list, 0, sx); this.paint(true); G.audio.sfx('ui'); return; }
+      if (this.turnPage(sx)) { G.audio.sfx('ui'); return; }
     }
-    if (inp.hit('confirm') && cur) { cur.click(); }
+    if (inp.hit('confirm') && cur) cur.click();
     const fixed = ['title', 'ending', 'cleared', 'sidecleared'].includes(this.top?.screen);
     if (inp.hit('back') && !fixed) {
-      this.G.audio.sfx('ui');
-      if (this.top.screen === 'shrine') this.run('leave'); else this.pop();
+      G.audio.sfx('ui');
+      if (this.top.screen === 'shrine') this.run('leave'); else if (this.top.screen === 'pause') this.close(); else this.pop();
     }
+  }
+  // In a grid of buttons (the skill tree), the nearest one up, down, left or right.
+  gridStep(list, dy, dx) {
+    const a = list[this.focus]?.getBoundingClientRect();
+    if (!a) return this.focus;
+    let best = this.focus, bd = Infinity;
+    list.forEach((b, i) => {
+      if (i === this.focus) return;
+      const r = b.getBoundingClientRect(), ddx = (r.left + r.width / 2) - (a.left + a.width / 2), ddy = (r.top + r.height / 2) - (a.top + a.height / 2);
+      if ((dy && Math.sign(ddy) !== dy) || (dx && Math.sign(ddx) !== dx) || (dy && Math.abs(ddy) < 4) || (dx && Math.abs(ddx) < 4)) return;
+      const dd = dy ? Math.abs(ddy) + Math.abs(ddx) * 2 : Math.abs(ddx) + Math.abs(ddy) * 2;
+      if (dd < bd) { bd = dd; best = i; }
+    });
+    if (best === this.focus && dy) return (this.focus + dy + list.length) % list.length;
+    return best;
   }
 
   run(act, b, dir = 1) {
     const G = this.G, d = G.save.data;
     // Acts from the key bar work on the chosen row.
     const uidOf = () => +(b?.dataset.uid || this.cur()?.dataset.uid || 0);
+    const page = (key, n) => { this.top.data[key] = b?.dataset.to != null ? +b.dataset.to : ((this.top.data[key] || 0) + dir + n) % n; this.top.focus = 0; this.top.scrolls = null; this.fresh = true; this.render(); };
     switch (act) {
+      case 'spine': this.goTab(b.dataset.to); break;
       case 'new': if (G.save.exists) this.push('confirm'); else G.newGame(); break;
       case 'newYes': G.newGame(); break;
       case 'continue': G.continueGame(); break;
       case 'library': location.href = 'library.html'; break;
-      case 'controls': this.push('controls', { page: G.input.usingPad ? 1 : 0 }); break;
-      case 'settings': this.push('settings', { page: 0 }); break;
+      case 'controls': case 'settings': case 'gear': case 'arsenal': case 'skills': case 'moves': case 'wardrobe': case 'journal':
+      case 'bestiary': case 'deeds': case 'levelup': case 'patrons': case 'kinship': case 'market': case 'charms': {
+        const tabs = { pause: PAUSE_TABS, shrine: WELL_TABS, title: TITLE_TABS }[this.stack[0]?.screen];
+        if (tabs?.includes(act) && this.stack.length <= 2) this.goTab(act); else this.push(act, this.tabData(act));
+        break;
+      }
       case 'back': this.pop(); break;
       case 'resume': this.close(); break;
       case 'quit': G.quitToTitle(); break;
-      case 'levelup': this.push('levelup', this.top.data); break;
       case 'level': G.levelUp(b.dataset.stat); this.render(); break;
-      case 'travelTo': this.push('travel', this.top.data); break;
+      case 'travelTo': this.push('travel', this.stack[0].data); break;
       case 'travel': G.travel(b.dataset.shrine); break;
       case 'leave': G.leaveShrine(); break;
       case 'ngplus': G.newGamePlus(); break;
@@ -237,46 +342,32 @@ export class Menu {
       case 'underbriar': this.push('underbriar', { from: this.top.data?.from }); break;
       case 'descend': G.menu.close(); G.enterUnderbriar(+b.dataset.depth); break;
       case 'leaveAbyss': G.leaveUnderbriar(); break;
-      case 'charms': this.push('charms'); break;
-      case 'patrons': this.push('patrons'); break;
       case 'pledge': {
         const id = b?.dataset.id || this.cur()?.dataset.id;
         if (b?.dataset.locked || !G.setPatron(id)) { G.audio.sfx('ui'); G.hud.toast(`Fell the warlord of ${G.LEVELS[PATRONS[id]?.from]?.name || 'its mission'} to free this spirit`); }
         else G.hud.toast(`${PATRONS[id].name} is pledged to you`, 'anima');
         this.render(); break;
       }
-      case 'journal': this.push('journal'); break;
-      case 'bestiary': this.push('bestiary', { act: 0 }); break;
-      case 'bAct': this.top.data.act = ((this.top.data.act ?? 0) + dir + 3) % 3; this.top.focus = 0; this.top.scrolls = null; this.render(); break;
-      case 'beast': break;
+      case 'bAct': page('act', 3); break;
+      case 'beast': case 'none': break;
       case 'graveFight': this.close(); G.challengeGrave(+b.dataset.i); break;
-      case 'kinship': this.push('kinship'); break;
-      case 'callKin': if (G.callKindred(+b.dataset.i)) this.pop(); else G.audio.sfx('ui'); break;
+      case 'callKin': if (G.callKindred(+b.dataset.i)) this.goTab('shrine'); else G.audio.sfx('ui'); break;
       case 'sendKin': G.sendKindred(); this.render(); break;
-      case 'market': this.push('market', { tab: 'gear' }); break;
-      case 'mTab': { const i = MARKET_TABS.findIndex(t => t.id === this.top.data.tab); this.top.data.tab = MARKET_TABS[(i + dir + MARKET_TABS.length) % MARKET_TABS.length].id; this.top.focus = 0; this.top.scrolls = null; this.render(); break; }
+      case 'mTab': { const n = MARKET_TABS.length, i = MARKET_TABS.findIndex(t => t.id === this.top.data.tab), to = b?.dataset.to != null ? +b.dataset.to : (i + dir + n) % n; this.top.data.tab = MARKET_TABS[to].id; this.top.focus = 0; this.top.scrolls = null; this.fresh = true; this.render(); break; }
       case 'buy': { const key = b?.dataset.key || this.cur()?.dataset.key; if (!G.buy(this.top.data.tab, key)) G.audio.sfx('ui'); this.render(); break; }
-      case 'wardrobe': this.push('wardrobe'); break;
       case 'lookOpt': this.setLookOpt(b.dataset.opt, dir); break;
       case 'lookReset': for (const P of LOOK_PARTS) G.setLook(P.k, null); this.render(); break;
-      case 'deeds': this.push('deeds'); break;
-      case 'moves': this.push('moves', { w: G.player.weapon }); break;
-      case 'arsenal': this.push('arsenal', { forge: this.atWell() }); break;
-      case 'wield': G.wieldWeapon(b.dataset.w); this.render(); break;
+      case 'wield': { const w = b?.dataset.w || this.cur()?.dataset.w, r = b?.dataset.r || this.cur()?.dataset.r; if (w) G.wieldWeapon(w); else if (r) G.readyRanged(r); this.render(); break; }
       case 'ready': G.readyRanged(b.dataset.r); this.render(); break;
-      case 'forge': if (!G.forgeWeapon(b.dataset.w)) G.audio.sfx('ui'); this.render(); break;
-      case 'movesW': this.top.data = { w: b.dataset.w }; this.render(); break;
-      case 'movesCycle': { const a = G.player.arms, i = Math.max(0, a.indexOf(this.top.data.w)); this.top.data = { w: a[(i + dir + a.length) % a.length] }; this.top.focus = 0; this.render(); break; }
-      case 'skills': this.push('skills', { w: G.player.weapon }); break;
-      case 'skillsW': this.top.data = { w: b.dataset.w }; this.top.focus = 0; this.render(); break;
-      case 'skillsCycle': { const a = [...G.player.arms, ...(G.player.rangedOwned || [])], i = Math.max(0, a.indexOf(this.top.data.w)); this.top.data = { w: a[(i + dir + a.length) % a.length] }; this.top.focus = 0; this.render(); break; }
+      case 'forge': { const w = b?.dataset.w || this.cur()?.dataset.w; if (!w || !this.atWell() || !G.forgeWeapon(w)) G.audio.sfx('ui'); this.render(); break; }
+      case 'movesW': { const a = G.player.arms, i = Math.max(0, a.indexOf(this.top.data.w)), to = b?.dataset.to != null ? +b.dataset.to : (i + dir + a.length) % a.length; this.top.data = { w: a[to] }; this.top.focus = 0; this.fresh = true; this.render(); break; }
+      case 'skillsW': { const a = [...G.player.arms, ...(G.player.rangedOwned || [])], i = Math.max(0, a.indexOf(this.top.data.w)), to = b?.dataset.to != null ? +b.dataset.to : (i + dir + a.length) % a.length; this.top.data = { w: a[to] }; this.top.focus = 0; this.fresh = true; this.render(); break; }
       case 'learn': if (!G.learnSkill(b.dataset.w, b.dataset.id)) G.audio.sfx('ui'); this.render(); break;
-      case 'gear': this.push('gear', { cat: 'w:' + G.player.weapon, forge: this.atWell() }); break;
-      case 'gCat': { const cats = this.gearCats(), i = Math.max(0, cats.findIndex(c => c.id === this.top.data.cat)); this.top.data.cat = cats[(i + dir + cats.length) % cats.length].id; this.top.focus = 0; this.top.scrolls = null; this.render(); break; }
+      case 'gCat': { const cats = this.gearCats(), i = Math.max(0, cats.findIndex(c => c.id === this.top.data.cat)), to = b?.dataset.to != null ? +b.dataset.to : (i + dir + cats.length) % cats.length; this.top.data.cat = cats[to].id; this.top.focus = 0; this.top.scrolls = null; this.fresh = true; this.render(); break; }
       case 'equipGear': { const u = uidOf(); if (u) G.equipGear(u); this.render(); break; }
       case 'dismantle': { const u = uidOf(), got = u ? G.dismantleGear([u]) : 0; if (got) G.hud.toast(`Dismantled for ${got} Glimmer`, 'item'); else G.audio.sfx('ui'); this.render(); break; }
       case 'smith': { const u = uidOf(); if (u && this.atWell()) this.push('smith', { uid: u }); else G.audio.sfx('ui'); break; }
-      case 'setCore': { const c = b.dataset.core ?? this.cur()?.dataset.core; if (c) G.setCore(+b.dataset.slot, c); this.render(); break; }
+      case 'setCore': { const c = b?.dataset.core ?? this.cur()?.dataset.core; if (c) G.setCore(+(b?.dataset.slot || 0), c); this.render(); break; }
       case 'coreOut': { const at = (d.coreSlots || []).indexOf(this.cur()?.dataset.core); if (at >= 0) G.setCore(at, null); else G.audio.sfx('ui'); this.render(); break; }
       case 'dismantleBelow': { const got = G.dismantleBelow(+b.dataset.rar); G.hud.toast(got ? `Dismantled for ${got.toLocaleString()} Glimmer` : 'Nothing to dismantle', 'item'); this.render(); break; }
       case 'reforge': if (!G.reforge(this.top.data.uid, +b.dataset.i)) G.audio.sfx('ui'); this.render(); break;
@@ -284,11 +375,8 @@ export class Menu {
       case 'letter': this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break;
       case 'charm': if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); this.render(); break;
       case 'opt': this.setOpt(b.dataset.opt, dir); break;
-      case 'spage': case 'cpage': {
-        const n = act === 'spage' ? SETTINGS.length : CPAGES.length;
-        this.top.data.page = b?.dataset.to != null ? +b.dataset.to : ((this.top.data.page || 0) + dir + n) % n;
-        this.top.focus = 0; this.top.scrolls = null; this.render(); break;
-      }
+      case 'spage': page('page', SETTINGS.length); break;
+      case 'cpage': page('page', CPAGES.length); break;
       case 'revert': G.resetSettings(); G.hud.toast('Settings returned to their defaults'); this.render(); break;
     }
   }
@@ -303,8 +391,6 @@ export class Menu {
     G.setSetting(k, nv);
     this.render();
   }
-
-  // Gear's categories, turned through with Q / E (LB / RB): each weapon carried or found, each armour slot, Soul Cores.
   // The Wardrobe: the next or last choice for one part of the look.
   setLookOpt(k, dir) {
     const G = this.G, d = G.save.data, vals = k === 'set' ? [null, ...(d.looks || ['errant']).filter(x => SETS[x])] : [null, ...DYE_ORDER.filter(x => (d.dyes || []).includes(x))];
@@ -312,33 +398,17 @@ export class Menu {
     G.setLook(k, vals[(i + dir + vals.length) % vals.length]);
     this.render();
   }
+  // Gear's pages: each weapon carried or found, each armour slot, Soul Cores.
   gearCats() {
     const d = this.G.save.data, p = this.G.player;
-    return [...d.arms.map(w => ({ id: 'w:' + w, name: p.weaponName(w), w })), ...SLOTS.map(s => ({ id: s, name: SLOT_NAME[s], slot: s })), { id: 'cores', name: 'Soul Cores' }];
+    return [...d.arms.map(w => ({ id: 'w:' + w, name: p.weaponName(w), w, icon: 'sword' })), ...SLOTS.map(s => ({ id: s, name: SLOT_NAME[s], slot: s, icon: SLOT_ICON[s] })), { id: 'cores', name: 'Soul Cores', icon: 'core' }];
   }
 
-  // The chosen piece in full, set against what is worn now.
-  gearDetail(el, C) {
-    const G = this.G, d = G.save.data, g = d.gear, p = G.player, wn = id => p.weaponName(id);
-    if (C.id === 'cores') {
-      const slots = d.coreSlots || [null, null];
-      const set = slots.map((id, i) => `<div class="gd-fx ${id ? 'set' : 'off'}"><span>Slot ${i + 1} · ${glyph(G, i ? 'core1' : 'core0')}</span><span class="v">${id ? esc(CORES[id].name) : 'empty'}</span></div>`).join('');
-      const id = el?.dataset.core, K = CORES[id];
-      if (!K) return `<div class="gd-sec">Set</div>${set}<div class="gd-note">Each core set lends a passive and a skill; skills cost Faelight.</div>`;
-      const gr = Math.min(CORE_MAX, d.cores[id]);
-      return `<div class="glv"><span>Soul Core</span><span>${gr > 1 ? `Fused +${gr - 1}` : ''}</span></div><h3 style="color:#c89aff">${esc(K.name)}</h3>
-        <div class="grar">${esc(K.skillName)} · ${K.cost} Faelight</div>
-        <div class="gd-note">${esc(K.desc)}.</div>
-        <div class="gd-sec">Passive</div><div class="gd-fx"><span>${esc(fxText(K.fx[0], Math.round(K.fx[1] * (1 + (gr - 1) * .15))))}</span></div>
-        <div class="gd-sec">Set</div>${set}
-        <div class="gd-note">Found again, a core fuses into the one you hold and grows stronger (up to +${CORE_MAX - 1}).</div>`;
-    }
-    const st = p.gear || { def: 0, sets: {} };
-    const harness = C.slot ? `<div class="gd-sec">Harness</div><div class="gd-fx"><span>Defence</span><span class="v">${st.def}</span></div><div class="gd-fx"><span>Blows land lighter by</span><span class="v">${Math.round(defReduce(st.def) * 100)}%</span></div>` : '';
-    const it = g.items.find(x => x.uid === +(el?.dataset.uid || 0));
-    if (!it) return harness || '<div class="gd-note">Foes drop weapons of every kind you carry; better ones from elites and warlords.</div>';
-    return `${this.itemDetail(it)}${harness}
-      <div class="gd-note">Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer.${this.atWell() ? '' : ' Reforge or soul-match it at a Moonwell.'}</div>`;
+  // ---- pieces the screens share
+  chips(...ks) {
+    const sv = this.G.save, d = sv.data;
+    const C = { lvl: ['moon', `Level ${sv.level}`, 'lvl'], glim: ['glimmer', sv.glimmer.toLocaleString(), 'glim'], petal: ['petal', (d.petals || 0).toLocaleString(), 'petal'], cup: ['cup', String(d.cups ?? 0), 'cup'] };
+    return ks.map(k => C[k]);
   }
   // A piece in full, pack or not (the Hidden Market's too), set against what is worn now.
   itemDetail(it) {
@@ -350,538 +420,486 @@ export class Menu {
     const cmp = eq === it ? '<span class="same">worn</span>' : Math.abs(diff) < 1e-6 ? '<span class="same">=</span>'
       : `<span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'} ${isW ? Math.abs(diff).toFixed(2) : Math.abs(diff)}</span>`;
     const S = it.set && SETS[it.set], n = S ? (st.sets?.[it.set] || 0) : 0;
-    return `<div class="glv"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Lv ${it.lvl}</span></div>
+    return `<div class="mx-kick"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Level ${it.lvl}</span></div>
       <h3 style="color:${col(it.rar)}">${esc(itemName(it, wn))}</h3>
-      <div class="grar">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · equipped' : ''}</div>
-      <div class="gd-cmp"><span>${isW ? 'Damage' : 'Defence'}</span><span>${eq && eq !== it ? `<span class="was">${fmt(was)}</span> → ` : ''}<span class="now">${fmt(val)}</span> ${cmp}</span></div>
-      <div class="gd-sec">Special Effects</div>
-      ${it.fx.length ? it.fx.map(([id, v]) => `<div class="gd-fx"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="gd-fx off"><span>None: a Common piece carries no effects.</span></div>'}
-      ${S ? `<div class="gd-sec">${esc(S.name)} set · ${n} of 4 worn</div><div class="gd-fx set ${n >= 2 ? '' : 'off'}"><span>Two: ${esc(S.two)}</span></div><div class="gd-fx set ${n >= 4 ? '' : 'off'}"><span>Four: ${esc(S.four)}</span></div>` : ''}
-      ${eq && eq !== it ? `<div class="gd-sec">Worn now: ${esc(itemName(eq, wn))}</div>${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="gd-fx off"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="gd-fx off"><span>No effects</span></div>'}` : ''}`;
+      <div class="sub">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · worn' : ''}</div>
+      <div class="mx-cmp"><span>${isW ? 'Damage' : 'Defence'}</span><span>${eq && eq !== it ? `<span class="was">${fmt(was)}</span> → ` : ''}<span class="now">${fmt(val)}</span> ${cmp}</span></div>
+      ${sec('Special effects')}
+      ${it.fx.length ? it.fx.map(([id, v]) => `<div class="mx-fx"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="mx-fx off"><span>None: a Common piece carries no effects.</span></div>'}
+      ${S ? `${sec(`${S.name} set · ${n} of 4 worn`)}<div class="mx-fx set ${n >= 2 ? '' : 'off'}"><span>Two: ${esc(S.two)}</span></div><div class="mx-fx set ${n >= 4 ? '' : 'off'}"><span>Four: ${esc(S.four)}</span></div>` : ''}
+      ${eq && eq !== it ? `${sec(`Worn now: ${itemName(eq, wn)}`)}${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="mx-fx off"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="mx-fx off"><span>No effects</span></div>'}` : ''}`;
+  }
+  // The chosen gear row in full.
+  gearDetail(el, C) {
+    const G = this.G, d = G.save.data, g = d.gear, p = G.player;
+    if (C.id === 'cores') {
+      const slots = d.coreSlots || [null, null];
+      const set = slots.map((id, i) => `<div class="mx-fx ${id ? 'set' : 'off'}"><span>Slot ${i + 1} · ${glyph(G, i ? 'core1' : 'core0')}</span><span class="v">${id ? esc(CORES[id].name) : 'empty'}</span></div>`).join('');
+      const id = el?.dataset.core, K = CORES[id];
+      if (!K) return `${sec('Set')}${set}<div class="mx-note">Each core set lends a passive and a skill; skills cost Faelight.</div>`;
+      const gr = Math.min(CORE_MAX, d.cores[id]);
+      return `<div class="mx-kick"><span>Soul Core</span><span>${gr > 1 ? `Fused +${gr - 1}` : ''}</span></div><h3 style="color:#c89aff">${esc(K.name)}</h3>
+        <div class="sub">${esc(K.skillName)} · ${K.cost} Faelight</div>
+        <div class="mx-note">${esc(K.desc)}.</div>
+        ${sec('Passive')}<div class="mx-fx"><span>${esc(fxText(K.fx[0], Math.round(K.fx[1] * (1 + (gr - 1) * .15))))}</span></div>
+        ${sec('Set')}${set}
+        <div class="mx-note">Found again, a core fuses into the one you hold and grows stronger (up to +${CORE_MAX - 1}).</div>`;
+    }
+    const st = p.gear || { def: 0, sets: {} };
+    const harness = C.slot ? `${sec('Harness')}${stats([['Defence', st.def], ['Blows land lighter by', `${Math.round(defReduce(st.def) * 100)}%`]])}` : '';
+    const it = g.items.find(x => x.uid === +(el?.dataset.uid || 0));
+    if (!it) return harness || '<div class="mx-note">Foes drop weapons of every kind you carry; better ones from elites and warlords.</div>';
+    return `${this.itemDetail(it)}${harness}<div class="mx-note">Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer.${this.atWell() ? '' : ' Reforge or soul-match it at a Moonwell.'}</div>`;
+  }
+  // Fill the detail pane, fading the new in.
+  fill(html) {
+    const box = this.el.querySelector('.mx-detail.live');
+    if (!box) return;
+    box.innerHTML = html;
+    box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh');
   }
 
+  // ---- drawing a screen
   render() {
-    const { screen, data } = this.top, G = this.G;
+    const { screen } = this.top, G = this.G;
     // Keep each screen's scroll, so a change made far down a list doesn't jump back to its top.
-    const scrollers = () => [...this.el.querySelectorAll('.map,.gitems,.nlist,.spanel')];
+    const scrollers = () => [...this.el.querySelectorAll('.mx-list,.mx-scroll,.mx-detail')];
     if (this.lastTop) this.lastTop.scrolls = scrollers().map(e => e.scrollTop);
-    this.onFocus = null;
-    let cls = screen, h = '';
-    const art = `<div class="nart" style="background-image:url(${inkWash()})"></div>`;
-    const back = ['back', 'Back', 'back'];
-    if (screen === 'title') {
-      const has = G.save.exists, off = !G.ready;
-      cls = 'title nioh';
-      const ph = G.settings.realMoon !== false && phaseOf();
-      h = `<h1 class="ntitle">PIXIELORDS</h1><div class="ntag">A fae knight · a warren of rot · a lord upon the throne</div>
-        ${ph ? `<div class="ntonight"><i class="mphase" style="--lit:${ph.lit.toFixed(2)};--wax:${ph.frac < .5 ? 1 : -1}"></i>Tonight: ${esc(ph.name)} · ${esc(ph.desc)}</div>` : ''}
-        ${G.ready ? '' : `<div class="loading tl"><i style="transform:scaleX(${G.loadProgress || 0})"></i><span>Summoning the warren… ${Math.round((G.loadProgress || 0) * 100)}%</span></div>`}
-        <div class="nlist">${entries([
-          has && ['continue', 'Continue', 'Resume', G.save.summary(G.LEVELS), '', off],
-          has && G.save.data.unlocked.length > 1 && ['map', 'The Crossroads', 'Journey', 'Choose where the path leads.', '', off],
-          ['new', 'New Game', 'Begin', has ? 'Begin again, from the Grubhold\'s gate.' : 'A fae knight wakes beneath a fading moon.', '', off],
-          ['controls', 'Controls', 'How to play', 'Keyboard and mouse, the gamepad, and the ways of the fight.'],
-          ['settings', 'Settings', 'Options', 'Camera, reading, sound and display.'],
-          ['library', 'Asset Library', 'Gallery', 'Every model and animation in the game, to look at.'],
-        ])}</div>
-        <div class="nfoot">${G.touchOnly ? 'PixieLords needs a keyboard and mouse, or a gamepad.' : 'Made for keyboard and mouse · a gamepad works too · best with headphones'}</div>
-        ${keybar(G, [['confirm', 'Select']])}`;
-    } else if (screen === 'confirm') {
-      h = `<div class="panel"><h2>Begin anew?</h2><p>Your current journey will be forgotten.</p>
-        <div class="btns"><button class="btn" data-act="newYes">Begin a new journey</button><button class="btn" data-act="back">Keep my journey</button></div></div>
-        ${keybar(G, [['confirm', 'Select'], back])}`;
-    } else if (screen === 'pause') {
-      const sv = G.save, L = G.level, side = G.sideDef();
-      cls = 'pause nioh';
-      h = `${art}${head('Paused', side ? side.name : L.depth ? `The Underbriar · Depth ${L.depth}` : L.name)}
-        <div class="nlist">${entries([
-          ['resume', 'Return', 'Resume', 'Back to the fight.'],
-          ['gear', 'Harness', 'Equipment', 'Weapons, armour and Soul Cores found.'],
-          ['arsenal', 'Armoury', 'Arsenal', 'Choose the two weapons you carry, and the ranged one.'],
-          ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
-          ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
-          ['journal', 'Chronicle', 'Journal', `${sv.data.letters.length} letters read · ${sv.data.pixies.length} Lost Pixies freed.`],
-          ['deeds', 'Renown', 'Deeds', 'Long goals kept across every mission, Way and depth.'],
-          ['controls', 'Teachings', 'Controls', 'Keys, the gamepad, and the ways of the fight.'],
-          ['settings', 'Customs', 'Settings', 'Camera, reading, sound and display.'],
-          side && ['abandon', 'Forsake', 'Abandon side mission', `${side.name}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.`],
-          L.depth && ['leaveAbyss', 'Resurface', 'Leave the Underbriar', 'Climb back up to the Fae Crossroads.'],
-          ['quit', 'Withdraw', 'Quit to title', 'Progress is saved each time you rest at a Moonwell or vanquish a warlord.'],
-        ])}</div>
-        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Moonpetals', (sv.data.petals || 0).toLocaleString()], ['Moondew', `${G.player.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`], ['Way', wayName(sv.data.ng)], G.tonight && ['Tonight', G.tonight.phase.name + (G.tonight.omen ? ' · ' + G.tonight.omen.name : '')]])}
-        ${keybar(G, [['confirm', 'Select'], ['back', 'Back', 'resume']])}`;
-    } else if (screen === 'shrine') {
-      const sv = G.save, d = sv.data, p = G.player, cost = levelCost(sv.level);
-      const other = Object.values(G.level.shrines).filter(s => s.id !== data.id && sv.m.kindled.includes(s.id));
-      const deeds = G.deedsView(), earned = deeds.reduce((a, r) => a + r.tier, 0);
-      cls = 'shrine nioh';
-      h = `${art}${head(data.name, 'Moonwell')}
-        <div class="nlist">${entries([
-          ['levelup', 'Kindle', 'Level up', sv.glimmer >= cost ? `Spend ${cost.toLocaleString()} Glimmer to grow stronger.` : `The next level needs ${cost.toLocaleString()} Glimmer.`],
-          ['travelTo', 'Wayfaring', 'Travel', other.length ? `To another Moonwell kindled here: ${other.map(s => s.name).join(', ')}.` : 'No other Moonwell here is kindled yet.', '', !other.length],
-          ['gear', 'Harness', 'Equipment', 'Weapons, armour and Soul Cores. Reforge and soul-match here.'],
-          ['arsenal', 'Armoury', 'Arsenal', 'Choose two weapons, and forge them stronger.'],
-          ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
-          ['patrons', 'Patronage', 'Patron Spirit', `${PATRONS[d.patron || 'lantern'].name} is pledged to you · ${(d.patrons || ['lantern']).length} of ${PATRON_ORDER.length} freed.`],
-          d.charms.length && ['charms', 'Trinkets', 'Charms', `${d.equipped.length} of ${CHARM_SLOTS} worn.`],
-          ['kinship', 'Kinship', 'Kindred Spirit', G.kindred?.alive ? `${G.kindred.name} walks with you.` : `${d.cups ?? 0} Moon Cups · call a kindred knight to fight beside you.`],
-          ['market', 'Pedlar', 'Hidden Market', `${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night.`],
-          ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
-          ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
-          ['journal', 'Chronicle', 'Journal', `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed.`],
-          ['deeds', 'Renown', 'Deeds', `${earned} of ${deeds.length * 3} tiers earned.`],
-          d.unlocked.length > 1 && ['journey', 'Crossroads', 'Journey elsewhere', 'Walk the Fae Crossroads to another mission.'],
-          ['leave', 'Rise', 'Leave', 'Resting mends you, refills your Moondew, and calls every fallen foe back.'],
-        ])}</div>
-        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Next level', cost.toLocaleString()], ['Moonpetals', (d.petals || 0).toLocaleString()], ['Health · Stamina', `${p.maxHp} · ${p.maxKi}`], ['Moondew', sv.elixirMax]])}
-        ${keybar(G, [['confirm', 'Select'], ['back', 'Rise', 'leave']])}`;
-    } else if (screen === 'levelup') {
-      const sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl), afford = sv.glimmer >= cost, cur = derive(sv.stats);
-      const rows = STATS.map(st => {
-        const dd = derive({ ...sv.stats, [st.k]: sv.stats[st.k] + 1 });
-        const gain = st.k === 'vit' ? `+${dd.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${dd.maxKi - cur.maxKi} stamina` : st.k === 'str' ? `+${Math.round((dd.dmgMul - cur.dmgMul) * 100)}% damage` : `+${Math.round((dd.animaGain - cur.animaGain) * 100)}% Faelight, +1 s Shift`;
-        return `<button class="btn lrow" data-act="level" data-stat="${st.k}" ${afford ? '' : 'disabled'}><span class="ln"><b>${st.name}</b><small>${st.desc}</small></span><span class="lval">${sv.stats[st.k]} <i>›</i> ${sv.stats[st.k] + 1}</span><span class="lgain">${gain}</span></button>`;
-      }).join('');
-      cls = 'levelup sheet';
-      h = `${head('Kindle', 'Level up')}
-        <div class="spanel lvl">
-          <div class="lvtop"><div><small>Level</small><b>${lvl} <i>›</i> ${lvl + 1}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div><div><small>Required</small><b class="${afford ? '' : 'short'}">${cost.toLocaleString()}</b></div></div>
-          ${rows}
-          <div class="lvder">Health <b>${p.maxHp}</b> · Stamina <b>${p.maxKi}</b> · Damage <b>×${p.dmgMul.toFixed(2)}</b> · Moondew <b>${sv.elixirMax}</b></div>
-          <div class="sdesc">${afford ? 'Each level raises one attribute by one.' : `${(cost - sv.glimmer).toLocaleString()} more Glimmer is needed. Fell foes, and don't fall with it on you.`}</div>
-        </div>
-        ${keybar(G, [['confirm', 'Raise'], back])}`;
-    } else if (screen === 'travel') {
-      const sv = G.save, list = Object.values(G.level.shrines).filter(s => sv.m.kindled.includes(s.id));
-      cls = 'travel nioh';
-      h = `${art}${head('Wayfaring', G.level.name)}
-        <div class="nlist">${entries(list.map(s => s.id === data.id ? ['travel', s.name, 'You rest here', '', `data-shrine="${s.id}"`, true] : ['travel', s.name, 'Moonwell', `Travel to ${s.name}.`, `data-shrine="${s.id}"`]))}</div>
-        ${keybar(G, [['confirm', 'Travel'], back])}`;
-    } else if (screen === 'settings') {
-      const pg = SETTINGS[data?.page || 0], s = G.settings;
-      const rows = pg.rows.map(R => {
-        const v = s[R.k];
-        if (R.vals) { const i = Math.max(0, R.vals.findIndex(x => x == v)); return option(R.k, R.label, R.names[i], i, R.vals.length, R.desc); }
-        const n = Math.round((R.max - R.min) / R.step) + 1, i = Math.round(((+v || 0) - R.min) / R.step);
-        return option(R.k, R.label, R.fmt(+v || 0), i, n, R.desc);
-      }).join('');
-      cls = 'settings sheet';
-      h = `${head('Settings', pg.name)}
-        <button class="pgarr l" data-act="spage" data-dir="-1">‹</button>
-        <div class="spanel">
-          <div class="stabs">${SETTINGS.map((P, i) => `<span class="${P === pg ? 'on' : ''}" data-act="spage" data-to="${i}">${esc(P.name)}</span>`).join('')}</div>
-          ${rows}
-          <div class="sdesc"></div>
-          <div class="spages">${SETTINGS.map(P => `<i class="${P === pg ? 'on' : ''}"></i>`).join('')}</div>
-        </div>
-        <button class="pgarr r" data-act="spage" data-dir="1">›</button>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Page', 'spage'], ['mAlt', 'Revert to defaults', 'revert'], ['confirm', 'Change'], back])}`;
-      this.onFocus = el => { const q = this.el.querySelector('.sdesc'); if (q) q.textContent = el?.dataset.desc || ''; };
-    } else if (screen === 'controls') {
-      const page = data?.page || 0, P = G.input.padPS ? PS_LABEL : PAD_LABEL;
-      let body;
-      if (page === 0) body = `<div class="kbgrid">${KB.map(([grp, rows]) => `<h4>${esc(grp)}</h4>${rows.map(([n, ...ks]) => `<div class="kbrow"><span>${esc(n)}</span><span>${kbKeys(...ks)}</span></div>`).join('')}`).join('')}</div>`;
-      else if (page === 1) body = padDiagram(G.input.padPS);
-      else if (page === 2) body = `<table class="ctl tech"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>${TECH.map(([n, k, pf]) => `<tr><td>${esc(n)}</td><td>${esc(k)}</td><td>${esc(pf(P))}</td></tr>`).join('')}</table>`;
-      else body = `<div class="tips">${TIPS.map(([b, t]) => `<p><b>${esc(b)}</b>: ${esc(t)}</p>`).join('')}</div>`;
-      cls = 'controls sheet';
-      h = `${head('Controls', CPAGES[page])}
-        <button class="pgarr l" data-act="cpage" data-dir="-1">‹</button>
-        <div class="spanel">
-          <div class="stabs">${CPAGES.map((n, i) => `<span class="${i === page ? 'on' : ''}" data-act="cpage" data-to="${i}">${esc(n)}</span>`).join('')}</div>
-          ${body}
-          <div class="spages">${CPAGES.map((n, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}</div>
-        </div>
-        <button class="pgarr r" data-act="cpage" data-dir="1">›</button>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Page', 'cpage'], back])}`;
-    } else if (screen === 'gear') {
-      const d = G.save.data, g = d.gear, p = G.player, wn = id => p.weaponName(id), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
-      // Older callers name a tab and a slot or weapon.
-      if (data.tab) { data.cat = data.tab === 'cores' ? 'cores' : data.tab === 'weapons' ? 'w:' + (data.w || p.weapon) : (data.slot || 'body'); delete data.tab; }
-      const cats = this.gearCats(), C = cats.find(c => c.id === data.cat) || cats[0];
-      data.cat = C.id;
-      const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
-      let list;
-      if (C.id === 'cores') {
-        const slots = d.coreSlots || [null, null], owned = Object.keys(d.cores || {}).filter(id => CORES[id]).sort((a, b) => (slots.includes(b) - slots.includes(a)) || CORES[a].name.localeCompare(CORES[b].name));
-        list = owned.map(id => {
-          const at = slots.indexOf(id), gr = Math.min(CORE_MAX, d.cores[id]);
-          return `<button class="btn gi" data-act="setCore" data-slot="0" data-core="${id}"><span class="ic" style="color:#c89aff">◈</span><span style="color:#c89aff">${esc(CORES[id].name)}${gr > 1 ? ` +${gr - 1}` : ''}${at >= 0 ? `<span class="eq">SLOT ${at + 1}</span>` : ''}</span><span class="gl">${CORES[id].cost} FL</span></button>`;
-        }).join('') || '<p class="dim gnone">No Soul Cores yet. Foes leave them sometimes, elites often, and every gatekeeper and warlord always.</p>';
-      } else {
-        list = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it =>
-          `<button class="btn gi" data-act="equipGear" data-uid="${it.uid}"><span class="ic">${C.w ? '⚔' : SLOT_ICON[C.slot]}</span><span style="color:${col(it.rar)}">${esc(itemName(it, wn))}${worn.has(it.uid) ? '<span class="eq">E</span>' : ''}</span><span class="gl">Lv ${it.lvl}</span></button>`).join('')
-          || `<p class="dim gnone">${C.w ? `No ${esc(wn(C.w))} of any rarity yet: the one you carry hits at ×1.00. Foes drop better ones.` : 'Nothing for this slot yet.'}</p>`;
-      }
-      cls = 'gear';
-      h = `${head('Equipment', `Pack ${g.items.length} / ${PACK}${data.forge ? ' · at the Moonwell' : ''}`)}
-        <div class="gwrap">
-          <div class="glist">
-            <div class="gcat"><span class="arr" data-act="gCat" data-dir="-1">‹ ${glyph(G, 'mPrev')}</span><span>${esc(C.name)}</span><span class="arr" data-act="gCat" data-dir="1">${glyph(G, 'mNext')} ›</span></div>
-            <div class="gtabs">${cats.map(c => `<i class="${c === C ? 'on' : ''}" title="${esc(c.name)}"></i>`).join('')}</div>
-            <div class="gitems">${list}</div>
-            ${C.id === 'cores' ? '' : '<div class="gfoot"><button class="btn small" data-act="dismantleBelow" data-rar="0">Dismantle all Common</button><button class="btn small" data-act="dismantleBelow" data-rar="1">…and all Fine</button></div>'}
-          </div>
-          <div class="gdetail"></div>
-        </div>
-        ${keybar(G, C.id === 'cores'
-          ? [[['mPrev', 'mNext'], 'Category', 'gCat'], ['confirm', 'Set in slot 1'], ['mAlt', 'Set in slot 2', 'setCore', 'data-slot="1"'], ['mAlt2', 'Take out', 'coreOut'], back]
-          : [[['mPrev', 'mNext'], 'Category', 'gCat'], ['confirm', 'Equip'], ['mAlt', 'Dismantle', 'dismantle'], data.forge && ['mAlt2', 'Forge', 'smith'], back])}`;
-      this.onFocus = el => { const box = this.el.querySelector('.gdetail'); if (box) box.innerHTML = this.gearDetail(el, C); };
-    } else if (screen === 'patrons') {
-      // Patron Spirits (patrons.js): the one pledged, and the rest, freed or still held by their warlords.
-      const d = G.save.data, have = d.patrons || ['lantern'], cur = d.patron || 'lantern';
-      const list = PATRON_ORDER.map(id => {
-        const P = PATRONS[id];
-        return have.includes(id)
-          ? `<button class="btn gi" data-act="pledge" data-id="${id}"><span class="ic" style="color:${P.css}">✦</span><span style="color:${P.css}">${esc(P.name)}${id === cur ? '<span class="eq">PLEDGED</span>' : ''}</span><span class="gl">${esc(P.title)}</span></button>`
-          : `<button class="btn gi" data-act="pledge" data-id="${id}" data-locked="1"><span class="ic dim">?</span><span class="dim">A spirit held captive</span><span class="gl dim">${roman(G.ORDER.indexOf(P.from) + 1)}</span></button>`;
-      }).join('');
-      cls = 'gear patrons';
-      h = `${head('Patronage', `${have.length} of ${PATRON_ORDER.length} freed · ${PATRONS[cur].name} pledged`)}
-        <div class="gwrap"><div class="glist"><div class="gcat"><span></span><span>Patron Spirits</span><span></span></div><div class="gitems">${list}</div></div><div class="gdetail"></div></div>
-        ${keybar(G, [['confirm', 'Pledge'], back])}`;
-      this.onFocus = el => {
-        const box = this.el.querySelector('.gdetail'), id = el?.dataset.id, P = PATRONS[id];
-        if (!box || !P) return;
-        if (el.dataset.locked) { box.innerHTML = `<div class="glv"><span>Patron Spirit</span><span></span></div><h3 class="dim">A spirit held captive</h3><div class="gd-note">The warlord of ${esc(G.LEVELS[P.from]?.name || '')} holds it. Fell the warlord to set it free.</div>`; return; }
-        box.innerHTML = `<div class="glv"><span>Patron Spirit</span><span>${id === cur ? 'pledged' : ''}</span></div><h3 style="color:${P.css}">${esc(P.name)}</h3><div class="grar">${esc(P.title)}</div>
-          <div class="gd-sec">While pledged</div>${P.fx.map(([k, v]) => `<div class="gd-fx"><span>${esc(fxText(k, v))}</span></div>`).join('')}
-          <div class="gd-sec">In the Fae Shift</div>${shiftText(P).map(t => `<div class="gd-fx set"><span>${esc(t[0].toUpperCase() + t.slice(1))}</span></div>`).join('')}
-          <div class="gd-fx set"><span>As it begins, a burst that throws back everything within ${P.shift.burst[1]} paces</span></div>
-          <div class="gd-note">${esc(P.lore)}</div>`;
-      };
-    } else if (screen === 'market') {
-      // The Hidden Market (market.js): tonight's wares by tab, bought with Moonpetals.
-      const d = G.save.data, W = G.market(), T = MARKET_TABS.find(t => t.id === data.tab) || MARKET_TABS[0], sold = d.market.sold, wn = id => G.player.weaponName(id);
-      data.tab = T.id;
-      const price = w => `<span class="gl ${(d.petals || 0) < w.price ? 'short' : ''}">✿ ${w.price}</span>`;
-      const gone = w => (!w.repeat && sold.includes(w.key)) || w.owned || w.off;
-      const tag = w => (w.owned ? '<span class="eq">OWNED</span>' : w.off ? '<span class="eq">FULL</span>' : !w.repeat && sold.includes(w.key) ? '<span class="eq">SOLD</span>' : '');
-      const row = (w, ic, name, color) => `<button class="btn gi ${gone(w) ? 'sold' : ''}" data-act="buy" data-key="${esc(w.key)}"><span class="ic" style="color:${color}">${ic}</span><span style="color:${color}">${esc(name)}${tag(w)}</span>${price(w)}</button>`;
-      const list = T.id === 'gear' ? W.gear.map(w => row(w, w.it.kind === 'weapon' ? '⚔' : SLOT_ICON[w.it.slot], itemName(w.it, wn), col(w.it.rar)))
-        : T.id === 'prov' ? W.prov.map(w => row(w, { vial: '⚱', purse: '◉', core: '◈', lantern: '✧', cup: '◡' }[w.kind], w.name, w.kind === 'core' ? '#c89aff' : w.kind === 'cup' ? '#9fe8ff' : '#efe3c6'))
-        : W.dyes.map(w => row(w, `<i class="swatch" style="background:${hex(DYES[w.dye].hex)}"></i>`, w.name, '#efe3c6'));
-      cls = 'gear market';
-      h = `${head('Hidden Market', `✿ ${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night at noon`)}
-        <div class="gwrap">
-          <div class="glist">
-            <div class="gcat"><span class="arr" data-act="mTab" data-dir="-1">‹ ${glyph(G, 'mPrev')}</span><span>${esc(T.name)}</span><span class="arr" data-act="mTab" data-dir="1">${glyph(G, 'mNext')} ›</span></div>
-            <div class="gtabs">${MARKET_TABS.map(t => `<i class="${t === T ? 'on' : ''}" title="${esc(t.name)}"></i>`).join('')}</div>
-            <div class="gitems">${list.join('')}</div>
-            <div class="gfoot petals">✿ ${(d.petals || 0).toLocaleString()} Moonpetals</div>
-          </div>
-          <div class="gdetail"></div>
-        </div>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Wares', 'mTab'], ['confirm', 'Buy'], back])}`;
-      this.onFocus = el => {
-        const box = this.el.querySelector('.gdetail'), w = [...W.gear, ...W.prov, ...W.dyes].find(x => x.key === el?.dataset.key);
-        if (!box || !w) return;
-        const foot = `<div class="gd-sec">Price</div><div class="gd-fx"><span>✿ ${w.price} Moonpetals</span><span class="v">${(d.petals || 0) >= w.price ? `${d.petals - w.price} left after` : `${w.price - (d.petals || 0)} short`}</span></div>
-          <div class="gd-note">${gone(w) ? (w.owned ? 'Already yours.' : w.off ? (w.kind === 'cup' ? `You carry as many Moon Cups as you can (${CUP_MAX}).` : `Your Moondew is already at ${VIAL_MAX}.`) : 'Sold. The pedlar has more tomorrow night.') : w.repeat ? 'The pedlar keeps plenty of these.' : 'One of these tonight.'} Moonpetals come from Revenants at their graves, Duels and other side missions, Deeds, and warlords.</div>`;
-        if (w.it) { box.innerHTML = this.itemDetail(w.it) + foot; return; }
-        if (w.kind === 'dye') {
-          const D = DYES[w.dye];
-          box.innerHTML = `<div class="glv"><span>Dye</span><span></span></div><h3>${esc(w.name)}</h3><div class="dyebig" style="background:${hex(D.hex)}"></div><div class="gd-note">For the Wardrobe: dye your plate, cloak, trim, wings or visor with it.</div>${foot}`;
-          return;
-        }
-        const extra = w.kind === 'cup' ? `<div class="gd-fx"><span>Moon Cups</span><span class="v">${d.cups ?? 0} → ${Math.min(CUP_MAX, (d.cups ?? 0) + 1)}</span></div>` : w.kind === 'vial' ? `<div class="gd-fx"><span>Moondew</span><span class="v">${d.elixirMax} → ${Math.min(VIAL_MAX, d.elixirMax + 1)}</span></div>` : w.kind === 'purse' ? `<div class="gd-fx"><span>Glimmer</span><span class="v">${w.glimmer.toLocaleString()}</span></div>`
-          : w.kind === 'core' ? `<div class="gd-fx"><span>Held</span><span class="v">+${Math.max(0, (d.cores[w.core] || 1) - 1)} → +${d.cores[w.core] || 1}</span></div>` : '';
-        box.innerHTML = `<div class="glv"><span>Provisions</span><span></span></div><h3>${esc(w.name)}</h3><div class="gd-note">${esc(w.desc)}</div>${extra}${foot}`;
-      };
-    } else if (screen === 'wardrobe') {
-      // The Wardrobe (wardrobe.js): a look from any set known, and dyes, set part by part.
-      const d = G.save.data, L = d.look ||= {}, looks = (d.looks || ['errant']).filter(k => SETS[k]), dyes = DYE_ORDER.filter(k => (d.dyes || []).includes(k));
-      const rows = LOOK_PARTS.map(P => {
-        const vals = P.k === 'set' ? [null, ...looks] : [null, ...dyes], i = Math.max(0, vals.indexOf(L[P.k] ?? null)), v = vals[i];
-        const name = P.k === 'set' ? (v ? SETS[v].name : 'As worn') : v ? DYES[v].name : 'Undyed';
-        const sw = P.k === 'set' ? (v ? SETS[v].look : null) : v ? { one: DYES[v].hex } : null;
-        const swh = sw ? (sw.one != null ? `<i class="swatch" style="background:${hex(sw.one)}"></i>` : `<i class="swatch" style="background:linear-gradient(90deg,${hex(sw.steel)} 0 33%,${hex(sw.cloth)} 33% 66%,${hex(sw.trim)} 66%)"></i>`) : '';
-        return `<button class="btn opt" data-act="lookOpt" data-opt="${P.k}" data-desc="${esc(P.desc)}"><span class="olab">${esc(P.name)}</span><span class="oval"><em class="arr l" data-dir="-1">‹</em><b>${swh}${esc(name)}</b><span class="meter"><u style="width:${vals.length > 1 ? Math.round(i / (vals.length - 1) * 100) : 0}%"></u></span><em class="arr r" data-dir="1">›</em></span></button>`;
-      }).join('');
-      cls = 'wardrobe nioh';
-      h = `${head('Wardrobe', `${looks.length} looks known · ${dyes.length} of ${DYE_ORDER.length} dyes`)}
-        <div class="wpanel">${rows}<div class="sdesc"></div>
-          <div class="gd-note">A look is learned from any piece of a set you carry. Dyes are sold in the Hidden Market at every Moonwell.</div></div>
-        ${keybar(G, [['mAlt', 'Undo all', 'lookReset'], ['confirm', 'Change'], back])}`;
-      this.onFocus = el => { const q = this.el.querySelector('.sdesc'); if (q) q.textContent = el?.dataset.desc || ''; };
-    } else if (screen === 'kinship') {
-      // Kindred Spirits (kindred.js): tonight's three who would answer, for a Moon Cup each.
-      const d = G.save.data, cups = d.cups ?? 0, offers = G.kinOffers(), K0 = G.kindred?.alive ? G.kindred : null, ok = G.kinAllowed();
-      cls = 'grave kinship nioh';
-      h = `${art}${head('Kinship', `${cups} Moon Cup${cups === 1 ? '' : 's'} · ${K0 ? `${K0.name} walks with you` : 'no kindred walks with you'}`)}
-        <div class="gravebox kinbox"></div>
-        <div class="nlist">${entries([
-          ...offers.map((K, i) => ['callKin', K.name, `Level ${K.lvl}`, !ok ? 'A Duel is fought alone.' : cups ? K.motto : 'No Moon Cups: Revenants, gatekeepers and the Hidden Market have them.', `data-i="${i}"`, !ok || !cups]),
-          K0 && ['sendKin', 'Send home', 'Farewell', `${K0.name} goes back to the moon.`],
-          ['back', 'Leave', 'Back', 'Walk on alone.'],
-        ])}</div>
-        ${keybar(G, [['confirm', 'Call'], back])}`;
-      this.onFocus = el => {
-        const box = this.el.querySelector('.kinbox'), K = offers[+(el?.dataset.i ?? -1)] || (el?.dataset.act === 'sendKin' ? K0?.K : null) || offers[0];
-        if (!box || !K) return;
-        const P = PATRONS[K.patron], S = SETS[K.set];
-        box.innerHTML = `<div class="gk">Kindred Spirit · Level ${K.lvl}</div><h2>${esc(K.name)}</h2><div class="gh">${esc(K.motto || '')}</div>
-          <div class="gr"><span>Weapon</span><b>${esc(G.player.weaponName(K.weapon))}</b></div>
-          <div class="gr"><span>Harness</span><b>${esc(S.name)}</b></div>
-          <div class="gr"><span>Patron Spirit</span><b style="color:${P.css}">${esc(P.name)}, ${esc(P.title)}</b></div>
-          <div class="gr sp"><span>The call</span><b>One Moon Cup. It stays until it falls (raise it for a third of your health), a warlord falls, or you rest. Foes grow a little hardier while it walks with you.</b></div>`;
-      };
-    } else if (screen === 'grave') {
-      // A Revenant Grave (graves.js): who fell here, how, and what laying them to rest would leave.
-      const K = data.K, P = PATRONS[K.patron], S = SETS[K.set], wn = G.player.weaponName(K.weapon), carries = G.save.data.arms.includes(K.weapon);
-      const petals = gravePetals(K, G.save.data.ng || 0, !!G.tonight?.omen);
-      cls = 'grave nioh';
-      h = `${art}${head('Bloodied Grave', G.level.name)}
-        <div class="gravebox">
-          <div class="gk">Revenant · Level ${K.lvl}</div><h2>${esc(K.name)}</h2><div class="gh">${esc(K.how)}</div>
-          <div class="gr"><span>Weapon</span><b>${esc(wn)}</b></div>
-          <div class="gr"><span>Harness</span><b>${esc(S.name)}</b></div>
-          <div class="gr"><span>Patron Spirit</span><b style="color:${P.css}">${esc(P.name)}, ${esc(P.title)}</b></div>
-          <div class="gr sp"><span>Spoils</span><b>${petals} Moonpetals · a piece of its harness${carries ? ` or its ${esc(wn)}` : ''}, Rare or finer · now and then its Soul Core</b></div>
-        </div>
-        <div class="nlist">${entries([
-          ['graveFight', 'Challenge', 'Summon', 'Raise the Revenant and fight it here, alone.', `data-i="${data.i}"`],
-          ['back', 'Leave it', 'Let it lie', 'Walk on. The grave will wait.'],
-        ])}</div>
-        ${keybar(G, [['confirm', 'Select'], back])}`;
-    } else if (screen === 'cleared') {
-      const sv = G.save, L = G.level, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
-      h = `<div class="panel ending"><div class="kicker">Mission complete</div><h1>${esc(L.name.toUpperCase())}</h1>
-        <p>${esc(L.outro || '')}</p>
-        <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Glimmer</small><b class="gold">${sv.glimmer.toLocaleString()}</b></div></div>
-        <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>
-        ${keybar(G, [['confirm', 'Onward']])}`;
-    } else if (screen === 'map') {
-      // The overworld draws itself; this is its overlay: floating labels and the chosen mission's panel.
-      const O = G.overworld, sv = G.save, d = sv.data, id = O.selected, L = G.LEVELS[id], i = G.ORDER.indexOf(id), st = O.status(id);
-      const opening = O.revealing?.n.id === id, shown = st !== 'sealed' && (d.seen?.includes(id) || opening), m = d.missions[id] || { kindled: [], items: [] };
-      const charms = (L.items || []).filter(it => it.kind === 'charm').map(it => it.id), trophies = [L.gate?.charm, L.bossCharm].filter(Boolean);
-      const found = charms.filter(c => m.items.includes(c)).length + trophies.filter(c => d.charms.includes(c)).length;
-      const prev = G.LEVELS[G.ORDER[i - 1]];
-      const labels = O.nodes.map(n => {
-        const s = O.status(n.id), vis = s !== 'sealed' && d.seen?.includes(n.id);
-        const om = vis && OMENS[G.tonight?.omens[n.id]];
-        return `<button class="owl ${vis ? s : 'sealed'} ${n.id === id ? 'sel' : ''}" data-act="node" data-id="${n.id}"><span class="n">${roman(n.i + 1)}</span>${vis ? esc(n.L.name) : 'Sealed'}${om ? `<span class="omen" style="color:${om.css}" title="${esc(om.name)}">☾</span>` : ''}</button>`;
-      }).join('');
-      const back = data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : data?.from === 'title' ? '<button class="btn" data-act="back">Back</button>' : '<button class="btn" data-act="title">Return to title</button>';
-      const keys = G.input.usingPad ? 'D-pad or stick to travel · A to set out' + (data?.from === 'cleared' ? '' : ' · B to go back') : 'Arrows or WASD to travel · Enter to set out' + (data?.from === 'cleared' ? '' : ' · Esc to go back') + ' · or click a landmark';
-      h = `<div class="owlabels">${labels}</div>
-        <div class="panel owpanel">
-          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level + wayLvl(d.ng)}+${d.ng ? ' · ' + esc(wayName(d.ng)) : ''}</div>
-          <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
-          ${opening ? '<div class="kicker">A new path opens</div>' : ''}
-          ${shown && OMENS[G.tonight?.omens[id]] ? `<div class="owomen" style="color:${OMENS[G.tonight.omens[id]].css}">☾ Tonight, a ${esc(OMENS[G.tonight.omens[id]].name)}: ${esc(OMENS[G.tonight.omens[id]].desc)}</div>` : ''}
-          <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
-          ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span></div>` : ''}
-          ${st === 'cleared' && !opening ? `<div class="owsides">${sidesOf(id).map(S => `<span class="mtag ${d.sides?.[S.id] ? 'cleared' : 'new'}" title="${esc(S.name)}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('')}</div>` : ''}
-          <div class="btns"><button class="btn" data-act="setout" data-id="${id}" ${shown && !opening ? '' : 'disabled'}>Set out</button>${st === 'cleared' && !opening ? `<button class="btn" data-act="sides" data-id="${id}">Side missions <small>${esc(G.hud.key('mAlt'))}</small></button>` : ''}${d.missions.keep?.cleared && !opening ? `<button class="btn" data-act="underbriar">The Underbriar <small>${esc(G.hud.key('mAlt2'))} · deepest ${d.abyss?.best || 0}</small></button>` : ''}${back}</div>
-          <div class="foot">${keys}</div>
-        </div>
-        <div class="owfade"></div>`;
-    } else if (screen === 'sides') {
-      // A cleared mission's side missions (sides.js), over the Crossroads.
-      const d = G.save.data, L = G.LEVELS[data.m];
-      const rows = sidesOf(data.m).map(S => {
-        const n = d.sides?.[S.id] || 0, lv = L.level + S.lvl + wayLvl(d.ng);
-        return `<button class="btn side" data-act="side" data-m="${data.m}" data-id="${S.id}"><span class="kicker">${esc(S.kindName)} · Lv ${lv}+${n ? ` · done ×${n}` : ' · first run: double Glimmer and an extra piece'}</span><b>${esc(S.name.replace(/^[^:]*: /, ''))}</b><small>${esc(S.desc)}</small></button>`;
-      }).join('');
-      h = `<div class="panel wide sides"><div class="kicker">${esc(L.name)} · side missions</div><h2>Side Missions</h2>
-        <div class="map">${rows}</div>
-        <p class="dim">A side run keeps its own Moonwells and leaves the mission's own as they were. Spoils: Glimmer and gear of Rare or better; its gatekeeper or Revenant always leaves its Soul Core.</p>
-        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>
-        ${keybar(G, [['confirm', 'Set out'], back])}`;
-    } else if (screen === 'underbriar') {
-      // The endless maze under the Crossroads: start from the first depth or any lit Moonwell reached.
-      const a = G.save.data.abyss || { cps: [1], best: 0 };
-      const rows = [...a.cps].sort((x, y) => y - x).map(cp => {
-        const L = G.LEVELS[themeOf(cp)];
-        return `<button class="btn side" data-act="descend" data-depth="${cp}"><span class="kicker">Depth ${cp} · Lv ${depthScale(cp).level + wayLvl(G.save.data.ng)}+${cp === 1 ? ' · the beginning' : ' · a lit Moonwell'}</span><b>Descend from Depth ${cp}</b><small>Its halls are dressed as ${esc(L.name)}'s.</small></button>`;
-      }).join('');
-      h = `<div class="panel wide sides"><div class="kicker">Beneath the Fae Crossroads · deepest cleared: ${a.best || 0}</div><h2>The Underbriar</h2>
-        <p>An endless maze where everything the moon ever lit goes to dream, made anew at every depth. Slay every foe on a depth to open the way down; every fifth depth ends with a warlord, and the depth after it holds a lit Moonwell to start from again. The deeper, the harder, and the richer.</p>
-        <div class="map">${rows}</div>
-        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>
-        ${keybar(G, [['confirm', 'Descend'], back])}`;
-    } else if (screen === 'sidecleared') {
-      const S = SIDES[data.id], g = G.save.data.gear, got = data.spoils.map(uid => g.items.find(it => it.uid === uid)).filter(Boolean);
-      h = `<div class="panel ending"><div class="kicker">Side mission complete${data.first ? ' · first time' : ''}</div><h1>${esc(S.name.replace(/^[^:]*: /, '').toUpperCase())}</h1>
-        <p>${esc(S.desc)}</p>
-        <div class="lv"><div><small>Spoils</small><b class="gold">${data.gl.toLocaleString()} Glimmer</b></div>${data.pt ? `<div><small>Moonpetals</small><b style="color:#ffb8d8">✿ ${data.pt}</b></div>` : ''}${got.map(it => `<div><small>${esc(RARITY[it.rar].name)} · Lv ${it.lvl}</small><b style="color:#${RARITY[it.rar].color.toString(16).padStart(6, '0')}">${esc(itemName(it, w => WEAPONS[w]?.name || w))}</b></div>`).join('')}</div>
-        <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>
-        ${keybar(G, [['confirm', 'Onward']])}`;
-    } else if (screen === 'journal') {
-      // Letters found, mission by mission, and the Lost Pixies freed.
-      const d = G.save.data;
-      const rows = G.ORDER.filter(id => d.unlocked.includes(id)).map(id => {
-        const L = G.LEVELS[id], ls = L.letters || [], ps = L.pixies || [];
-        const read = ls.filter(l => d.letters.includes(id + ':' + l.id)).length, freed = ps.filter(q => d.pixies.includes(id + ':' + q.id)).length;
-        const btns = ls.map(l => d.letters.includes(id + ':' + l.id)
-          ? `<button class="btn lt" data-act="letter" data-m="${id}" data-id="${l.id}">${esc(l.title)}</button>`
-          : '<button class="btn lt" disabled>— a letter not yet found —</button>').join('');
-        return `<div class="entry"><b>${esc(L.name)}</b><small>Letters ${read} / ${ls.length} · Lost Pixies ${freed} / ${ps.length}</small>${btns}</div>`;
-      }).join('');
-      cls = 'journal chrome';
-      h = `${head('Journal', `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed (+${d.pixies.length}% health and stamina)`)}
-        <div class="panel wide missions journal"><div class="map">${rows}</div></div>
-        ${keybar(G, [['confirm', 'Read'], ['mAlt', 'Bestiary', 'bestiary'], back])}`;
-    } else if (screen === 'bestiary') {
-      // The Bestiary (bestiary.js): every foe, act by act; known once felled or its mission cleared.
-      const d = G.save.data, all = bestiary(), act = data.act ?? 0, list = all.filter(B => B.act === act);
-      const felled = all.filter(B => (d.beast?.[B.id] || 0) > 0).length;
-      const rows = list.map(B => known(d, B)
-        ? `<button class="btn gi" data-act="beast" data-id="${B.id}"><span class="ic" style="color:${ROLE_COLOR[B.role]}">${{ Foe: '·', Elite: '◇', Gatekeeper: '◆', Warlord: '♛', Revenant: '✦' }[B.role]}</span><span style="color:${ROLE_COLOR[B.role]}">${esc(B.T.name.split(',')[0])}</span><span class="gl">${d.beast?.[B.id] || 0}</span></button>`
-        : `<button class="btn gi" data-act="beast" data-id="${B.id}" data-locked="1"><span class="ic dim">?</span><span class="dim">Not yet felled</span><span class="gl dim">${roman(G.ORDER.indexOf(B.missions[0]) + 1)}</span></button>`).join('');
-      cls = 'gear bestiary';
-      h = `${head('Bestiary', `${felled} of ${all.length} felled · ${(d.beast?.fallen || 0)} fallen knights laid to rest`)}
-        <div class="gwrap"><div class="glist">
-          <div class="gcat"><span class="arr" data-act="bAct" data-dir="-1">‹ ${glyph(G, 'mPrev')}</span><span>${esc(`Act ${roman(act + 1)} · ${ACTS[act]}`)}</span><span class="arr" data-act="bAct" data-dir="1">${glyph(G, 'mNext')} ›</span></div>
-          <div class="gtabs">${ACTS.map((a, i) => `<i class="${i === act ? 'on' : ''}"></i>`).join('')}</div>
-          <div class="gitems">${rows}</div></div><div class="gdetail"></div></div>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Act', 'bAct'], back])}`;
-      this.onFocus = el => {
-        const box = this.el.querySelector('.gdetail'), B = all.find(x => x.id === el?.dataset.id);
-        if (!box || !B) return;
-        const where = B.missions.map(m => G.LEVELS[m]?.name).filter(Boolean).join(' · ');
-        if (el.dataset.locked) { box.innerHTML = `<div class="glv"><span>${esc(B.role)}</span><span></span></div><h3 class="dim">Not yet felled</h3><div class="gd-sec">Met in</div><div class="gd-note">${esc(where)}</div>`; return; }
-        const C = coreOf(B.id), tr = traits(B.T);
-        box.innerHTML = `<div class="glv"><span>${esc(B.role)}</span><span>Act ${roman(B.act + 1)}</span></div><h3 style="color:${ROLE_COLOR[B.role]}">${esc(B.T.name)}</h3><div class="grar">Felled ${d.beast?.[B.id] || 0} time${(d.beast?.[B.id] || 0) === 1 ? '' : 's'}</div>
-          <div class="gd-sec">Met in</div><div class="gd-note">${esc(where)}</div>
-          <div class="gd-sec">Its arts</div>${artsOf(B.T).map(n => `<div class="gd-fx"><span>${esc(n)}</span></div>`).join('')}
-          ${tr.length ? `<div class="gd-sec">Its ways</div>${tr.map(t => `<div class="gd-fx set"><span>${esc(t)}</span></div>`).join('')}` : ''}
-          <div class="gd-sec">Soul Core</div><div class="gd-fx ${C ? '' : 'off'}"><span>${C ? `${esc(C.name)} · ${esc(C.skillName)}` : 'None'}</span></div>`;
-      };
-    } else if (screen === 'arsenal') {
-      // Every weapon found: take one in hand (the other carried goes to the back), and at a Moonwell, forge it.
-      const d = G.save.data, sv = G.save;
-      const rows = d.arms.map(w => {
-        const W = WEAPONS[w], rank = d.forge[w] || 0, cost = forgeCost(rank), inHand = d.wield === w, onBack = !inHand && d.loadout.includes(w);
-        const forms = ['high', 'mid', 'low'].map(s => FORMS[w][s].name).join(' · ');
-        const gw = d.gear?.items.find(it => it.uid === d.gear.equip.weapons[w]);
-        const forge = !data.forge ? '' : rank >= FORGE.max ? '<button class="btn small" disabled>Forged to +10</button>'
-          : `<button class="btn small" data-act="forge" data-w="${w}" ${sv.glimmer >= cost ? '' : 'disabled'}>Forge to +${rank + 1} <small>${cost.toLocaleString()} Glimmer</small></button>`;
-        return `<div class="arm ${inHand ? 'hand' : onBack ? 'back' : ''}"><div class="ainfo"><b>${esc(W.name)}${rank ? ` <span class="rank">+${rank}</span>` : ''}</b>
-            <span class="mtag ${inHand || onBack ? 'cleared' : 'sealed'}">${inHand ? 'In hand' : onBack ? 'On your back' : 'Stowed'}</span>
-            <small>${esc(W.desc)}</small>${W.mech ? `<small><b class="mech">${esc(W.mech)}</b>: ${esc(W.mechDesc)}</small>` : ''}<small class="dim">${esc(forms)}${rank ? ` · +${Math.round(rank * FORGE.per * 100)}% damage` : ''}</small>${gw ? `<small>Gear: <span style="color:${col(gw.rar)}">${esc(itemName(gw, id => G.player.weaponName(id)))}</span> · Lv ${gw.lvl} · ×${weaponMul(gw).toFixed(2)}</small>` : ''}</div>
-          <div class="abtns"><button class="btn small" data-act="wield" data-w="${w}" ${inHand ? 'disabled' : ''}>${inHand ? 'Wielded' : 'Take in hand'}</button>${forge}</div></div>`;
-      }).join('');
-      // The ranged weapon carried: one at a time.
-      const rrows = (d.ranged || ['wisp']).map(r => {
-        const R = RANGED[r], on = d.rangedSel === r;
-        return `<div class="arm ${on ? 'hand' : ''}"><div class="ainfo"><b>${esc(R.name)}</b><span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Carried' : 'Stowed'}</span>
-          <small>${esc(R.desc)}</small><small class="dim">${R.ammo ? `${R.ammo} ${{ bow: 'arrows', rifle: 'shot', cannon: 'shells' }[r]}, refilled at Moonwells` : 'No ammunition: it overheats'}</small></div>
-          <div class="abtns"><button class="btn small" data-act="ready" data-r="${r}" ${on ? 'disabled' : ''}>${on ? 'Carried' : 'Carry'}</button></div></div>`;
-      }).join('');
-      cls = 'arsenal chrome';
-      h = `${head('Arsenal', `${d.arms.length} weapon${d.arms.length === 1 ? '' : 's'} found · two carried`)}
-        <div class="panel wide arsenal"><div class="map">${rows}<div class="kicker rhead">Ranged · one carried · aim with ${esc(G.hud.key('aim'))}</div>${rrows}</div>
-        <p class="dim">${data.forge ? `Glimmer: ${sv.glimmer.toLocaleString()}. Each forging adds 5% damage with that weapon, up to +10.` : 'Weapons can be forged stronger at any Moonwell.'} Switch between your two weapons with ${esc(G.hud.key('swap'))}.</p></div>
-        ${keybar(G, [['confirm', 'Choose'], back])}`;
-    } else if (screen === 'moves') {
-      // Every weapon carried: its three forms (standing, moving and pause strings), finishers, slide and air.
-      const arms = G.player.arms, w = arms.includes(data.w) ? data.w : arms[0], Wp = WEAPONS[w], K = KIT[w];
-      const nm = k => esc(Wp.names?.[k] || ATK[k]?.name || k);
-      const tabs = arms.map(id => `<button class="btn tab${id === w ? ' on' : ''}" data-act="movesW" data-w="${id}">${esc(WEAPONS[id].name)}</button>`).join('');
-      const forms = ['high', 'mid', 'low'].map(s => {
-        const F = FORMS[w][s];
-        return `<div class="form ${s}"><div class="fh"><i>${{ high: '▲', mid: '◆', low: '▼' }[s]}</i><b>${esc(F.name)}</b><small>${{ high: 'High', mid: 'Mid', low: 'Low' }[s]} stance</small></div>
-          <p><em>Standing</em>${F.neutral.map(nm).join(' → ')}</p>
-          <p><em>Moving</em>${F.forward.map(nm).join(' → ')}</p>
-          <p><em>Pause</em>two strikes, wait for the glint, strike: <b>${nm(F.pause)}</b></p>
-          <p><em>Heavy</em>${nm(Wp.heavy[s])}</p></div>`;
-      }).join('');
-      cls = 'moves chrome';
-      h = `${head('Movesets', Wp.name)}<div class="panel wide moves"><div class="tabs">${tabs}</div>
-        <div class="forms">${forms}</div>
-        <div class="kit">${Wp.mech ? `<p><em>${esc(Wp.mech)}</em>${esc(Wp.desc)} ${esc(Wp.mechDesc)}.</p>` : `<p><em>The weapon</em>${esc(Wp.desc)}</p>`}<p><em>Finishers</em>strike then heavy: <b>${nm(K.fin[0])}</b> · two strikes then heavy: <b>${nm(K.fin[1])}</b> · three or more: <b>${nm(K.fin[2])}</b>. A finisher spends the combo counter: the more hits counted, the harder it lands (up to 1.8×).</p>
-          <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} (the chain carries on through dashes) · from a slide: <b>${nm(K.slide)}</b></p>
-          <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill']].map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' <span class="dim">(not yet learned)</span>'}`; }).join(' · ')}</p>
-          <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div></div>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Weapon', 'movesCycle'], back])}`;
-    } else if (screen === 'smith') {
-      // The Moonwell's forge: reroll an effect, or raise the piece's level with another of its kind.
-      const d = G.save.data, g = d.gear, p = G.player, it = g.items.find(x => x.uid === data.uid), wn = id => p.weaponName(id);
-      cls = 'smith chrome';
-      if (!it) h = `${head('The Moonwell\'s Forge')}<div class="panel wide"><p class="dim">That piece is gone.</p></div>${keybar(G, [back])}`;
-      else {
-        const rc = reforgeCost(it), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
-        const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
-        h = `${head('The Moonwell\'s Forge', `Glimmer ${G.save.glimmer.toLocaleString()}`)}<div class="panel wide arsenal gear smith"><h3 class="gname" style="color:${col(it.rar)}">${esc(itemName(it, wn))}</h3>
-          <p class="dim">${RARITY[it.rar].name} · Lv ${it.lvl} · ${it.kind === 'weapon' ? `×${weaponMul(it).toFixed(2)} damage` : `${armorDef(it)} defence`}</p>
-          <div class="map"><div class="kicker rhead">Reforge: roll one effect anew · ${rc.toLocaleString()} Glimmer each</div>
-          ${it.fx.length ? it.fx.map(([id, v], i) => `<div class="arm"><div class="ainfo"><small>${esc(fxText(id, v))}</small></div><div class="abtns"><button class="btn small" data-act="reforge" data-i="${i}" ${G.save.glimmer >= rc ? '' : 'disabled'}>Reforge</button></div></div>`).join('') : '<p class="dim">A Common piece has no effects to reforge.</p>'}
-          <div class="kicker rhead">Soul Match: raise it to another piece's level (that piece is consumed)</div>
-          ${fod.length ? fod.map(x => { const c = soulMatchCost(it, x); return `<div class="arm"><div class="ainfo"><small>To Lv <b>${x.lvl}</b>, consuming ${esc(itemName(x, wn))}</small></div><div class="abtns"><button class="btn small" data-act="soulmatch" data-from="${x.uid}" ${G.save.glimmer >= c ? '' : 'disabled'}>Soul Match <small>${c.toLocaleString()} Glimmer</small></button></div></div>`; }).join('') : '<p class="dim">No higher-level piece of this kind to match it with (worn pieces are never consumed).</p>'}</div></div>
-          ${keybar(G, [['confirm', 'Select'], back])}`;
-      }
-    } else if (screen === 'deeds') {
-      // Deeds: long goals across every mission, Way and depth (deeds.js).
-      const list = G.deedsView(), earned = list.reduce((a, r) => a + r.tier, 0);
-      const rows = list.map(({ D, n, tier }) => {
-        const next = D.tiers[tier], pc = next ? Math.min(100, n / next * 100) : 100;
-        return `<div class="arm deed ${tier ? 'hand' : ''}"><div class="ainfo"><b>${esc(D.name)} <span class="rank">${tier ? TIER[tier - 1] : ''}</span></b>
-          <span class="mtag ${tier === 3 ? 'cleared' : 'sealed'}">${esc(D.desc)} · ${n.toLocaleString()}${next ? ` / ${next.toLocaleString()}` : ' · complete'}</span>
-          <s class="dbar"><u style="width:${pc}%"></u></s>
-          <small>Each tier: ${esc(fxText(D.fx[0], D.fx[1]))}, for good${next ? ` · next pays ${DEED_GLIMMER[tier].toLocaleString()} Glimmer` : ''}</small></div></div>`;
-      }).join('');
-      cls = 'deeds chrome';
-      h = `${head('Deeds', `${earned} of ${list.length * 3} tiers earned`)}<div class="panel wide arsenal deeds"><div class="map">${rows}</div></div>${keybar(G, [back])}`;
-    } else if (screen === 'skills') {
-      // Each weapon's tree: mastery earned by using it, points to spend, skills in tiers.
-      const d = G.save.data, owned = [...G.player.arms, ...(G.player.rangedOwned || [])], w = owned.includes(data.w) ? data.w : owned[0];
-      const m = d.mastery?.[w] || { xp: 0, learned: [] }, tree = treeFor(w), earned = pointsAt(m.xp), free = earned - treeCost(m.learned);
-      const Wn = WEAPONS[w]?.name || G.player.rangedDef?.(w)?.name || w, K = SKILL_KITS[w] || {};
-      const tabs = owned.map(id => {
-        const mi = d.mastery?.[id] || { xp: 0, learned: [] }, f = pointsAt(mi.xp) - treeCost(mi.learned);
-        return `<button class="btn tab${id === w ? ' on' : ''}" data-act="skillsW" data-w="${id}">${esc(WEAPONS[id]?.name || G.player.rangedDef?.(id)?.name || id)}${f > 0 ? ` <span class="pts">${f}</span>` : ''}</button>`;
-      }).join('');
-      const next = xpFor(earned + 1), prev = xpFor(earned), frac = Math.min(1, (m.xp - prev) / (next - prev));
-      const tiers = [0, 1, 2, 3].map(tier => tree.filter(t => t.tier === tier)).filter(r => r.length).map(row => `<div class="srow">${row.map(t => {
-        const has = m.learned.includes(t.id), open = canLearn(tree, m.learned, t.id), afford = free >= t.cost;
-        const needs = t.req ? t.req.map(r => tree.find(x => x.id === r).name).join(' or ') : '';
-        const desc = t.id === 'mech' ? `${WEAPONS[w]?.mech || 'Mechanic'} Mastery: ${MECH_MASTERY[w] || ''}` : t.move && K[t.move] ? `${t.desc} <b>${esc(G.player.moveName(K[t.move], w))}</b>` : esc(t.desc);
-        const tag = has ? 'Learned' : !open ? `Needs ${esc(needs)}` : `${t.cost} point${t.cost > 1 ? 's' : ''}`;
-        return `<button class="btn skill ${has ? 'has' : open && afford ? 'can' : 'no'}" data-act="learn" data-w="${w}" data-id="${t.id}" ${has || !open || !afford ? 'disabled' : ''}>
-          <b>${esc(t.id === 'mech' ? `${WEAPONS[w]?.mech || ''} Mastery` : t.name)}</b><small>${desc}</small><span class="stag">${tag}</span></button>`;
-      }).join('')}</div>`).join('');
-      cls = 'skills chrome';
-      h = `${head('Skills', Wn)}<div class="panel wide skills"><div class="tabs">${tabs}</div>
-        <div class="mastery"><span>Mastery ${Math.floor(m.xp).toLocaleString()}</span><i><b style="width:${Math.round(frac * 100)}%"></b></i><span>${free} of ${earned} skill point${earned === 1 ? '' : 's'} to spend · next at ${next.toLocaleString()}</span></div>
-        <div class="tree">${tiers}</div>
-        <p class="dim">Every blow landed with a weapon teaches it a little; felling a foe teaches more. Skills can be learned anywhere.</p></div>
-        ${keybar(G, [[['mPrev', 'mNext'], 'Weapon', 'skillsCycle'], ['confirm', 'Learn'], back])}`;
-    } else if (screen === 'letter') {
-      const L = G.LEVELS[data.m], l = (L.letters || []).find(x => x.id === data.id);
-      cls = 'letter chrome';
-      h = `${head(l.title, L.name)}<div class="panel wide"><div class="parchment"><p>${esc(l.text)}</p></div></div>${keybar(G, [back])}`;
-    } else if (screen === 'charms') {
-      const d = G.save.data, worn = d.equipped;
-      const rows = d.charms.map(id => {
-        const c = CHARMS[id], on = worn.includes(id), full = !on && worn.length >= CHARM_SLOTS;
-        return `<button class="btn mission charm ${on ? 'on' : ''}" data-act="charm" data-id="${id}">
-          <span class="node" style="color:${c.color};border-color:${c.color}">◆</span><span class="mtext"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></span>
-          <span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Worn' : full ? '' : 'Wear'}</span></button>`;
-      }).join('');
-      cls = 'charms chrome';
-      h = `${head('Charms', `${worn.length} of ${CHARM_SLOTS} worn`)}<div class="panel wide missions charms"><div class="map">${rows}</div>
-        <p class="dim">${d.charms.length} of ${Object.keys(CHARMS).length} found. Charms lie hidden in the missions, and every gatekeeper and warlord guards one.</p></div>
-        ${keybar(G, [['confirm', 'Wear or take off'], back])}`;
-    } else if (screen === 'ending') {
-      const sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
-      h = `<div class="panel ending"><h1>${esc(G.level.endingTitle || 'THE PATHS ARE STILL')}</h1>
-        <p>${esc(G.level.ending || G.level.outro || '')}</p>
-        <div class="lv"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Deaths</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Way</small><b>${esc(wayName(sv.ng))}</b></div></div>
-        <p class="dim">Next: <b>${esc(wayName(sv.ng + 1))}</b>. ${esc(wayDesc(sv.ng + 1))} You keep your level, gear, weapons, Soul Cores and skills; the missions begin again.</p>
-        <div class="btns"><button class="btn" data-act="ngplus">Walk the ${esc(wayName(sv.ng + 1))} · New Game+</button><button class="btn" data-act="missions">Walk the Fae Crossroads</button><button class="btn" data-act="title">Return to title</button></div></div>
-        ${keybar(G, [['confirm', 'Select']])}`;
-    }
-    this.el.className = 'on ' + cls;
+    const entering = this.lastTop !== this.top || this.fresh;
+    this.fresh = false;
+    this.onFocus = null; this.help = '';
+    this.top.data ||= {};
+    const S = this.screens[screen]?.call(this, this.top.data) || { ctx: 'veil', html: '' };
+    this.el.className = `on ${S.ctx || 'veil'} ${screen}${entering ? ' enter' : ''}`;
     G.overworld?.setActive(screen === 'map' || screen === 'sides' || screen === 'underbriar');
-    this.el.innerHTML = h;
+    this.el.innerHTML = S.html;
+    this.onFocus = S.onFocus || null; this.help = S.help || '';
+    this.el.querySelectorAll('.mx-row,.mx-opt').forEach((r, i) => r.style.setProperty('--n', Math.min(i, 16)));
     if (screen === 'map') G.overworld.bindLabels(this.el);
     this.lastTop = this.top;
     if (this.top.scrolls) scrollers().forEach((e, i) => { e.scrollTop = this.top.scrolls[i] || 0; });
     this.focus = Math.max(0, Math.min(this.top.focus ?? 0, this.items().length - 1));
     this.paint(true);
+    clearTimeout(this.enterT);
+    if (entering) this.enterT = setTimeout(() => this.el.classList.remove('enter'), 700);
+  }
+  // shell() with this menu's tabs.
+  frame(o) {
+    const tabs = this.spine(), G = this.G, d = G.save.data;
+    const badge = id => {
+      if (id !== 'skills') return '';
+      const n = [...(G.player.arms || []), ...(G.player.rangedOwned || [])].reduce((a, w) => { const m = d.mastery?.[w] || { xp: 0, learned: [] }; return a + Math.max(0, pointsAt(m.xp) - treeCost(m.learned)); }, 0);
+      return n || '';
+    };
+    const root = this.stack[0]?.screen;
+    return shell(G, { ...o, spine: tabs?.map(id => ({ id, ...TAB[id], name: id === 'shrine' ? 'Moonwell' : TAB[id].name, badge: badge(id) })), at: this.stack.length === 1 ? root : this.top.screen,
+      moon: o.moon ?? (G.settings.realMoon !== false && ['pause', 'shrine', 'title'].includes(this.top.screen) ? phaseOf().frac : null) });
   }
 }
+
+// ---------------------------------------------------------------- the screens
+// Each returns { ctx: the backdrop (world, veil, map, plain), html, onFocus, help }.
+Menu.prototype.screens = {
+  title() {
+    const G = this.G, has = G.save.exists, off = !G.ready, ph = G.settings.realMoon !== false && phaseOf();
+    const rows = [
+      has && row({ act: 'continue', icon: 'resume', title: 'Continue', right: '', desc: G.save.summary(G.LEVELS), off }),
+      has && G.save.data.unlocked.length > 1 && row({ act: 'map', icon: 'crossroads', title: 'The Crossroads', desc: 'Choose where the path leads.', off }),
+      row({ act: 'new', icon: 'sparkle', title: 'New Game', desc: has ? 'Begin again, from the Grubhold\'s gate.' : 'A fae knight wakes beneath a fading moon.', off }),
+      row({ act: 'controls', icon: 'controls', title: 'Controls', desc: 'Keyboard and mouse, the gamepad, and the ways of the fight.' }),
+      row({ act: 'settings', icon: 'settings', title: 'Settings', desc: 'Camera, reading, sound and display.' }),
+      row({ act: 'library', icon: 'library', title: 'Asset Library', desc: 'Every model and animation in the game, to look at.' }),
+    ].filter(Boolean).join('');
+    const body = `<div class="mx-logo"><h1>PixieLords</h1><p>A fae knight, a waning moon, and every warlord between.</p>
+        ${ph ? `<div class="tonight">${moonDisc(ph.frac)}<span>Tonight, ${esc(ph.name)}: ${esc(ph.desc)}</span></div>` : ''}</div>
+      <div class="mx-left">${off ? `<div class="mx-loading">${meter(G.loadProgress || 0)}<small>Summoning the warren… ${Math.round((G.loadProgress || 0) * 100)}%</small></div>` : ''}${list(rows, 'hubl')}</div>`;
+    return { ctx: 'world', html: this.frame({ title: 'PixieLords', layout: 'hub', cls: 'titlescreen', body, hints: [['confirm', 'Select']] }),
+      help: G.touchOnly ? 'PixieLords needs a keyboard and mouse, or a gamepad.' : 'Made for keyboard and mouse · a gamepad works too · best with headphones' };
+  },
+  confirm() {
+    const body = panel(`<div class="mx-detail"><h3>Begin anew?</h3><div class="mx-lore">Your current journey will be forgotten: its level, gear, Moonwells and all.</div></div>
+      ${list(row({ act: 'newYes', icon: 'sparkle', title: 'Begin a new journey' }) + row({ act: 'back', icon: 'quit', title: 'Keep my journey' }))}`, '');
+    return { ctx: 'veil', html: this.frame({ title: 'New Game', crumb: 'Title', layout: 'dialog', body, hints: [['confirm', 'Select'], ['back', 'Back', 'back']] }) };
+  },
+  // The pause menu's first tab: the knight as it stands, and the ways out.
+  pause() {
+    const G = this.G, sv = G.save, d = sv.data, L = G.level, side = G.sideDef(), p = G.player, T = G.tonight;
+    const rows = [
+      row({ act: 'resume', icon: 'resume', title: 'Return', desc: 'Back to the fight.' }),
+      ...['gear', 'arsenal', 'skills', 'moves', 'wardrobe', 'journal', 'bestiary', 'deeds', 'settings', 'controls'].map(id => row({ act: id, icon: TAB[id].icon, title: TAB[id].name, desc: {
+        gear: 'Weapons, armour and Soul Cores found.', arsenal: 'Choose the two weapons you carry, and the ranged one.', skills: 'Spend what each weapon has taught you.',
+        moves: 'Each weapon\'s stances, combos and finishers.', wardrobe: 'How your harness looks, and its dyes.', journal: `${d.letters.length} letters read · ${d.pixies.length} Lost Pixies freed.`,
+        bestiary: 'Every foe met, its arts and its ways.', deeds: 'Long goals kept across every mission, Way and depth.', settings: 'Camera, reading, sound and display.', controls: 'Keys, the gamepad, and the ways of the fight.' }[id] })),
+      side && row({ act: 'abandon', icon: 'sides', title: 'Abandon side mission', desc: `${side.name}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.` }),
+      L.depth && row({ act: 'leaveAbyss', icon: 'rise', title: 'Leave the Underbriar', desc: 'Climb back up to the Fae Crossroads.' }),
+      row({ act: 'quit', icon: 'quit', title: 'Quit to title', desc: 'Progress is saved each time you rest at a Moonwell or vanquish a warlord.' }),
+    ].filter(Boolean).join('');
+    const K = G.kindred?.alive ? G.kindred : null;
+    const card = panel(stats([
+      ['Level', sv.level, 'rose'], ['Health · Stamina', `${Math.round(p.hp)} / ${p.maxHp} · ${p.maxKi}`], ['Damage', `×${p.dmgMul.toFixed(2)}`], ['Defence', p.gear?.def ?? 0],
+      ['Moondew', `${p.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`, 'cyan'], ['Patron Spirit', PATRONS[d.patron || 'lantern'].name], K && ['Kindred', K.name, 'cyan'],
+      ['Way', wayName(d.ng)], T && ['Tonight', T.phase.name + (T.omen ? ' · ' + T.omen.name : '')], ['Time · Falls', `${Math.floor(sv.time / 60)} min · ${sv.deaths}`],
+    ]), 'mx-card tall', ['The Knight', side ? side.kindName : L.depth ? `Depth ${L.depth}` : '']);
+    return { ctx: 'world', html: this.frame({ title: 'Paused', crumb: side ? side.name : L.depth ? `The Underbriar · Depth ${L.depth}` : L.name, sigil: 'status', layout: 'hub',
+      chips: this.chips('glim', 'petal', 'cup'), body: `<div class="mx-left">${list(rows, 'hubl dense')}</div>${card}`, hints: [['confirm', 'Select'], ['back', 'Return', 'resume']] }) };
+  },
+  shrine(data) {
+    const G = this.G, sv = G.save, d = sv.data, p = G.player, cost = levelCost(sv.level);
+    const other = Object.values(G.level.shrines).filter(s => s.id !== data.id && sv.m.kindled.includes(s.id));
+    const deeds = G.deedsView(), earned = deeds.reduce((a, r) => a + r.tier, 0), K = G.kindred?.alive ? G.kindred : null;
+    const rows = [
+      row({ act: 'levelup', icon: 'levelup', title: 'Level up', right: sv.glimmer >= cost ? 'ready' : '', desc: sv.glimmer >= cost ? `Spend ${cost.toLocaleString()} Glimmer to grow stronger.` : `The next level needs ${cost.toLocaleString()} Glimmer.` }),
+      row({ act: 'travelTo', icon: 'travel', title: 'Travel', desc: other.length ? `To another Moonwell kindled here: ${other.map(s => s.name).join(', ')}.` : 'No other Moonwell here is kindled yet.', off: !other.length }),
+      row({ act: 'gear', icon: 'equipment', title: 'Equipment', desc: 'Weapons, armour and Soul Cores. Reforge and soul-match here.' }),
+      row({ act: 'arsenal', icon: 'arsenal', title: 'Arsenal', desc: 'Choose two weapons, and forge them stronger.' }),
+      row({ act: 'skills', icon: 'skills', title: 'Skills', desc: 'Spend what each weapon has taught you.' }),
+      row({ act: 'patrons', icon: 'patron', title: 'Patronage', desc: `${PATRONS[d.patron || 'lantern'].name} is pledged to you · ${(d.patrons || ['lantern']).length} of ${PATRON_ORDER.length} freed.` }),
+      row({ act: 'kinship', icon: 'kinship', title: 'Kinship', right: K ? 'with you' : '', desc: K ? `${K.name} walks with you.` : `${d.cups ?? 0} Moon Cups · call a kindred knight to fight beside you.` }),
+      row({ act: 'market', icon: 'market', title: 'Hidden Market', desc: `${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night.` }),
+      row({ act: 'wardrobe', icon: 'wardrobe', title: 'Wardrobe', desc: 'How your harness looks, and its dyes.' }),
+      d.charms.length && row({ act: 'charms', icon: 'charms', title: 'Charms', right: `${d.equipped.length} / ${CHARM_SLOTS}`, desc: 'Wear up to three.' }),
+      row({ act: 'journal', icon: 'journal', title: 'Journal', desc: `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed.` }),
+      row({ act: 'deeds', icon: 'deeds', title: 'Deeds', right: `${earned} / ${deeds.length * 3}`, desc: 'Long goals kept across every mission, Way and depth.' }),
+      d.unlocked.length > 1 && row({ act: 'journey', icon: 'crossroads', title: 'Journey elsewhere', desc: 'Walk the Fae Crossroads to another mission.' }),
+      row({ act: 'leave', icon: 'rise', title: 'Rise', desc: 'Resting mends you, refills your Moondew, and calls every fallen foe back.' }),
+    ].filter(Boolean).join('');
+    const card = panel(stats([['Level', sv.level, 'rose'], ['Glimmer', sv.glimmer.toLocaleString(), 'gold'], ['Next level', cost.toLocaleString()], ['Health · Stamina', `${p.maxHp} · ${p.maxKi}`], ['Moondew', sv.elixirMax, 'cyan']]), 'mx-card', ['Rested', G.level.name]);
+    return { ctx: 'world', html: this.frame({ title: 'Moonwell', crumb: data.name, sigil: 'moon', layout: 'hub', chips: this.chips('glim', 'petal', 'cup'), body: `<div class="mx-left">${list(rows, 'hubl dense')}</div>${card}`, hints: [['confirm', 'Select'], ['back', 'Rise', 'leave']] }) };
+  },
+  levelup() {
+    const G = this.G, sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl), afford = sv.glimmer >= cost, cur = derive(sv.stats);
+    const rows = STATS.map(st => {
+      const dd = derive({ ...sv.stats, [st.k]: sv.stats[st.k] + 1 });
+      const gain = st.k === 'vit' ? `+${dd.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${dd.maxKi - cur.maxKi} stamina` : st.k === 'str' ? `+${Math.round((dd.dmgMul - cur.dmgMul) * 100)}% damage` : `+${Math.round((dd.animaGain - cur.animaGain) * 100)}% Faelight, +1 s Shift`;
+      return row({ act: 'level', cls: 'lrow', icon: { vit: 'status', end: 'rise', str: 'sword', spi: 'patron' }[st.k], title: st.name, note: st.desc, right: `<span class="val">${sv.stats[st.k]} → ${sv.stats[st.k] + 1}</span><span class="gain">${gain}</span>`, extra: `data-stat="${st.k}"`, off: !afford, desc: `${st.name}: ${st.desc.toLowerCase()}. ${gain}.` });
+    }).join('');
+    const body = panel(`<div class="lvl-top"><div><small>Level</small><b>${lvl} <i>›</i> ${lvl + 1}</b></div><div><small>Glimmer</small><b style="color:var(--mx-gold)">${sv.glimmer.toLocaleString()}</b></div><div><small>Required</small><b class="${afford ? '' : 'short'}">${cost.toLocaleString()}</b></div></div>
+      ${list(rows)}${stats([['Health · Stamina', `${p.maxHp} · ${p.maxKi}`], ['Damage', `×${p.dmgMul.toFixed(2)}`], ['Moondew', sv.elixirMax]])}`, 'sht', ['Kindle', afford ? 'each level raises one attribute by one' : `${(cost - sv.glimmer).toLocaleString()} more Glimmer needed`]);
+    return { ctx: 'veil', html: this.frame({ title: 'Level up', crumb: this.stack[0]?.data?.name || 'Moonwell', layout: 'sheet', chips: this.chips('lvl', 'glim'), body, hints: [['confirm', 'Raise'], ['back', 'Back', 'back']] }) };
+  },
+  travel(data) {
+    const G = this.G, sv = G.save, all = Object.values(G.level.shrines).filter(s => sv.m.kindled.includes(s.id));
+    const rows = all.map(s => row({ act: 'travel', icon: 'moon', title: s.name, right: s.id === data.id ? 'you rest here' : '', extra: `data-shrine="${s.id}"`, off: s.id === data.id, desc: `Travel to ${s.name}.` })).join('');
+    return { ctx: 'veil', html: this.frame({ title: 'Travel', crumb: G.level.name, layout: 'dialog', body: panel(list(rows), '', ['Moonwells kindled', '']), hints: [['confirm', 'Travel'], ['back', 'Back', 'back']] }) };
+  },
+  settings(data) {
+    const G = this.G, at = data.page || 0, pg = SETTINGS[at], s = G.settings;
+    const rows = pg.rows.map(R => {
+      const v = s[R.k];
+      if (R.vals) { const i = Math.max(0, R.vals.findIndex(x => x == v)); return option(R.k, R.label, R.names[i], i, R.vals.length, R.desc); }
+      const n = Math.round((R.max - R.min) / R.step) + 1, i = Math.round(((+v || 0) - R.min) / R.step);
+      return option(R.k, R.label, R.fmt(+v || 0), i, n, R.desc);
+    }).join('');
+    const body = panel(`${subtabs(G, SETTINGS.map(P => ({ name: P.name })), at, 'spage')}${list(rows)}`, 'sht');
+    return { ctx: 'veil', html: this.frame({ title: 'Settings', crumb: pg.name, layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Page', 'spage'], ['mAlt', 'Defaults', 'revert'], ['confirm', 'Change'], ['back', 'Back', 'back']] }) };
+  },
+  controls(data) {
+    const G = this.G, at = data.page || 0, P = G.input.padPS ? PS_LABEL : PAD_LABEL;
+    let inner;
+    if (at === 0) inner = `<div class="kbgrid">${KB.map(([grp, rows]) => `<h4>${esc(grp)}</h4>${rows.map(([n, ...ks]) => `<div class="kbrow"><span>${esc(n)}</span><span>${kbKeys(...ks)}</span></div>`).join('')}`).join('')}</div>`;
+    else if (at === 1) inner = padDiagram(G.input.padPS);
+    else if (at === 2) inner = `<table class="mx-table"><tr><th></th><th>Keyboard and mouse</th><th>Gamepad</th></tr>${TECH.map(([n, k, pf]) => `<tr><td>${esc(n)}</td><td>${esc(k)}</td><td>${esc(pf(P))}</td></tr>`).join('')}</table>`;
+    else inner = `<div class="mx-tips">${TIPS.map(([b, t]) => `<p><b>${esc(b)}</b> ${esc(t)}</p>`).join('')}</div>`;
+    const body = panel(`${subtabs(G, CPAGES.map((n, i) => ({ name: n, icon: ['controls', 'controls', 'sword', 'journal'][i] })), at, 'cpage')}<div class="mx-scroll">${inner}</div>`, 'sht');
+    return { ctx: 'veil', html: this.frame({ title: 'Controls', crumb: CPAGES[at], layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Page', 'cpage'], ['back', 'Back', 'back']] }) };
+  },
+  gear(data) {
+    const G = this.G, d = G.save.data, g = d.gear, p = G.player, wn = id => p.weaponName(id), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+    if (data.tab) { data.cat = data.tab === 'cores' ? 'cores' : data.tab === 'weapons' ? 'w:' + (data.w || p.weapon) : (data.slot || 'body'); delete data.tab; }
+    const cats = this.gearCats(), C = cats.find(c => c.id === data.cat) || cats[0], ci = cats.indexOf(C);
+    data.cat = C.id;
+    const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
+    let rows;
+    if (C.id === 'cores') {
+      const slots = d.coreSlots || [null, null], owned = Object.keys(d.cores || {}).filter(id => CORES[id]).sort((a, b) => (slots.includes(b) - slots.includes(a)) || CORES[a].name.localeCompare(CORES[b].name));
+      rows = owned.map(id => { const at = slots.indexOf(id), gr = Math.min(CORE_MAX, d.cores[id]); return row({ act: 'setCore', icon: 'core', color: '#c89aff', title: `${CORES[id].name}${gr > 1 ? ` +${gr - 1}` : ''}`, tag: at >= 0 ? `Slot ${at + 1}` : '', right: `${CORES[id].cost} FL`, extra: `data-slot="0" data-core="${id}"`, desc: `${CORES[id].skillName}: ${CORES[id].desc}.` }); }).join('')
+        || '<div class="mx-empty">No Soul Cores yet. Foes leave them sometimes, elites often, and every gatekeeper and warlord always.</div>';
+    } else {
+      rows = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it => row({ act: 'equipGear', icon: C.w ? 'sword' : SLOT_ICON[C.slot], color: col(it.rar), title: itemName(it, wn), tag: worn.has(it.uid) ? 'Worn' : '', right: `Lv ${it.lvl}`, extra: `data-uid="${it.uid}"` })).join('')
+        || `<div class="mx-empty">${C.w ? `No ${esc(wn(C.w))} of any rarity yet: the one you carry hits at ×1.00. Foes drop better ones.` : 'Nothing for this slot yet.'}</div>`;
+      rows += divider('Clear the pack') + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common', extra: 'data-rar="0"', desc: 'Every Common piece not worn, for Glimmer.' }) + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common and Fine', extra: 'data-rar="1"', desc: 'Every Common and Fine piece not worn, for Glimmer.' });
+    }
+    const body = panel(`${subtabs(G, cats.map(c => ({ name: c.name, icon: c.icon })), ci, 'gCat')}${list(rows)}`, 'lst', null) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', onFocus: el => this.fill(this.gearDetail(el?.dataset.uid || el?.dataset.core ? el : null, C)),
+      html: this.frame({ title: 'Equipment', crumb: `Pack ${g.items.length} of ${PACK}${data.forge ? ' · at the Moonwell' : ''}`, layout: 'browse', chips: this.chips('lvl', 'glim'), body,
+        hints: C.id === 'cores'
+          ? [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Set in slot 1'], ['mAlt', 'Set in slot 2', 'setCore', 'data-slot="1"'], ['mAlt2', 'Take out', 'coreOut'], ['back', 'Back', 'back']]
+          : [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Equip'], ['mAlt', 'Dismantle', 'dismantle'], data.forge && ['mAlt2', 'Forge', 'smith'], ['back', 'Back', 'back']] }) };
+  },
+  patrons() {
+    const G = this.G, d = G.save.data, have = d.patrons || ['lantern'], cur = d.patron || 'lantern';
+    const rows = PATRON_ORDER.map(id => {
+      const P = PATRONS[id];
+      return have.includes(id) ? row({ act: 'pledge', icon: 'patron', color: P.css, title: P.name, note: P.title, tag: id === cur ? 'Pledged' : '', extra: `data-id="${id}"` })
+        : row({ act: 'pledge', icon: 'lock', title: 'A spirit held captive', note: `Held in ${G.LEVELS[P.from]?.name || '?'}`, right: roman(G.ORDER.indexOf(P.from) + 1), cls: 'dimmed', extra: `data-id="${id}" data-locked="1"` });
+    }).join('');
+    const body = panel(list(rows), 'lst', ['Patron Spirits', `${have.length} of ${PATRON_ORDER.length} freed`]) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Patronage', crumb: `${PATRONS[cur].name} is pledged to you`, layout: 'browse', body, hints: [['confirm', 'Pledge'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const id = el?.dataset.id, P = PATRONS[id];
+        if (!P) return;
+        if (el.dataset.locked) { this.fill(`<div class="mx-kick"><span>Patron Spirit</span><span></span></div><h3>A spirit held captive</h3><div class="mx-note">The warlord of ${esc(G.LEVELS[P.from]?.name || '')} holds it. Fell the warlord to set it free.</div>`); return; }
+        this.fill(`<div class="mx-kick"><span>Patron Spirit</span><span>${id === cur ? 'pledged' : ''}</span></div><h3 style="color:${P.css}">${esc(P.name)}</h3><div class="sub">${esc(P.title)}</div>
+          ${sec('While pledged')}${P.fx.map(([k, v]) => `<div class="mx-fx"><span>${esc(fxText(k, v))}</span></div>`).join('')}
+          ${sec('In the Fae Shift')}${shiftText(P).map(t => `<div class="mx-fx set"><span>${esc(t[0].toUpperCase() + t.slice(1))}</span></div>`).join('')}
+          <div class="mx-fx set"><span>As it begins, a burst that throws back everything within ${P.shift.burst[1]} paces</span></div>
+          <div class="mx-note">${esc(P.lore)}</div>`);
+      } };
+  },
+  market(data) {
+    const G = this.G, d = G.save.data, W = G.market(), ti = Math.max(0, MARKET_TABS.findIndex(t => t.id === data.tab)), T = MARKET_TABS[ti], sold = d.market.sold, wn = id => G.player.weaponName(id);
+    data.tab = T.id;
+    const gone = w => (!w.repeat && sold.includes(w.key)) || w.owned || w.off;
+    const tag = w => (w.owned ? 'Owned' : w.off ? 'Full' : !w.repeat && sold.includes(w.key) ? 'Sold' : '');
+    const price = w => `<span class="${(d.petals || 0) < w.price ? 'short' : ''}">${icon('petal')} ${w.price}</span>`;
+    const mk = (w, ic, name, color) => row({ act: 'buy', icon: ic, color, title: name, tag: tag(w), right: price(w), cls: gone(w) ? 'sold' : '', extra: `data-key="${esc(w.key)}"` });
+    const rows = T.id === 'gear' ? W.gear.map(w => mk(w, w.it.kind === 'weapon' ? 'sword' : SLOT_ICON[w.it.slot], itemName(w.it, wn), col(w.it.rar)))
+      : T.id === 'prov' ? W.prov.map(w => mk(w, { vial: 'vial', purse: 'purse', core: 'core', lantern: 'market', cup: 'cup' }[w.kind], w.name, w.kind === 'core' ? '#c89aff' : w.kind === 'cup' ? '#9fe8ff' : null))
+      : W.dyes.map(w => mk(w, `<i class="swatch" style="background:${hex(DYES[w.dye].hex)}"></i>`, w.name, null));
+    const body = panel(`${subtabs(G, MARKET_TABS.map(t => ({ name: t.name, icon: { gear: 'sword', prov: 'vial', dyes: 'dye' }[t.id] })), ti, 'mTab')}${list(rows.join(''))}`, 'lst') + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Hidden Market', crumb: 'New wares every night at noon', sigil: 'market', layout: 'browse', chips: this.chips('petal', 'cup', 'glim'), body, hints: [[['mSubPrev', 'mSubNext'], 'Wares', 'mTab'], ['confirm', 'Buy'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const w = [...W.gear, ...W.prov, ...W.dyes].find(x => x.key === el?.dataset.key);
+        if (!w) return;
+        const foot = `${sec('Price')}<div class="mx-fx plain"><span>${icon('petal')} ${w.price} Moonpetals</span><span class="v">${(d.petals || 0) >= w.price ? `${d.petals - w.price} left after` : `${w.price - (d.petals || 0)} short`}</span></div>
+          <div class="mx-note">${gone(w) ? (w.owned ? 'Already yours.' : w.off ? (w.kind === 'cup' ? `You carry as many Moon Cups as you can (${CUP_MAX}).` : `Your Moondew is already at ${VIAL_MAX}.`) : 'Sold. The pedlar has more tomorrow night.') : w.repeat ? 'The pedlar keeps plenty of these.' : 'One of these tonight.'} Moonpetals come from Revenants at their graves, Duels and other side missions, Deeds, and warlords.</div>`;
+        if (w.it) { this.fill(this.itemDetail(w.it) + foot); return; }
+        if (w.kind === 'dye') { const D = DYES[w.dye]; this.fill(`<div class="mx-kick"><span>Dye</span><span></span></div><h3>${esc(w.name)}</h3><div class="dyebig" style="background:${hex(D.hex)}"></div><div class="mx-note">For the Wardrobe: dye your plate, cloak, trim, wings or visor with it.</div>${foot}`); return; }
+        const extra = w.kind === 'cup' ? ['Moon Cups', `${d.cups ?? 0} → ${Math.min(CUP_MAX, (d.cups ?? 0) + 1)}`] : w.kind === 'vial' ? ['Moondew', `${d.elixirMax} → ${Math.min(VIAL_MAX, d.elixirMax + 1)}`]
+          : w.kind === 'purse' ? ['Glimmer', w.glimmer.toLocaleString()] : w.kind === 'core' ? ['Held', `+${Math.max(0, (d.cores[w.core] || 1) - 1)} → +${d.cores[w.core] || 1}`] : null;
+        this.fill(`<div class="mx-kick"><span>Provisions</span><span></span></div><h3>${esc(w.name)}</h3><div class="mx-note">${esc(w.desc)}</div>${extra ? stats([extra]) : ''}${foot}`);
+      } };
+  },
+  wardrobe() {
+    const G = this.G, d = G.save.data, L = d.look ||= {}, looks = (d.looks || ['errant']).filter(k => SETS[k]), dyes = DYE_ORDER.filter(k => (d.dyes || []).includes(k));
+    const rows = LOOK_PARTS.map(P => {
+      const vals = P.k === 'set' ? [null, ...looks] : [null, ...dyes], i = Math.max(0, vals.indexOf(L[P.k] ?? null)), v = vals[i];
+      const name = P.k === 'set' ? (v ? SETS[v].name : 'As worn') : v ? DYES[v].name : 'Undyed';
+      const sw = P.k === 'set' ? (v ? SETS[v].look : null) : v ? { one: DYES[v].hex } : null;
+      const swh = sw ? (sw.one != null ? `<i class="swatch" style="background:${hex(sw.one)}"></i>` : `<i class="swatch" style="background:linear-gradient(90deg,${hex(sw.steel)} 0 33%,${hex(sw.cloth)} 33% 66%,${hex(sw.trim)} 66%)"></i>`) : '';
+      return option(P.k, P.name, name, i, vals.length, P.desc, 'lookOpt', swh);
+    }).join('');
+    const body = panel(`${list(rows)}<div class="mx-detail"><div class="mx-note">A look is learned from any piece of a set you carry. Dyes are sold in the Hidden Market at every Moonwell.</div></div>`, '', ['Attire', `${looks.length} looks · ${dyes.length} of ${DYE_ORDER.length} dyes`]);
+    return { ctx: 'world', html: this.frame({ title: 'Wardrobe', crumb: 'Change how your harness looks', sigil: 'wardrobe', layout: 'side', body, hints: [['mAlt', 'Undo all', 'lookReset'], [['left', 'right'], 'Change'], ['back', 'Back', 'back']] }) };
+  },
+  kinship() {
+    const G = this.G, d = G.save.data, cups = d.cups ?? 0, offers = G.kinOffers(), K0 = G.kindred?.alive ? G.kindred : null, ok = G.kinAllowed();
+    const rows = [
+      ...offers.map((K, i) => row({ act: 'callKin', icon: 'kinship', title: K.name, right: `Level ${K.lvl}`, extra: `data-i="${i}"`, off: !ok || !cups, desc: !ok ? 'A Duel is fought alone.' : cups ? K.motto : 'No Moon Cups: Revenants, gatekeepers and the Hidden Market have them.' })),
+      K0 && row({ act: 'sendKin', icon: 'rise', title: 'Send home', desc: `${K0.name} goes back to the moon.` }),
+      row({ act: 'back', icon: 'quit', title: 'Leave', desc: 'Walk on alone.' }),
+    ].filter(Boolean).join('');
+    const card = panel('<div class="mx-detail live"></div>', 'mx-card tall kin-card', ['Kindred Spirit', '']);
+    return { ctx: 'world', html: this.frame({ title: 'Kinship', crumb: K0 ? `${K0.name} walks with you` : 'No kindred walks with you', sigil: 'kinship', layout: 'hub', chips: this.chips('cup'), body: `<div class="mx-left">${list(rows, 'hubl')}</div>${card}`, hints: [['confirm', 'Call'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const K = offers[+(el?.dataset.i ?? -1)] || (el?.dataset.act === 'sendKin' ? K0?.K : null) || offers[0];
+        if (!K) return;
+        const P = PATRONS[K.patron], S = SETS[K.set];
+        this.fill(`<div class="mx-kick"><span>Level ${K.lvl}</span><span>one Moon Cup</span></div><h3>${esc(K.name)}</h3><div class="sub">${esc(K.motto || '')}</div>
+          ${stats([['Weapon', esc(G.player.weaponName(K.weapon))], ['Harness', esc(S.name)], ['Patron Spirit', `<span style="color:${P.css}">${esc(P.name)}</span>`]])}
+          <div class="mx-note">It stays until it falls (raise it for a third of your health), a warlord falls, or you rest. Foes grow a little hardier while it walks with you.</div>`);
+      } };
+  },
+  grave(data) {
+    const G = this.G, K = data.K, P = PATRONS[K.patron], S = SETS[K.set], wn = G.player.weaponName(K.weapon), carries = G.save.data.arms.includes(K.weapon);
+    const petals = gravePetals(K, G.save.data.ng || 0, !!G.tonight?.omen);
+    const card = panel(`<div class="mx-detail"><div class="mx-kick"><span>Revenant · Level ${K.lvl}</span><span></span></div><h3>${esc(K.name)}</h3><div class="sub">${esc(K.how)}</div>
+      ${stats([['Weapon', esc(wn)], ['Harness', esc(S.name)], ['Patron Spirit', `<span style="color:${P.css}">${esc(P.name)}</span>`]])}
+      ${sec('Spoils')}<div class="mx-fx"><span>${petals} Moonpetals</span></div><div class="mx-fx"><span>A piece of its harness${carries ? ` or its ${esc(wn)}` : ''}, Rare or finer</span></div><div class="mx-fx off"><span>Now and then its Soul Core, or a Moon Cup</span></div></div>`, 'mx-card tall grave-card', ['Bloodied Grave', '']);
+    const rows = row({ act: 'graveFight', icon: 'grave', title: 'Challenge', extra: `data-i="${data.i}"`, desc: 'Raise the Revenant and fight it here.' }) + row({ act: 'back', icon: 'quit', title: 'Leave it', desc: 'Walk on. The grave will wait.' });
+    return { ctx: 'world', html: this.frame({ title: 'Bloodied Grave', crumb: G.level.name, sigil: 'grave', layout: 'hub', body: `<div class="mx-left">${list(rows, 'hubl')}</div>${card}`, hints: [['confirm', 'Select'], ['back', 'Back', 'back']] }) };
+  },
+  cleared() {
+    const G = this.G, sv = G.save, L = G.level, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
+    const body = panel(`<div class="mx-ceremony"><div class="kick">Mission complete</div><h2>${esc(L.name)}</h2><div class="mx-lore">${esc(L.outro || '')}</div>
+      <div class="mx-figs"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Falls</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div><div><small>Glimmer</small><b style="color:var(--mx-gold)">${sv.glimmer.toLocaleString()}</b></div></div>
+      ${list(row({ act: 'missions', icon: 'crossroads', title: 'Onward', desc: 'To the Fae Crossroads.' }))}</div>`, '');
+    return { ctx: 'plain', html: this.frame({ title: 'Cleared', crumb: L.name, sigil: 'deeds', layout: 'result', body, hints: [['confirm', 'Onward']] }) };
+  },
+  sidecleared(data) {
+    const G = this.G, S = SIDES[data.id], g = G.save.data.gear, got = data.spoils.map(uid => g.items.find(it => it.uid === uid)).filter(Boolean);
+    const body = panel(`<div class="mx-ceremony"><div class="kick">Side mission complete${data.first ? ' · first time' : ''}</div><h2>${esc(S.name.replace(/^[^:]*: /, ''))}</h2><div class="mx-lore">${esc(S.desc)}</div>
+      <div class="mx-figs"><div><small>Glimmer</small><b style="color:var(--mx-gold)">${data.gl.toLocaleString()}</b></div>${data.pt ? `<div><small>Moonpetals</small><b style="color:#ffb8e0">${data.pt}</b></div>` : ''}${got.map(it => `<div><small>${esc(RARITY[it.rar].name)} · Lv ${it.lvl}</small><b style="color:${col(it.rar)};font-size:18px">${esc(itemName(it, w => WEAPONS[w]?.name || w))}</b></div>`).join('')}</div>
+      ${list(row({ act: 'missions', icon: 'crossroads', title: 'Onward', desc: 'To the Fae Crossroads.' }))}</div>`, '');
+    return { ctx: 'plain', html: this.frame({ title: S.kindName, crumb: G.LEVELS[S.mission]?.name, sigil: 'sides', layout: 'result', body, hints: [['confirm', 'Onward']] }) };
+  },
+  ending() {
+    const G = this.G, sv = G.save, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
+    const rows = row({ act: 'ngplus', icon: 'sparkle', title: `Walk the ${wayName(sv.ng + 1)}`, note: 'New Game+', desc: `${wayDesc(sv.ng + 1)} You keep your level, gear, weapons, Soul Cores and skills; the missions begin again.` })
+      + row({ act: 'missions', icon: 'crossroads', title: 'Walk the Fae Crossroads', desc: 'Any mission, any side mission, the Underbriar.' }) + row({ act: 'title', icon: 'quit', title: 'Return to title' });
+    const body = panel(`<div class="mx-ceremony"><div class="kick">${esc(wayName(sv.ng))}</div><h2>${esc(G.level.endingTitle || 'The Paths Are Still')}</h2><div class="mx-lore">${esc(G.level.ending || G.level.outro || '')}</div>
+      <div class="mx-figs"><div><small>Time</small><b>${m}:${String(s).padStart(2, '0')}</b></div><div><small>Falls</small><b>${sv.deaths}</b></div><div><small>Level</small><b>${sv.level}</b></div></div>${list(rows)}</div>`, '');
+    return { ctx: 'plain', html: this.frame({ title: 'The End', crumb: 'For now', sigil: 'moon', layout: 'result', body, hints: [['confirm', 'Select']] }) };
+  },
+  // The overworld draws itself; this is its overlay: floating labels and the chosen mission's pane.
+  map(data) {
+    const G = this.G, O = G.overworld, sv = G.save, d = sv.data, id = O.selected, L = G.LEVELS[id], i = G.ORDER.indexOf(id), st = O.status(id);
+    const opening = O.revealing?.n.id === id, shown = st !== 'sealed' && (d.seen?.includes(id) || opening), m = d.missions[id] || { kindled: [], items: [] };
+    const charms = (L.items || []).filter(it => it.kind === 'charm').map(it => it.id), trophies = [L.gate?.charm, L.bossCharm].filter(Boolean);
+    const found = charms.filter(c => m.items.includes(c)).length + trophies.filter(c => d.charms.includes(c)).length;
+    const prev = G.LEVELS[G.ORDER[i - 1]], om = shown && OMENS[G.tonight?.omens[id]];
+    const labels = O.nodes.map(n => {
+      const s = O.status(n.id), vis = s !== 'sealed' && d.seen?.includes(n.id), o = vis && OMENS[G.tonight?.omens[n.id]];
+      return `<button class="owl ${vis ? s : 'sealed'} ${n.id === id ? 'sel' : ''}" data-act="node" data-id="${n.id}"><span class="n">${roman(n.i + 1)}</span>${vis ? esc(n.L.name) : 'Sealed'}${o ? `<span class="omen" style="color:${o.css}" title="${esc(o.name)}">☾</span>` : ''}</button>`;
+    }).join('');
+    const acts = [
+      row({ act: 'setout', icon: 'travel', title: 'Set out', extra: `data-id="${id}"`, off: !shown || opening, desc: shown ? `Walk into ${L.name}.` : '' }),
+      st === 'cleared' && !opening && row({ act: 'sides', icon: 'sides', title: 'Side missions', right: G.hud.key('mAlt'), extra: `data-id="${id}"`, desc: 'Twilight, a Hunt and a Duel.' }),
+      d.missions.keep?.cleared && !opening && row({ act: 'underbriar', icon: 'abyss', title: 'The Underbriar', right: `deepest ${d.abyss?.best || 0}`, desc: 'The endless maze beneath the Crossroads.' }),
+      data?.from === 'shrine' ? row({ act: 'back', icon: 'moon', title: 'Stay', desc: 'Back to the Moonwell.' }) : data?.from === 'title' ? row({ act: 'back', icon: 'quit', title: 'Back' }) : row({ act: 'title', icon: 'quit', title: 'Return to title' }),
+    ].filter(Boolean).join('');
+    const tags = shown ? `<div class="owtags"><span class="t ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span>${st === 'cleared' ? sidesOf(id).map(S => `<span class="t ${d.sides?.[S.id] ? 'cleared' : 'new'}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('') : ''}</div>` : '';
+    const pane = panel(`<div class="mx-detail"><div class="mx-kick"><span>${roman(i + 1)} · Level ${L.level + wayLvl(d.ng)}+</span><span>${d.ng ? esc(wayName(d.ng)) : ''}</span></div>
+      <h3>${shown ? esc(L.name) : 'Sealed'}</h3>${opening ? '<div class="sub">A new path opens</div>' : ''}
+      ${om ? `<div class="owomen" style="color:${om.css}">☾ Tonight, a ${esc(om.name)}: ${esc(om.desc)}</div>` : ''}
+      <div class="mx-note" style="margin-top:4px">${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</div>${tags}</div>${list(acts)}`, 'owpanel');
+    return { ctx: 'map', html: `${this.frame({ title: 'The Fae Crossroads', crumb: d.ng ? wayName(d.ng) : 'Choose where the path leads', sigil: 'crossroads', layout: '', chips: this.chips('lvl', 'glim', 'petal'), body: `<div class="owlabels">${labels}</div>${pane}`,
+      hints: [[['left', 'right'], 'Travel'], ['confirm', 'Set out'], st === 'cleared' && ['mAlt', 'Side missions'], d.missions.keep?.cleared && ['mAlt2', 'Underbriar'], ['back', 'Back']] })}<div class="owfade"></div>` };
+  },
+  sides(data) {
+    const G = this.G, d = G.save.data, L = G.LEVELS[data.m];
+    const rows = sidesOf(data.m).map(S => {
+      const n = d.sides?.[S.id] || 0, lv = L.level + S.lvl + wayLvl(d.ng);
+      return row({ act: 'side', icon: { twilight: 'moon', hunt: 'lock', duel: 'grave' }[S.kind], title: S.name.replace(/^[^:]*: /, ''), note: `${S.kindName}${n ? ` · done ×${n}` : ' · first run: double Glimmer and an extra piece'}`, right: `Lv ${lv}+`, extra: `data-m="${data.m}" data-id="${S.id}"`, desc: S.desc });
+    }).join('');
+    const body = panel(`${list(rows + row({ act: 'back', icon: 'quit', title: 'Back' }))}<div class="mx-detail"><div class="mx-note">A side run keeps its own Moonwells and leaves the mission's own as they were. Spoils: Glimmer, Moonpetals and gear of Rare or better; its gatekeeper or Revenant always leaves its Soul Core.</div></div>`, '', ['Side missions', L.name]);
+    return { ctx: 'map', html: this.frame({ title: 'Side Missions', crumb: L.name, sigil: 'sides', layout: 'dialog', body, hints: [['confirm', 'Set out'], ['back', 'Back', 'back']] }) };
+  },
+  underbriar() {
+    const G = this.G, a = G.save.data.abyss || { cps: [1], best: 0 };
+    const rows = [...a.cps].sort((x, y) => y - x).map(cp => row({ act: 'descend', icon: cp === 1 ? 'abyss' : 'moon', title: `Descend from Depth ${cp}`, note: `Its halls are dressed as ${G.LEVELS[themeOf(cp)].name}'s.`, right: `Lv ${depthScale(cp).level + wayLvl(G.save.data.ng)}+`, extra: `data-depth="${cp}"`, desc: cp === 1 ? 'From the beginning.' : 'From a lit Moonwell you reached.' })).join('');
+    const body = panel(`<div class="mx-detail"><div class="mx-note">An endless maze where everything the moon ever lit goes to dream, made anew at every depth. Slay every foe on a depth to open the way down; every fifth depth ends with a warlord, and the depth after it holds a lit Moonwell. The deeper, the harder, and the richer.</div></div>${list(rows + row({ act: 'back', icon: 'quit', title: 'Back' }))}`, '', ['The Underbriar', `deepest cleared: ${a.best || 0}`]);
+    return { ctx: 'map', html: this.frame({ title: 'The Underbriar', crumb: 'Beneath the Fae Crossroads', sigil: 'abyss', layout: 'dialog', body, hints: [['confirm', 'Descend'], ['back', 'Back', 'back']] }) };
+  },
+  // Letters, mission by mission, each read in full at the right as it is chosen.
+  journal() {
+    const G = this.G, d = G.save.data;
+    let rows = '';
+    for (const id of G.ORDER.filter(x => d.unlocked.includes(x))) {
+      const L = G.LEVELS[id], ls = L.letters || [], ps = L.pixies || [];
+      const read = ls.filter(l => d.letters.includes(id + ':' + l.id)).length, freed = ps.filter(q => d.pixies.includes(id + ':' + q.id)).length;
+      rows += divider(`${L.name} · ${read} / ${ls.length} letters · ${freed} / ${ps.length} pixies`);
+      rows += ls.map(l => d.letters.includes(id + ':' + l.id) ? row({ act: 'letter', icon: 'letter', title: l.title, extra: `data-m="${id}" data-id="${l.id}"` }) : row({ act: 'none', icon: 'lock', title: 'A letter not yet found', off: true })).join('');
+    }
+    const body = panel(list(rows), 'lst') + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Journal', crumb: `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed (+${d.pixies.length}% health and stamina)`, layout: 'browse', chips: this.chips('lvl'), body, hints: [['confirm', 'Read in full'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const L = G.LEVELS[el?.dataset.m], l = L?.letters?.find(x => x.id === el.dataset.id);
+        this.fill(l ? `<div class="mx-kick"><span>${esc(L.name)}</span><span>letter</span></div><h3>${esc(l.title)}</h3><div class="lettertext">${esc(l.text)}</div>` : '<div class="mx-note">Letters lie where their writers left them. Read ones stay here.</div>');
+      } };
+  },
+  letter(data) {
+    const G = this.G, L = G.LEVELS[data.m], l = (L.letters || []).find(x => x.id === data.id);
+    return { ctx: 'veil', html: this.frame({ title: l.title, crumb: L.name, sigil: 'letter', layout: 'sheet', body: panel(`<div class="parch">${esc(l.text)}</div>`, 'sht'), hints: [['back', 'Back', 'back']] }) };
+  },
+  bestiary(data) {
+    const G = this.G, d = G.save.data, all = bestiary(), act = data.act ?? 0, lst = all.filter(B => B.act === act);
+    const felled = all.filter(B => (d.beast?.[B.id] || 0) > 0).length;
+    const rows = lst.map(B => known(d, B)
+      ? row({ act: 'beast', icon: ROLE_ICON[B.role], color: ROLE_COLOR[B.role], title: B.T.name.split(',')[0], right: String(d.beast?.[B.id] || 0), extra: `data-id="${B.id}"` })
+      : row({ act: 'beast', icon: 'lock', title: 'Not yet felled', right: roman(G.ORDER.indexOf(B.missions[0]) + 1), cls: 'dimmed', extra: `data-id="${B.id}" data-locked="1"` })).join('');
+    const body = panel(`${subtabs(G, ACTS.map((a, i) => ({ name: `${roman(i + 1)} · ${a}` })), act, 'bAct')}${list(rows)}`, 'lst') + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Bestiary', crumb: `${felled} of ${all.length} felled · ${d.beast?.fallen || 0} fallen knights laid to rest`, layout: 'browse', body, hints: [[['mSubPrev', 'mSubNext'], 'Act', 'bAct'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const B = all.find(x => x.id === el?.dataset.id);
+        if (!B) return;
+        const where = B.missions.map(m => G.LEVELS[m]?.name).filter(Boolean).join(' · ');
+        if (el.dataset.locked) { this.fill(`<div class="mx-kick"><span>${esc(B.role)}</span><span></span></div><h3>Not yet felled</h3>${sec('Met in')}<div class="mx-note">${esc(where)}</div>`); return; }
+        const C = coreOf(B.id), tr = traits(B.T), n = d.beast?.[B.id] || 0;
+        this.fill(`<div class="mx-kick"><span>${esc(B.role)}</span><span>Act ${roman(B.act + 1)}</span></div><h3 style="color:${ROLE_COLOR[B.role]}">${esc(B.T.name)}</h3><div class="sub">Felled ${n} time${n === 1 ? '' : 's'}</div>
+          ${sec('Met in')}<div class="mx-note" style="margin-top:0">${esc(where)}</div>
+          ${sec('Its arts')}${artsOf(B.T).map(a => `<div class="mx-fx plain"><span>${esc(a)}</span></div>`).join('')}
+          ${tr.length ? `${sec('Its ways')}${tr.map(t => `<div class="mx-fx set"><span>${esc(t)}</span></div>`).join('')}` : ''}
+          ${sec('Soul Core')}<div class="mx-fx ${C ? '' : 'off'}"><span>${C ? `${esc(C.name)} · ${esc(C.skillName)}` : 'None'}</span></div>`);
+      } };
+  },
+  // Every weapon found: take one in hand (the other carried goes to the back), forge it at a Moonwell; the ranged one carried.
+  arsenal(data) {
+    const G = this.G, d = G.save.data, sv = G.save;
+    let rows = d.arms.map(w => {
+      const W = WEAPONS[w], rank = d.forge[w] || 0, inHand = d.wield === w, onBack = !inHand && d.loadout.includes(w);
+      return row({ act: 'wield', icon: 'sword', title: `${W.name}${rank ? ` +${rank}` : ''}`, tag: inHand ? 'In hand' : onBack ? 'On your back' : '', right: W.mech ? esc(W.mech) : '', extra: `data-w="${w}"`, cls: inHand || onBack ? '' : 'dimmed' });
+    }).join('');
+    rows += divider(`Ranged · one carried · aim with ${G.hud.key('aim')}`) + (d.ranged || ['wisp']).map(r => row({ act: 'wield', icon: 'bow', title: RANGED[r].name, tag: d.rangedSel === r ? 'Carried' : '', extra: `data-r="${r}"` })).join('');
+    const body = panel(list(rows), 'lst', ['Weapons', `${d.arms.length} found · two carried`]) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Arsenal', crumb: `Switch between your two with ${G.hud.key('swap')}`, layout: 'browse', chips: this.chips('glim'), body, hints: [['confirm', 'Take in hand'], data.forge && ['mAlt', 'Forge', 'forge'], ['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const w = el?.dataset.w, r = el?.dataset.r;
+        if (r) { const R = RANGED[r]; this.fill(`<div class="mx-kick"><span>Ranged</span><span>${d.rangedSel === r ? 'carried' : ''}</span></div><h3>${esc(R.name)}</h3><div class="mx-note">${esc(R.desc)}</div>${stats([['Ammunition', R.ammo ? `${R.ammo} ${{ bow: 'arrows', rifle: 'shot', cannon: 'shells' }[r]}, refilled at Moonwells` : 'None: it overheats']])}`); return; }
+        const W = WEAPONS[w]; if (!W) return;
+        const rank = d.forge[w] || 0, cost = forgeCost(rank), gw = d.gear?.items.find(it => it.uid === d.gear.equip.weapons[w]);
+        this.fill(`<div class="mx-kick"><span>${d.wield === w ? 'In hand' : d.loadout.includes(w) ? 'On your back' : 'Stowed'}</span><span>${rank ? `forged +${rank}` : ''}</span></div><h3>${esc(W.name)}</h3><div class="sub">${esc(W.desc)}</div>
+          ${W.mech ? `${sec(W.mech)}<div class="mx-note" style="margin-top:0">${esc(W.mechDesc)}</div>` : ''}
+          ${sec('Forms')}${['high', 'mid', 'low'].map(s => `<div class="mx-fx plain"><span>${{ high: 'High', mid: 'Mid', low: 'Low' }[s]}</span><span class="v">${esc(FORMS[w][s].name)}</span></div>`).join('')}
+          ${gw ? `${sec('Gear in hand')}<div class="mx-fx plain"><span style="color:${col(gw.rar)}">${esc(itemName(gw, id => G.player.weaponName(id)))}</span><span class="v">Lv ${gw.lvl} · ×${weaponMul(gw).toFixed(2)}</span></div>` : ''}
+          ${sec('Forging')}${rank >= FORGE.max ? '<div class="mx-fx set"><span>Forged to +10</span></div>' : `<div class="mx-fx ${data.forge ? 'plain' : 'off'}"><span>To +${rank + 1}: 5% more damage with it</span><span class="v">${cost.toLocaleString()} Glimmer</span></div>`}
+          <div class="mx-note">${data.forge ? (sv.glimmer >= cost ? `Forge it with ${G.hud.key('mAlt')}.` : 'Not enough Glimmer to forge it.') : 'Weapons are forged at a Moonwell.'}</div>`);
+      } };
+  },
+  moves(data) {
+    const G = this.G, arms = G.player.arms, w = arms.includes(data.w) ? data.w : arms[0], Wp = WEAPONS[w], K = KIT[w];
+    const nm = k => esc(Wp.names?.[k] || ATK[k]?.name || k);
+    const forms = ['high', 'mid', 'low'].map(s => {
+      const F = FORMS[w][s];
+      return `<div class="form ${s}"><div class="fh">${icon(STANCE_ICON[s])}<b>${esc(F.name)}</b><small>${{ high: 'High', mid: 'Mid', low: 'Low' }[s]}</small></div>
+        <p><em>Standing</em>${F.neutral.map(nm).join(' → ')}</p><p><em>Moving</em>${F.forward.map(nm).join(' → ')}</p>
+        <p><em>Pause</em>two strikes, wait for the glint, strike: <b>${nm(F.pause)}</b></p><p><em>Heavy</em>${nm(Wp.heavy[s])}</p></div>`;
+    }).join('');
+    const kit = `<div class="kit">${Wp.mech ? `<p><em>${esc(Wp.mech)}</em>${esc(Wp.desc)} ${esc(Wp.mechDesc)}.</p>` : `<p><em>The weapon</em>${esc(Wp.desc)}</p>`}<p><em>Finishers</em>strike then heavy: <b>${nm(K.fin[0])}</b> · two strikes then heavy: <b>${nm(K.fin[1])}</b> · three or more: <b>${nm(K.fin[2])}</b>. A finisher spends the combo counter: the more hits counted, the harder it lands (up to 1.8×).</p>
+      <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} · from a slide: <b>${nm(K.slide)}</b></p>
+      <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill']].map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' (not yet learned)'}`; }).join(' · ')}</p>
+      <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div>`;
+    const body = panel(`${subtabs(G, arms.map(id => ({ name: WEAPONS[id].name, icon: 'sword' })), arms.indexOf(w), 'movesW')}<div class="mx-scroll"><div class="forms3">${forms}</div>${kit}</div>`, 'sht');
+    return { ctx: 'veil', html: this.frame({ title: 'Movesets', crumb: Wp.name, layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Weapon', 'movesW'], ['back', 'Back', 'back']] }) };
+  },
+  skills(data) {
+    const G = this.G, d = G.save.data, owned = [...G.player.arms, ...(G.player.rangedOwned || [])], w = owned.includes(data.w) ? data.w : owned[0];
+    const m = d.mastery?.[w] || { xp: 0, learned: [] }, tree = treeFor(w), earned = pointsAt(m.xp), free = earned - treeCost(m.learned);
+    const Wn = WEAPONS[w]?.name || G.player.rangedDef?.(w)?.name || w, K = SKILL_KITS[w] || {};
+    const pages = owned.map(id => { const mi = d.mastery?.[id] || { xp: 0, learned: [] }, f = pointsAt(mi.xp) - treeCost(mi.learned); return { name: WEAPONS[id]?.name || G.player.rangedDef?.(id)?.name || id, icon: WEAPONS[id] ? 'sword' : 'bow', badge: f > 0 ? f : '' }; });
+    const next = xpFor(earned + 1), prev = xpFor(earned), frac = Math.min(1, (m.xp - prev) / (next - prev));
+    const tiers = [0, 1, 2, 3].map(tier => tree.filter(t => t.tier === tier)).filter(r => r.length).map(r => `<div class="srow">${r.map(t => {
+      const has = m.learned.includes(t.id), open = canLearn(tree, m.learned, t.id), afford = free >= t.cost;
+      const needs = t.req ? t.req.map(q => tree.find(x => x.id === q).name).join(' or ') : '';
+      const desc = t.id === 'mech' ? `${WEAPONS[w]?.mech || 'Mechanic'} Mastery: ${MECH_MASTERY[w] || ''}` : t.move && K[t.move] ? `${t.desc} <b>${esc(G.player.moveName(K[t.move], w))}</b>` : esc(t.desc);
+      const tag = has ? 'Learned' : !open ? `Needs ${esc(needs)}` : `${t.cost} point${t.cost > 1 ? 's' : ''}`;
+      return `<button class="btn skill ${has ? 'has' : open && afford ? 'can' : 'no'}" data-act="learn" data-w="${w}" data-id="${t.id}" data-desc="${esc((t.id === 'mech' ? `${WEAPONS[w]?.mech || ''} Mastery` : t.name) + ' · ' + tag)}">
+        <b>${esc(t.id === 'mech' ? `${WEAPONS[w]?.mech || ''} Mastery` : t.name)}</b><small>${desc}</small><span class="stag">${tag}</span></button>`;
+    }).join('')}</div>`).join('');
+    const body = panel(`${subtabs(G, pages, owned.indexOf(w), 'skillsW')}<div class="mastery"><span>Mastery ${Math.floor(m.xp).toLocaleString()}</span>${meter(frac)}<span>${free} of ${earned} point${earned === 1 ? '' : 's'} to spend · next at ${next.toLocaleString()}</span></div><div class="mx-scroll"><div class="tree">${tiers}</div></div>`, 'sht');
+    return { ctx: 'veil', html: this.frame({ title: 'Skills', crumb: Wn, layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Weapon', 'skillsW'], ['confirm', 'Learn'], ['back', 'Back', 'back']] }),
+      help: 'Every blow landed with a weapon teaches it a little; felling a foe teaches more. Skills can be learned anywhere.' };
+  },
+  // The Moonwell's forge: reroll an effect, or raise the piece's level with another of its kind.
+  smith(data) {
+    const G = this.G, d = G.save.data, g = d.gear, p = G.player, it = g.items.find(x => x.uid === data.uid), wn = id => p.weaponName(id);
+    if (!it) return { ctx: 'veil', html: this.frame({ title: 'The Forge', layout: 'dialog', body: panel('<div class="mx-empty">That piece is gone.</div>'), hints: [['back', 'Back', 'back']] }) };
+    const rc = reforgeCost(it), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+    const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
+    let rows = divider(`Reforge · ${rc.toLocaleString()} Glimmer each`) + (it.fx.length ? it.fx.map(([id, v], i) => row({ act: 'reforge', icon: 'anvil', title: fxText(id, v), note: 'Roll it anew', right: `${rc.toLocaleString()}`, extra: `data-i="${i}"`, off: G.save.glimmer < rc, desc: 'One effect rolled anew, into another the piece doesn\'t carry.' })).join('') : '<div class="mx-empty">A Common piece has no effects to reforge.</div>');
+    rows += divider('Soul Match · the other piece is consumed') + (fod.length ? fod.map(x => { const c = soulMatchCost(it, x); return row({ act: 'soulmatch', icon: 'core', title: `To level ${x.lvl}`, note: `consuming ${itemName(x, wn)}`, right: c.toLocaleString(), extra: `data-from="${x.uid}"`, off: G.save.glimmer < c, desc: 'Raise it to the other piece\'s level.' }); }).join('') : '<div class="mx-empty">No higher-level piece of this kind to match it with (worn pieces are never consumed).</div>');
+    const body = panel(list(rows), 'lst', ['The Moonwell\'s forge', '']) + panel(`<div class="mx-detail">${this.itemDetail(it)}</div>`, 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'The Forge', crumb: itemName(it, wn), sigil: 'anvil', layout: 'browse', chips: this.chips('glim'), body, hints: [['confirm', 'Select'], ['back', 'Back', 'back']] }) };
+  },
+  deeds() {
+    const G = this.G, all = G.deedsView(), earned = all.reduce((a, r) => a + r.tier, 0);
+    const rows = all.map(({ D, n, tier }) => { const next = D.tiers[tier]; return row({ act: 'none', icon: 'deeds', color: tier === 3 ? 'var(--mx-gold)' : tier ? 'var(--mx-rose)' : null, title: D.name, tag: tier ? TIER[tier - 1] : '', right: next ? `${n.toLocaleString()} / ${next.toLocaleString()}` : 'complete', extra: `data-id="${D.id}"` }); }).join('');
+    const body = panel(list(rows), 'lst', ['Deeds', `${earned} of ${all.length * 3} tiers`]) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Deeds', crumb: 'Long goals kept across every mission, Way and depth', layout: 'browse', body, hints: [['back', 'Back', 'back']] }),
+      onFocus: el => {
+        const r = all.find(x => x.D.id === el?.dataset.id); if (!r) return;
+        const { D, n, tier } = r, next = D.tiers[tier];
+        this.fill(`<div class="mx-kick"><span>Deed</span><span>${tier ? `tier ${TIER[tier - 1]}` : 'not yet begun'}</span></div><h3>${esc(D.name)}</h3><div class="sub">${esc(D.desc)}</div>
+          ${meter(next ? n / next : 1, 'gold')}<div class="mx-fx plain"><span>${n.toLocaleString()}${next ? ` of ${next.toLocaleString()}` : ''}</span><span class="v">${next ? `${Math.round(n / next * 100)}%` : 'complete'}</span></div>
+          ${sec('Tiers')}${D.tiers.map((t, k) => `<div class="mx-fx ${k < tier ? 'set' : 'off'}"><span>${TIER[k]} · ${t.toLocaleString()}</span><span class="v">${DEED_GLIMMER[k].toLocaleString()} Glimmer · ${(k + 1) * 5} Moonpetals</span></div>`).join('')}
+          ${sec('Each tier, for good')}<div class="mx-fx"><span>${esc(fxText(D.fx[0], D.fx[1]))}</span></div>`);
+      } };
+  },
+  charms() {
+    const G = this.G, d = G.save.data, worn = d.equipped;
+    const rows = d.charms.map(id => { const c = CHARMS[id], on = worn.includes(id); return row({ act: 'charm', icon: 'charms', color: c.color, title: c.name, tag: on ? 'Worn' : '', extra: `data-id="${id}"`, desc: c.desc }); }).join('');
+    const body = panel(list(rows), 'lst', ['Charms', `${worn.length} of ${CHARM_SLOTS} worn`]) + panel('<div class="mx-detail gdetail live"></div>', 'det');
+    return { ctx: 'veil', html: this.frame({ title: 'Charms', crumb: `${d.charms.length} of ${Object.keys(CHARMS).length} found`, layout: 'browse', body, hints: [['confirm', 'Wear or take off'], ['back', 'Back', 'back']] }),
+      onFocus: el => { const c = CHARMS[el?.dataset.id]; if (!c) return; const on = worn.includes(el.dataset.id); this.fill(`<div class="mx-kick"><span>Charm</span><span>${on ? 'worn' : ''}</span></div><h3 style="color:${c.color}">${esc(c.name)}</h3><div class="mx-lore">${esc(c.desc)}</div><div class="mx-note">Charms lie hidden in the missions, and every gatekeeper and warlord guards one. Up to ${CHARM_SLOTS} can be worn at once.</div>`); } };
+  },
+};

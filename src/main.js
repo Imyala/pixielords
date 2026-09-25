@@ -1313,7 +1313,7 @@ function frame(fixed, draw = true) {
 
   // Menus eat input first.
   const menuWasOpen = G.menu.open;
-  if (menuWasOpen) { G.menu.nav(inp); if (G.overworld.active) G.overworld.update(rdt, inp); inp.pressed.clear(); }   // a button that closes a menu shouldn't also act in game
+  if (menuWasOpen) { G.menu.nav(inp, rdt); if (G.overworld.active) G.overworld.update(rdt, inp); inp.pressed.clear(); }   // a button that closes a menu shouldn't also act in game
 
   if (G.state === 'play') {
     if (!menuWasOpen && G.player.state !== 'rest') {
