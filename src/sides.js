@@ -58,6 +58,23 @@ export const SIDES = Object.fromEntries([
   side('court', 'twilight', { name: 'Twilight: The Moon\'s Last Quarter', desc: 'The moon hangs at its thinnest over the Court, and the Queen\'s knights are at their fiercest.', glimmer: 36000, minRar: 3, moonlit: true }),
   side('court', 'hunt', { name: 'Hunt: Maelis Again', desc: 'Maelis keeps coming back to the Vigil. She does not remember why. Neither do the Queen\'s knights beside her.', target: 'maelis', hp: 1.4, dmg: 1.3, glimmer: 23000, minRar: 3, moonlit: true }),
   side('court', 'duel', { name: 'Duel: The Oathbound', desc: 'The first knight the Lantern Queen ever sent out, sworn to her before she waned. It keeps the oath still.', foe: 'revenant-oathbound', glimmer: 34000, minRar: 3, moonlit: true }),
+
+  // The third act, on the moon.
+  side('shore', 'twilight', { name: 'Twilight: The Tide Comes In', desc: 'For one night the sea of light comes all the way up the shore, and everything in it is bright and hungry.', glimmer: 42000, minRar: 3, moonlit: true }),
+  side('shore', 'hunt', { name: 'Hunt: Oriel Relights the Lamp', desc: 'Oriel has found oil for her lamp. She means to keep it lit this time.', target: 'oriel', hp: 1.4, dmg: 1.3, glimmer: 27000, minRar: 3 }),
+  side('shore', 'duel', { name: 'Duel: Dame Lark of the Long Chain', desc: 'The barge-knight who went inland to the lighthouse, and fell on its steps. Her chain still reaches.', foe: 'revenant-lark', glimmer: 40000, minRar: 3 }),
+  side('hollows', 'twilight', { name: 'Twilight: The Crystal Sings', desc: 'Every crystal in the Hollows rings at once, and the moths come to the noise.', glimmer: 48000, minRar: 3 }),
+  side('hollows', 'hunt', { name: 'Hunt: Tessaly Cuts Again', desc: 'Tessaly\'s wheel has been sharpened on the moon itself.', target: 'tessaly', hp: 1.4, dmg: 1.3, glimmer: 31000, minRar: 3 }),
+  side('hollows', 'duel', { name: 'Duel: Brother Halloway', desc: 'A monk of the first fae who kept the Underlake\'s lamps, and went down into the dark water after the last of them.', foe: 'revenant-halloway', glimmer: 46000, minRar: 3 }),
+  side('necropolis', 'twilight', { name: 'Twilight: The Night of the Dead', desc: 'Every tomb in the Necropolis stands open, and nothing in them is resting.', glimmer: 54000, minRar: 3, moonlit: true }),
+  side('necropolis', 'hunt', { name: 'Hunt: Sir Corvin\'s Second Watch', desc: 'Sir Corvin has taken up his post again. He did not sleep long.', target: 'corvin', hp: 1.4, dmg: 1.3, glimmer: 35000, minRar: 3 }),
+  side('necropolis', 'duel', { name: 'Duel: Sir Mourne the Faithful', desc: 'The King and Queen\'s own shield, who was buried at the foot of their tomb and still stands in front of it.', foe: 'revenant-mourne', glimmer: 52000, minRar: 3 }),
+  side('umbra', 'twilight', { name: 'Twilight: The Longest Dark', desc: 'The Eclipse rises over the black glass, and the dark side\'s foes walk in its light.', glimmer: 60000, minRar: 3, moonlit: true }),
+  side('umbra', 'hunt', { name: 'Hunt: Vesper Watches Still', desc: 'Vesper is back at her post, watching the dark. It is watching you now, through her.', target: 'vesper', hp: 1.4, dmg: 1.3, glimmer: 39000, minRar: 3 }),
+  side('umbra', 'duel', { name: 'Duel: Tamsin Nightfist', desc: 'The boots that went down into the Maw after the hound belonged to Tamsin. She came back up, after a fashion.', foe: 'revenant-tamsin', glimmer: 58000, minRar: 3 }),
+  side('heart', 'twilight', { name: 'Twilight: The Chain Slips', desc: 'The chain of first light slips a link, and the Eclipse\'s knights pour through the gap.', glimmer: 68000, minRar: 3, moonlit: true }),
+  side('heart', 'hunt', { name: 'Hunt: Selene Takes Up the Chain', desc: 'Selene has taken the chain back, and will not let it go to anyone, you least of all.', target: 'selene', hp: 1.4, dmg: 1.3, glimmer: 44000, minRar: 3 }),
+  side('heart', 'duel', { name: 'Duel: The Last Knight', desc: 'The knight who came to the Heart before you and before Maelis, and was the last one the Eclipse ate. It fights exactly as you do.', foe: 'revenant-last', glimmer: 66000, minRar: 3, moonlit: true }),
 ].map(s => [s.id, s]));
 
 // The side missions a mission offers, in order.

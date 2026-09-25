@@ -280,3 +280,22 @@ export function skyTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+
+// The fae world as seen from the moon: a blue sea, green and brown lands, white cloud, a lit crescent and a
+// dark side, on a disc (transparent outside it).
+export function worldFace(seed = 7) {
+  const n = 256, c = canvas(n), g = c.getContext('2d'), img = g.createImageData(n, n), d = img.data, N = makeNoise(seed);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const u = (x + .5) / n * 2 - 1, v = (y + .5) / n * 2 - 1, r = Math.hypot(u, v), i = (y * n + x) * 4;
+    if (r > 1) { d[i + 3] = 0; continue; }
+    const land = N.fbm(u * 2.2 + 3, v * 2.2 + 1, 5), cloud = N.fbm(u * 4 + 9, v * 5 + 4, 4);
+    let col = land > .54 ? (land > .66 ? [120, 104, 78] : [58, 104, 62]) : [26, 64, 128];
+    if (cloud > .6) col = col.map(k => k + (235 - k) * Math.min(1, (cloud - .6) * 3.5));
+    // Lit from the upper left; the far limb in shadow, and a thin rim of air all round.
+    const lit = clamp(.35 + (-u * .6 - v * .5) * .9 + Math.sqrt(1 - r * r) * .5, .12, 1.1);
+    const rim = Math.pow(r, 12) * .8;
+    d[i] = Math.min(255, col[0] * lit + 90 * rim); d[i + 1] = Math.min(255, col[1] * lit + 150 * rim); d[i + 2] = Math.min(255, col[2] * lit + 255 * rim); d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return toTex(c, false);
+}

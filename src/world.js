@@ -2,7 +2,7 @@
 // lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
-import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture } from './textures.js';
+import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture, worldFace } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
 
 // ---------------------------------------------------------------- geometry helpers
@@ -282,7 +282,15 @@ export class World {
       M.leaves.color.setHex(0x1a2e2c);
       M.bark.color.setHex(0x2a2524);
     }
-    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves', 'whitestone', 'palebark', 'snowcap', 'ice']) if (this.mats[k]) cutout(this.mats[k]);
+    // The moon: silver dust underfoot, pale moonrock, selenite, and on its dark side, black glass.
+    if (this.level.moon) {
+      const M = this.mats, sn = lazy('snow', () => snowField(23))();
+      M.dust = new THREE.MeshStandardMaterial({ ...sn, color: 0x9a9da6, roughness: .97, emissive: 0x08090d });
+      M.blackglass = new THREE.MeshStandardMaterial({ color: 0x241e32, emissive: 0x0b0816, roughness: .1, metalness: .6 });
+      M.selenite = new THREE.MeshStandardMaterial({ color: 0xe8f0ff, emissive: 0x6a8ad0, emissiveIntensity: .45, roughness: .15, metalness: .2, transparent: true, opacity: .9, flatShading: true });
+      if (M.rock) { M.rock.color.setHex(this.level.moonRock ?? 0xb4b8c4); M.rock.emissive = new THREE.Color(this.level.moonRockGlow ?? 0x2a2c36); }
+    }
+    for (const k of ['wall', 'pillar', 'stone', 'bark', 'wood', 'rock', 'stake', 'thatch', 'leaves', 'whitestone', 'palebark', 'snowcap', 'ice', 'selenite']) if (this.mats[k]) cutout(this.mats[k]);
     this.cutout = cutout;
     this.glowTex = tex('glow', () => glowTexture());
     this.starTex = tex('star', () => glowTexture('star'));
@@ -308,12 +316,17 @@ export class World {
     sky.renderOrder = -10;
     this.scene.add(sky); this.sky = sky;
     if (this.level.cave) sky.visible = false;   // underground: nothing overhead but the dark
-    const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
-    const Mn = this.level.moon || {};   // a level may hang the moon somewhere grander
+    // A level may hang the moon somewhere grander, or (on the moon itself) the fae world, or nothing at all.
+    const Mn = this.level.moon || {};
+    const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: Mn.glowColor ?? 0xdfe6ff, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
     moon.position.set(...(Mn.at || [-120, 150, 260])); moon.scale.setScalar(Mn.glow || 60);
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(Mn.size || 7, 48), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(Mn.size || 7, 48), new THREE.MeshBasicMaterial({ color: Mn.color ?? 0xeef2ff, fog: false }));
     disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
-    sky.add(moon, disc);
+    if (!Mn.none) sky.add(moon, disc);
+    if (Mn.world) {   // the fae world seen from the moon: sea and land, and a rim of air
+      const land = new THREE.Mesh(new THREE.CircleGeometry((Mn.size || 7) * .98, 48, 0), new THREE.MeshBasicMaterial({ map: tex('fworld', () => worldFace(7)), fog: false, transparent: true }));
+      land.position.copy(disc.position).multiplyScalar(.995); land.lookAt(0, 0, 0); sky.add(land);
+    }
     if (this.level.aurora) this.buildAurora(this.level.aurora);
   }
 

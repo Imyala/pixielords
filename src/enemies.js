@@ -7,6 +7,7 @@ import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
 import { AFFIXES, rollChampion, championDress, championDispose } from './champions.js';
 import { actTwo } from './foes2.js';
+import { actThree } from './foes3.js';
 import { tierHp, tierDmg } from './ways.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
@@ -488,8 +489,9 @@ Object.assign(TYPES, {
   ], { parry: .4, evasive: .6 }),
 });
 
-// The second act's foes (foes2.js).
+// The second act's foes (foes2.js), and the third's, on the moon (foes3.js).
 actTwo(TYPES, { S, A, revenant });
+actThree(TYPES, { S, A, revenant });
 
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 

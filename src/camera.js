@@ -38,15 +38,20 @@ export class CameraRig {
     this.dist = damp(this.dist, (bigLock ? 6.2 : lock ? 5.2 : 4.7) * this.distScale, 2, dt);
     // Aiming a ranged weapon: in close over the right shoulder.
     const ak = this.aimK = dt ? damp(this.aimK || 0, player.aiming ? 1 : 0, 9, dt) : player.aiming ? 1 : 0;
-    if (ak > .001) this.pivot.add({ x: -Math.cos(this.yaw) * .78 * ak, y: .1 * ak, z: Math.sin(this.yaw) * .78 * ak });
+    // Locked on to a foe of ordinary size: a little over the right shoulder, so it isn't hidden behind the knight.
+    const sk = this.lockSide = dt ? damp(this.lockSide || 0, lock && lock.height <= 3 ? 1 : 0, 4, dt) : lock && lock.height <= 3 ? 1 : 0;
+    const side = .78 * ak + .65 * sk * (1 - ak);
+    if (side > .001) this.pivot.add({ x: -Math.cos(this.yaw) * side, y: .1 * ak, z: Math.sin(this.yaw) * side });
     if (lock) {
-      // Locked on: stay high enough to see the foe over the knight's shoulder (a little higher up close and for
-      // big foes), and let the player tilt it themselves.
+      // Locked on: high enough to see the foe's upper body over the knight's head and wings (about 2.4), which asks
+      // for more height the closer and smaller the foe; big foes a little higher still. The player can tilt it.
       const lp = lock.pos, d = Math.hypot(lp.x - p.x, lp.z - p.z);
       this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 9, dt);
-      const big = lock.height > 3;
+      const big = lock.height > 3, D = this.curDist || this.dist, ty = lp.y + Math.min(lock.height * .62, 2.6);
+      const over = (2.4 * (D + d) - ty * D) / Math.max(d, 1.6) - this.pivot.y;   // camera height over the pivot that clears the head
+      const see = Math.asin(clamp(over / D, -1, 1)) - sk * .05;   // the shoulder offset buys a little
+      const want = clamp(Math.max(big ? .42 : .36, see) + (big && d < 6 ? .1 : 0) + (this.lockHeight - 1) * .1 + this.lockTilt, .15, .8);
       this.lockTilt = clamp(this.lockTilt + look.y, -.25, .35);
-      const want = clamp((big ? .42 : .4) + (d < 3 ? .06 : 0) + (big && d < 6 ? .1 : 0) + (this.lockHeight - 1) * .1 + this.lockTilt, .15, .85);
       this.pitch = damp(this.pitch, want, 4, dt);
       this.look.set(lp.x, lp.y + Math.min(lock.height * .5, 2.6), lp.z).lerp(this.pivot, big ? .5 : .55);
       this.look.y = Math.max(this.look.y, this.pivot.y - .1);

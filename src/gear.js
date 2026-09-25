@@ -79,6 +79,17 @@ export const SETS = {
     look: { steel: 0x7a6aa8, cloth: 0x2a1a4a, trim: 0xd8c8ff }, desc: 'Plate of moon-glass and star-iron from the Starfall Crater.' },
   waning: { name: 'Waning Guard\'s', two: '+40 health', four: 'Blows land 6% lighter, and strikes at full health hit 10% harder', fx2: [['hp', 40]], fx4: [['ward', 6], ['dmgFull', 10]],
     look: { steel: 0xe8ecf8, cloth: 0x2a2a5a, trim: 0xf0f0ff }, desc: 'Silver plate of the Waning Queen\'s own guard.' },
+  // The third act, on the moon.
+  selenite: { name: 'Selenite', two: '+15% Faelight, and stamina returns 10% faster', four: 'Moondew heals 30% more, and +60 health', fx2: [['anima', 15], ['kiRegen', 10]], fx4: [['moondew', 30], ['hp', 60]],
+    look: { steel: 0xd8dce8, cloth: 0x2a3a5a, trim: 0xa8c8ff }, desc: 'Moon-silver plate from the lighthouse on the Silver Shore.' },
+  geode: { name: 'Geodeborn', two: 'Chill builds half as fast', four: '+15% posture damage, and blocked blows cost 20% less stamina', fx2: [['chillRes', 50]], fx4: [['ki', 15], ['guard', 20]],
+    look: { steel: 0x7aa8b8, cloth: 0x1a3a48, trim: 0x8ff0ff }, desc: 'Crystal-grown mail from the Hollows of Selene.' },
+  firstfae: { name: 'First Fae\'s', two: '+15% damage from behind', four: 'Deflects give back 20 more stamina, and Executions hit 20% harder', fx2: [['back', 15]], fx4: [['deflect', 20], ['exec', 20]],
+    look: { steel: 0xa8a0b8, cloth: 0x2a2238, trim: 0xd8c8ff }, desc: 'The burial harness of the first fae, pale as the tombs.' },
+  umbral: { name: 'Umbral', two: '+12% damage below a third of health', four: '+12% damage, and one strike in six opens a bleeding wound', fx2: [['dmgLow', 12]], fx4: [['dmg', 12], ['bleed', 16]],
+    look: { steel: 0x2a2638, cloth: 0x16122a, trim: 0x7a5ab8 }, desc: 'Black plate from the moon\'s dark side, cold to the touch.' },
+  eclipse: { name: 'Eclipse', two: '+20% Faelight, and 10% more Glimmer', four: '+15% damage, and blows land 8% lighter', fx2: [['anima', 20], ['glimmer', 10]], fx4: [['dmg', 15], ['ward', 8]],
+    look: { steel: 0x1a1620, cloth: 0x0e0a14, trim: 0xffc860 }, desc: 'Plate of the Eclipse\'s knights: dark, ringed in fire.' },
 };
 // What each mission drops: its set (most of the time) and the item levels it rolls in.
 export const MISSION_GEAR = {
@@ -92,6 +103,11 @@ export const MISSION_GEAR = {
   thornwood: { set: 'courtier', lvl: [56, 62] },
   crater: { set: 'starfallen', lvl: [64, 70] },
   court: { set: 'waning', lvl: [72, 78] },
+  shore: { set: 'selenite', lvl: [80, 86] },
+  hollows: { set: 'geode', lvl: [88, 94] },
+  necropolis: { set: 'firstfae', lvl: [96, 102] },
+  umbra: { set: 'umbral', lvl: [104, 110] },
+  heart: { set: 'eclipse', lvl: [112, 118] },
 };
 const EPITHET = ['of the Waning Moon', 'of Thornfall', 'the Gnawbane', 'of the Silver Hour', 'of the Last Lantern', 'the Rimecaller', 'of Nine Wings', 'the Briarheart'];
 

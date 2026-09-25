@@ -8,7 +8,7 @@ import { FX } from './fx.js';
 import { glowTexture, skyTexture } from './textures.js';
 import { rng, clamp, lerp, smooth, makeNoise, angleDiff, TAU } from './util.js';
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV'];
 export const roman = n => ROMAN[n - 1] || String(n);
 
 // Where a mission sits when its level file doesn't say (x east, z north).
@@ -22,9 +22,13 @@ const BUMPS = [
   [22, 34, 12, 1.1],
   // The Waning Isles, across the Moonlit Sea: the fire mountain, the court's hill, the rose-hills.
   [101, 40, 7, 7.5], [80, -12, 6, 4.5], [116, 16, 7, 2.6], [88, 18, 8, 1.6],
+  // The moon come down to meet the sea, beyond the Isles: pale hills, and hollows where craters are.
+  [150, -24, 6, 2.2], [178, 6, 7, 3.2], [166, 30, 6, 2.4], [146, 16, 3, -.35], [168, -10, 3.5, -.4], [186, 26, 5, 1.6],
 ];
-// A causeway of low isles out across the sea from the Frostmere to the Waning Isles.
+// A causeway of low isles out across the sea from the Frostmere to the Waning Isles, and a bridge of moonlight
+// from the Isles to the moon's shore.
 const CAUSEWAY = [[30, 26], [44, 20.4], [56, 23], [66, 28.5]];
+const MOONBRIDGE = [[112, -3], [122, -1.5], [132, 0]];
 const SPEED = 6.5;   // map units a second, walking the road
 const STATE_COL = { cleared: 0xe6c36a, inprogress: 0x8ff0ff, new: 0x8ff0ff, sealed: 0x5a4a78 };
 
@@ -39,11 +43,11 @@ export class Overworld {
     let h = .8 + (N.fbm(x * .045 + 5, z * .045 + 9, 4) - .5) * 1.6;
     for (const [bx, bz, r, bh] of BUMPS) { const d = Math.hypot(x - bx, z - bz) / r; h += bh * Math.exp(-d * d * 1.6) * (.85 + N.n2(x * .3, z * .3) * .3); }
     // A ragged coast: an oval of land in a dark sea, and the Waning Isles to the east across it.
-    const e = Math.min(Math.hypot(x / 58, (z - 9) / 47), Math.hypot((x - 90) / 40, (z - 12) / 38)) + (N.fbm(x * .03, z * .03, 3) - .5) * .25;
+    const e = Math.min(Math.hypot(x / 58, (z - 9) / 47), Math.hypot((x - 90) / 40, (z - 12) / 38), Math.hypot((x - 160) / 32, (z - 4) / 34)) + (N.fbm(x * .03, z * .03, 3) - .5) * .25;
     const land = lerp(h, -3.5, smooth(clamp((e - .8) / .22, 0, 1)));
     let c = Infinity;
-    for (let i = 0; i < CAUSEWAY.length - 1; i++) {
-      const [ax, az] = CAUSEWAY[i], [bx, bz] = CAUSEWAY[i + 1], vx = bx - ax, vz = bz - az;
+    for (const way of [CAUSEWAY, MOONBRIDGE]) for (let i = 0; i < way.length - 1; i++) {
+      const [ax, az] = way[i], [bx, bz] = way[i + 1], vx = bx - ax, vz = bz - az;
       const t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz), 0, 1);
       c = Math.min(c, Math.hypot(x - ax - vx * t, z - az - vz * t));
     }
@@ -123,14 +127,14 @@ export class Overworld {
   }
 
   buildTerrain() {
-    const W = 250, D = 130, geo = new THREE.PlaneGeometry(W, D, 250, 130);
-    geo.rotateX(-Math.PI / 2); geo.translate(45, 0, 9);
+    const W = 290, D = 130, geo = new THREE.PlaneGeometry(W, D, 290, 130);
+    geo.rotateX(-Math.PI / 2); geo.translate(65, 0, 9);
     const P = geo.attributes.position;
     for (let i = 0; i < P.count; i++) P.setY(i, this.height(P.getX(i), P.getZ(i)));
     const g = geo.toNonIndexed(); g.computeVertexNormals();
     const Q = g.attributes.position, NR = g.attributes.normal, col = new Float32Array(Q.count * 3), c = new THREE.Color(), N = this.N;
     const C = h => new THREE.Color(h);
-    const ash = C(0x3a3230), briar = C(0x3a2434), glass = C(0x4a3a72);
+    const ash = C(0x3a3230), briar = C(0x3a2434), glass = C(0x4a3a72), lunar = C(0xb4b8c6), lunar2 = C(0x8a8e9c), darkside = C(0x1c1828), goldc = C(0x8a7040);
     const grass = C(0x3b5530), grass2 = C(0x5a7038), forest = C(0x1c3020), rock = C(0x5e5c68), snow = C(0xdfe6f2), shore = C(0x6a6450), deep = C(0x1a2432), heath = C(0x6a5a44);
     for (let f = 0; f < Q.count; f += 3) {
       // One colour per face, from its centre, for a cut-paper diorama look.
@@ -144,6 +148,11 @@ export class Overworld {
       c.lerp(ash, clamp(Math.exp(-((x - 101) ** 2 + (z - 38) ** 2) / 90) * 1.3, 0, 1));
       c.lerp(briar, clamp(Math.exp(-((x - 114) ** 2 + (z - 8) ** 2) / 70) * 1.2, 0, 1));
       c.lerp(glass, clamp(Math.exp(-((x - 96) ** 2 + (z + 12) ** 2) / 50) * 1.2, 0, 1));
+      // The moon's shore: silver dust, darker maria, the black glass of its dark side, and gold at its heart.
+      const moonK = smooth(clamp((x - 126) / 6, 0, 1));
+      c.lerp(lunar, moonK); c.lerp(lunar2, moonK * clamp((N.fbm(x * .06 + 40, z * .06, 3) - .45) * 3, 0, 1));
+      c.lerp(darkside, clamp(Math.exp(-((x - 182) ** 2 + (z - 24) ** 2) / 80) * 1.4, 0, 1));
+      c.lerp(goldc, clamp(Math.exp(-((x - 160) ** 2 + (z - 26) ** 2) / 30) * .9, 0, 1));
       c.lerp(rock, smooth(clamp((.86 - ny) / .2, 0, 1)) * .9 + smooth(clamp((y - 2.6) / 1.2, 0, 1)) * .5);
       const north = smooth(clamp((x - 10) / 8, 0, 1)) * smooth(clamp((z - 20) / 8, 0, 1)) * smooth(clamp((48 - x) / 8, 0, 1));
       c.lerp(snow, Math.max(smooth(clamp((y - 5.4) / 1.2, 0, 1)) * smooth(clamp((60 - x) / 6, 0, 1)), north * .95) * (ny > .55 ? 1 : .7));
@@ -162,7 +171,7 @@ export class Overworld {
     const spots = [];
     for (let tries = 0; spots.length < 1050 && tries < 15000; tries++) {
       const x = -60 + R() * 200, z = -35 + R() * 95, h = this.height(x, z);
-      if (h < .55 || h > 4.6) continue;
+      if (h < .55 || h > 4.6 || x > 124) continue;   // nothing grows on the moon
       const wood = Math.exp(-((x + 27) ** 2 + (z + 1) ** 2) / 90) + Math.exp(-((x - 114) ** 2 + (z - 8) ** 2) / 70) * .8;
       if (R() > .1 + wood * 1.4) continue;
       if (this.nearRoad(x, z) < 1.6 || this.nodes.some(n => Math.hypot(x - n.lx, z - n.lz) < n.lr + .8 || Math.hypot(x - n.x, z - n.z) < 2.6)) continue;
@@ -452,6 +461,59 @@ export class Overworld {
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: 0xc8d4ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); halo.position.y = 8.2; halo.scale.setScalar(6); g.add(halo);
     this.anim.push(t => { isle.position.y = 3.2 + Math.sin(t * .8) * .2; });
     return 9;
+  }
+
+  // The Silver Shore: a white lighthouse on the dunes, its beam turning out over the sea.
+  lm_shore(g) {
+    const white = std(0xf0f2fa, { emissive: 0x1c2438 }), dust = std(0xb4b8c6);
+    const dune = new THREE.Mesh(new THREE.SphereGeometry(2.4, 12, 6, 0, TAU, 0, Math.PI / 2), dust); dune.scale.y = .35; g.add(dune);
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(.45, .7, 4.2, 12), white); tower.position.y = 2.6; g.add(tower);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(.6, .7, 12), white); cap.position.y = 5.1; g.add(cap);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(.9, 7, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true, opacity: .09, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.geometry.translate(0, -4, 0); beam.rotation.z = Math.PI / 2; const pivot = new THREE.Group(); pivot.position.y = 4.5; pivot.add(beam); g.add(pivot);
+    this.flame(g, 0, 4.5, 0, 0xfff0c8, 1.4, 5);
+    this.anim.push(t => { pivot.rotation.y = t * .7; });
+    return 6;
+  }
+
+  // The Hollows of Selene: a mouth into the moon ringed with singing crystal.
+  lm_hollows(g) {
+    const rock = std(0x8a8e9c), crys = std(0xb8ffff, { emissive: 0x3ad0e8, emissiveIntensity: .9, roughness: .15 });
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 8, 0, TAU, 0, Math.PI / 2), rock); mound.scale.y = .6; g.add(mound);
+    const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: 0x02040a })); mouth.position.set(0, .9, -2.35); mouth.rotation.x = -.25; g.add(mouth);
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, c = new THREE.Mesh(new THREE.OctahedronGeometry(.32, 0), crys); c.scale.y = 2.4 + (i % 3) * .6; c.position.set(Math.sin(a) * 1.9, 1.2 + (i % 2) * .3, Math.cos(a) * 1.5); c.rotation.z = Math.sin(a) * .4; g.add(c); }
+    const l = new THREE.PointLight(0x8ff0ff, 6, 12, 1.6); l.position.y = 2; g.add(l);
+    return 3.6;
+  }
+
+  // The Necropolis of the First Fae: white tombs and an obelisk.
+  lm_necropolis(g) {
+    const white = std(0xe8e4f0, { emissive: 0x1c1a28 });
+    const ob = new THREE.Mesh(new THREE.CylinderGeometry(.18, .45, 4.4, 4), white); ob.position.y = 2.2; ob.rotation.y = Math.PI / 4; g.add(ob);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + .3, t = new THREE.Mesh(new THREE.BoxGeometry(.7, .6, 1.3), white); t.position.set(Math.sin(a) * 2, .3, Math.cos(a) * 2); t.rotation.y = a; g.add(t); }
+    this.flame(g, 0, 4.7, 0, 0xd8c8ff, 1, 4);
+    return 5.2;
+  }
+
+  // The Umbral Sea: spikes of black glass under a violet glow.
+  lm_umbra(g) {
+    const glass = std(0x16121f, { roughness: .1, metalness: .7, emissive: 0x0a0616 });
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, r = i % 2 ? 1.8 : 1, s = new THREE.Mesh(new THREE.ConeGeometry(.35, 2.2 + (i % 3) * .9, 4), glass); s.position.set(Math.sin(a) * r, 1.1, Math.cos(a) * r); s.rotation.z = Math.sin(a) * .35; s.rotation.x = Math.cos(a) * .35; g.add(s); }
+    const big = new THREE.Mesh(new THREE.ConeGeometry(.6, 4.2, 4), glass); big.position.y = 2.1; g.add(big);
+    const l = new THREE.PointLight(0x8a5aff, 7, 12, 1.6); l.position.y = 2.4; g.add(l);
+    this.flame(g, 0, 4.5, 0, 0xb08aff, 1.1);
+    return 4.8;
+  }
+
+  // The Heart of the Moon: the Eclipse, a black sun ringed in fire, chained to the ground with light.
+  lm_heart(g) {
+    const chain = std(0xfff0c8, { emissive: 0xffc860, emissiveIntensity: .8 });
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(1.1, 24, 14), new THREE.MeshBasicMaterial({ color: 0x000000 })); sun.position.y = 4; g.add(sun);
+    const corona = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glow, color: 0xffb850, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); corona.position.y = 4; corona.scale.setScalar(5.5); g.add(corona);
+    for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + .4; for (let i = 0; i < 6; i++) { const t = i / 5, l = new THREE.Mesh(new THREE.TorusGeometry(.14, .04, 5, 10), chain); l.position.set(Math.sin(a) * (2.2 - t * 1.4), .2 + t * 3.2, Math.cos(a) * (2.2 - t * 1.4)); l.rotation.set(i % 2 ? Math.PI / 2 : 0, a, 0); g.add(l); } }
+    this.anim.push(t => { sun.position.y = corona.position.y = 4 + Math.sin(t * .8) * .15; corona.scale.setScalar(5.2 + Math.sin(t * 1.3) * .4); });
+    const l = new THREE.PointLight(0xffc860, 6, 12, 1.6); l.position.y = 3; g.add(l);
+    return 5.8;
   }
 
   lm_generic(g) {

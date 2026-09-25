@@ -16,7 +16,7 @@ export const isBossDepth = depth => depth % CHECK_EVERY === 0;
 export const isCheckpoint = depth => (depth - 1) % CHECK_EVERY === 0;
 export const checkpointOf = depth => depth - (depth - 1) % CHECK_EVERY;
 
-const THEMES = ['keep', 'rotwood', 'deep', 'moonspire', 'frostmere', 'abbey', 'forge', 'thornwood', 'crater', 'court'];
+const THEMES = ['keep', 'rotwood', 'deep', 'moonspire', 'frostmere', 'abbey', 'forge', 'thornwood', 'crater', 'court', 'shore', 'hollows', 'necropolis', 'umbra', 'heart'];
 export const themeOf = depth => THEMES[Math.floor((depth - 1) / CHECK_EVERY) % THEMES.length];
 const LOOK = {
   keep: { floor: 'floor', edge: 'wall', flags: {}, rooms: ['Hall', 'Gallery', 'Cellar', 'Crypt', 'Armoury', 'Chapel'], fire: 0xff8a3a },
@@ -29,6 +29,11 @@ const LOOK = {
   thornwood: { floor: 'earth', edge: 'thorn', flags: { forest: true }, rooms: ['Garden', 'Bower', 'Arbour', 'Hedge Maze', 'Grove', 'Parterre'], fire: 0xff8ab8 },
   crater: { floor: 'earth', edge: 'cliff', flags: { forest: true }, rooms: ['Glass Field', 'Geode', 'Hollow', 'Rift', 'Shardfall', 'Basin'], fire: 0xb8a0ff },
   court: { floor: 'marble', edge: 'wall', wall: 'whitestone', flags: { spire: true }, rooms: ['Hall', 'Terrace', 'Gallery', 'Sanctum', 'Night Garden', 'Vigil'], fire: 0xc9d8ff },
+  shore: { floor: 'dust', edge: 'cliff', flags: { forest: true, spire: true, moon: true }, rooms: ['Dune', 'Shallow', 'Strand', 'Wreck', 'Lamp-Room', 'Tidepool'], fire: 0xfff0c8 },
+  hollows: { floor: 'cavefloor', edge: 'cliff', flags: { cave: true, spire: true, moon: true, moonRock: 0x7a8aa8, moonRockGlow: 0x0c1620 }, rooms: ['Gallery', 'Geode', 'Underlake', 'Cut', 'Lamp-Hall', 'Nest'], fire: 0x8ff0ff },
+  necropolis: { floor: 'marble', edge: 'wall', wall: 'whitestone', flags: { forest: true, spire: true, moon: true }, rooms: ['Tomb', 'Ossuary', 'Vigil', 'Chapel', 'Lily Garden', 'Crypt'], fire: 0xd8c8ff },
+  umbra: { floor: 'blackglass', edge: 'cliff', flags: { frost: true, spire: true, moon: true, moonRock: 0x3a3450, moonRockGlow: 0x06040c }, rooms: ['Flat', 'Reef', 'Star-Well', 'Watch', 'Strand', 'Maw'], fire: 0xb08aff },
+  heart: { floor: 'cavefloor', edge: 'cliff', flags: { cave: true, spire: true, moon: true, moonRock: 0x5a5470, moonRockGlow: 0x100c14 }, rooms: ['Vein', 'Orrery', 'Hall of Chains', 'Threshold', 'Antechamber', 'Hollow'], fire: 0xffd890 },
 };
 const ADJ = ['Weeping', 'Thorned', 'Hollow', 'Sunken', 'Dreaming', 'Forgotten', 'Moonless', 'Broken', 'Silent', 'Gnawed', 'Pale', 'Drowned', 'Crooked', 'Starless', 'Withered', 'Bleeding', 'Whispering', 'Lantern'];
 
@@ -48,6 +53,12 @@ const BOSSES = [
   { types: ['shardling'], from: 'crater' }, { types: ['stareater'], from: 'crater', adds: true },
   { types: ['maelis'], from: 'court' }, { types: ['queen'], from: 'court', adds: true },
   { types: ['revenant-graves'] }, { types: ['revenant-ashkettle'] }, { types: ['revenant-rook'] }, { types: ['revenant-cinderwing'] }, { types: ['revenant-oathbound'] },
+  { types: ['oriel'], from: 'shore' }, { types: ['gloam'], from: 'shore', adds: true },
+  { types: ['tessaly'], from: 'hollows' }, { types: ['nyx'], from: 'hollows', adds: true },
+  { types: ['corvin'], from: 'necropolis' }, { types: ['hollow-king', 'hollow-queen'], from: 'necropolis' },
+  { types: ['vesper'], from: 'umbra' }, { types: ['nightmaw'], from: 'umbra', adds: true },
+  { types: ['selene'], from: 'heart' }, { types: ['eclipse'], from: 'heart', adds: true },
+  { types: ['revenant-lark'] }, { types: ['revenant-halloway'] }, { types: ['revenant-mourne'] }, { types: ['revenant-tamsin'] }, { types: ['revenant-last'] },
 ];
 export const bossOf = depth => BOSSES[(depth / CHECK_EVERY - 1) % BOSSES.length];
 
@@ -146,6 +157,11 @@ export function makeFloor(depth, seed = 1) {
     thornwood: [['tree', 3], ['deadTree', 1.5], ['brazier', 1.5], ['urn', 1.5], ['boulder', 1]],
     crater: [['crystal', 3], ['crystalB', 1.5], ['boulder', 2], ['stalagmite', 1.5]],
     court: [['pillarW', 3], ['moonpool', 1.2], ['urn', 2], ['brazier', 2], ['arch', .8]],
+    shore: [['boulder', 2.5], ['moonpool', 1.2], ['brazier', 1.5], ['urn', 1.5], ['pillarW', 1]],
+    hollows: [['crystal', 3], ['crystalB', 1.5], ['moonpool', .8], ['stalagmite', 1]],
+    necropolis: [['pillarW', 2.5], ['urn', 2], ['brazier', 2], ['moonpool', .8], ['deadTree', 1]],
+    umbra: [['crystal', 2.5], ['crystalB', 1.5], ['boulder', 2], ['brazier', 1]],
+    heart: [['crystal', 2], ['pillarW', 2], ['brazier', 1.5], ['urn', 1.5], ['crystalB', 1]],
   }[theme];
   const wsum = DECO.reduce((a, [, w]) => a + w, 0);
   const pickDeco = () => { let x = R() * wsum; for (const [k, w] of DECO) { x -= w; if (x <= 0) return k; } return DECO[0][0]; };
@@ -155,7 +171,7 @@ export function makeFloor(depth, seed = 1) {
     for (let i = 0; i < lights; i++) {
       const a = rm.kind === 'arena' ? (i + .5) / lights * Math.PI * 2 : i * Math.PI + R() * .6;
       const x = rm.cx + Math.sin(a) * (rm.w / 2 - 3), z = rm.cz + Math.cos(a) * (rm.d / 2 - 3);
-      if (!nearDoor(rm, x, z) && free(x, z, 1)) { blocked.push({ x, z, r: 1 }); rm.deco.push({ k: theme === 'deep' || theme === 'crater' ? 'crystal' : 'brazier', x, z, s: 1 }); }
+      if (!nearDoor(rm, x, z) && free(x, z, 1)) { blocked.push({ x, z, r: 1 }); rm.deco.push({ k: ['deep', 'crater', 'hollows'].includes(theme) ? 'crystal' : 'brazier', x, z, s: 1 }); }
     }
     if (rm.kind === 'arena') {
       for (let i = 0; i < 8; i++) { const a = (i + .5) / 8 * Math.PI * 2, x = rm.cx + Math.sin(a) * 10.5, z = rm.cz + Math.cos(a) * 9.5; if (!nearDoor(rm, x, z)) { blocked.push({ x, z, r: 1.2 }); rm.deco.push({ k: ['rotwood', 'frostmere', 'thornwood', 'crater'].includes(theme) ? 'boulder' : 'pillarB', x, z, s: 1, seed: i }); } }
@@ -255,7 +271,7 @@ function buildFloor(w, L, look, rooms, corrs, bounds, arena, theme) {
     switch (d.k) {
       case 'brazier': w.brazier(x, z, fire, true, 1); break;
       case 'pillar': w.pillar(x, z, .7, 7.5, false); break;
-      case 'pillarB': w.pillar(x, z, .8, 8, R() < .4, theme === 'moonspire' || theme === 'court' ? 'whitestone' : 'pillar'); break;
+      case 'pillarB': w.pillar(x, z, .8, 8, R() < .4, ['moonspire', 'court', 'necropolis', 'heart'].includes(theme) ? 'whitestone' : 'pillar'); break;
       case 'pillarW': w.pillar(x, z, .6, 7, R() < .3, 'whitestone'); break;
       case 'pile': w.pile(x, z, [['crate', 0, 0], ['barrel', 1, .2], ['crate', .2, 1.05]].slice(0, 1 + Math.floor(R() * 3)), R() * 3); break;
       case 'urn': w.breakable('urn', x, z); break;

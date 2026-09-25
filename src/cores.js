@@ -49,6 +49,26 @@ Object.assign(CORES, {
   queen: { name: 'Waning Queen\'s Core', boss: true, skill: 'frenzy', skillName: 'Dark of the Moon', cost: 50, fx: ['dmg', 10], from: ['queen'], desc: 'for twelve seconds, strikes hit a third harder and blows can\'t stagger you' },
   fallen: { name: 'Fallen Knight\'s Core', skill: 'lunge', skillName: 'Fallen Lance', cost: 25, fx: ['dmgFull', 8], from: ['hollow-squire', 'hollow-lancer', 'iron-sentinel', 'thorn-knight', 'thorn-reaver', 'star-shade', 'waning-knight', 'waning-lancer'], desc: 'a spectral lance driven straight through' },
 });
+// The third act, on the moon.
+Object.assign(CORES, {
+  oriel: { name: 'Lamp-Keeper\'s Core', boss: true, skill: 'lance', skillName: 'Beacon Lance', cost: 40, fx: ['kiRegen', 18], from: ['oriel'], desc: 'a charging thrust and a lance of lamplight' },
+  gloam: { name: 'Shell-Colossus\'s Core', boss: true, skill: 'quake', skillName: 'Dune Breaker', cost: 45, fx: ['hp', 70], from: ['gloam'], desc: 'a great leaping slam that throws the dust up' },
+  tessaly: { name: 'Crystal Warden\'s Core', boss: true, skill: 'grindwheel', skillName: 'Crystal Wheel', cost: 40, fx: ['ki', 18], from: ['tessaly'], desc: 'a wheel of crystal rolled along the ground' },
+  nyx: { name: 'Mother of Moths\' Core', boss: true, skill: 'nova', skillName: 'Moth Nova', cost: 50, fx: ['anima', 20], from: ['nyx'], desc: 'a burst of wings that throws foes back, and five seeking moths' },
+  corvin: { name: 'Unsleeping Core', boss: true, skill: 'crescent', skillName: 'Lament of Blades', cost: 45, fx: ['exec', 20], from: ['corvin'], desc: 'a sundering blow that throws a crescent of grave-light' },
+  aurel: { name: 'Hollow King\'s Core', boss: true, skill: 'quake', skillName: 'Crown-Quake', cost: 45, fx: ['guard', 20], from: ['hollow-king'], desc: 'a leaping slam that shakes the tombs' },
+  ilune: { name: 'Hollow Queen\'s Core', boss: true, skill: 'blink', skillName: 'The Queen\'s Step', cost: 35, fx: ['back', 24], from: ['hollow-queen'], desc: 'blink behind a foe and cut, and on to the next' },
+  vesper: { name: 'Watcher\'s Core', boss: true, skill: 'frenzy', skillName: 'Hundred Nights', cost: 45, fx: ['pause', 18], from: ['vesper'], desc: 'for twelve seconds, strikes hit a third harder and blows can\'t stagger you' },
+  nightmaw: { name: 'Hound\'s Core', boss: true, skill: 'rush', skillName: 'Maw Rush', cost: 35, fx: ['dmgLow', 18], from: ['nightmaw'], desc: 'a charge that bowls through everything' },
+  selene: { name: 'First Lantern\'s Core', boss: true, skill: 'mirror', skillName: 'First Lantern', cost: 40, fx: ['moondew', 25], from: ['selene'], desc: 'a spectral knight of light that strikes beside you' },
+  eclipse: { name: 'Eclipse Core', boss: true, skill: 'pyre', skillName: 'Totality', cost: 50, fx: ['dmg', 12], from: ['eclipse'], desc: 'a ring of the Eclipse\'s fire that burns everything near' },
+});
+for (const [id, list] of Object.entries({
+  fallen: ['selene-sentry', 'crystal-knight', 'moth-shade', 'hollow-courtier', 'hollow-guard', 'umbral-knight', 'eclipse-knight', 'eclipse-lancer'],
+  scout: ['goblin-dustrunner'], brute: ['ratman-shellback'], pack: ['ratman-crystalback', 'ratman-gravewight'], assassin: ['ratman-voidfang'], berserker: ['goblin-nightbrute'],
+  shaman: ['goblin-lampwright', 'goblin-geomancer', 'goblin-bonecaller', 'goblin-voidcaller'],
+  revenant: ['revenant-lark', 'revenant-halloway', 'revenant-mourne', 'revenant-tamsin', 'revenant-last'],
+})) CORES[id].from.push(...list);
 for (const [id, list] of Object.entries({
   pack: ['ratman-drowned', 'ratman-starbitten'], brute: ['ratman-brinebrute', 'ratman-slagbrute', 'ratman-crystalbrute'],
   shaman: ['goblin-tidecaller', 'goblin-starcaller', 'goblin-briarhexer', 'ratman-shardseer'], spear: ['goblin-forgeguard'], berserker: ['goblin-hammerer'],

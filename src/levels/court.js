@@ -31,7 +31,7 @@ export default {
   name: 'The Waning Court',
   blurb: 'The palace of the Waning Queen, hung in the sky where the moon once rose. Everything the moon has lost is here, and she will not give it back.',
   level: 74,
-  gatekeeper: { hp: 1, dmg: 2.3 },   // scaled to keep pace with the knight (balance pass)
+  gatekeeper: { hp: 1, dmg: 2.7 },   // scaled to keep pace with the knight (balance pass)
   warlord: { hp: 1.2, dmg: 2.3 },
   map: { x: 74, z: -4 },
   seed: 10108,
@@ -44,10 +44,8 @@ export default {
   moon: { at: [0, 60, 380], glow: 380, size: 52 },
   enemyGlow: .16,
   intro: 'The Waning Queen\'s court hangs in the sky where the moon once rose.\nClimb to her throne, and give the moon back to everyone.',
-  endingTitle: 'THE MOON RETURNS',
-  ending: 'The Waning Queen falls, and every thread of moonlight she hoarded unspools from her at once. It pours up out of the court in a white river, and the moon, which has only waned for a year, begins at last to wax.\nMaelis wakes on the stair with her own eyes back, and asks for her lantern. The Lantern Court will have to learn to keep its lights without a queen.\nThe paths are still. Walk them again, and every foe will remember you.',
-  outro: 'The Waning Queen falls, and the moon begins to wax.',
-  exitToast: 'The moon waxes. A Pixie Gate opens at the throne',
+  outro: 'The Waning Queen falls, and every thread of moonlight she hoarded unspools from her at once, up out of the court in a white river toward the moon. The moon begins to wax. And on the moon, something that was starving turns over in its sleep. The river waits at the throne to carry you up.',
+  exitToast: 'The moon waxes. The white river waits at the throne',
   motes: { base: 0xeef2ff, gardens: 0xd8e0ff, throne: 0xffffff },
   titleShrine: 'stair',
   areas: roomAreas(ROOMS),
