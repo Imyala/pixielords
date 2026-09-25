@@ -18,6 +18,8 @@ import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings } from '.
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
+import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
+import { RANGED } from './ranged.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -28,6 +30,7 @@ for (const [m, list] of Object.entries(ARMORY_ITEMS)) for (const w of [].concat(
 }
 // Weapons won from a mission's gatekeeper ('gate') or warlord ('boss').
 const armoryFrom = (kind, mission) => Object.keys(ARMORY).filter(id => ARMORY[id].source[kind] === mission);
+const rangedFrom = (kind, mission) => Object.keys(RANGED).filter(id => RANGED[id].source?.[kind] === mission);
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -230,6 +233,7 @@ function placeAtShrine(id) {
   const d = G.save.data;
   p.arms = [...d.arms]; p.loadout = [...d.loadout]; p.forge = d.forge; p.setWeapon(d.wield);
   p.arts = [...d.arts]; p.art = d.artSel;
+  p.rangedOwned = [...d.ranged]; p.rangedSel = d.rangedSel; p.k.setRanged(null, RANGED[d.rangedSel]?.kind === 'pod' ? null : d.rangedSel);
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
   p.elixirs = G.save.elixirMax;
   G.cam.snap(p);
@@ -349,6 +353,12 @@ G.onBreak = b => {
   }
   if (!b.blast && Math.random() < .22) G.fx.wisps(at, 1, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   if (b.blast) G.after(.18, () => blast(b));
+  // Now and then a few arrows, shot or a shell for the ranged weapon carried.
+  const R = RANGED[p.rangedSel];
+  if (R?.ammo && !b.blast && Math.random() < .3) {
+    const got = p.addAmmo(p.rangedSel, { bow: 5, rifle: 2, cannon: 1 }[p.rangedSel]);
+    if (got) G.after(.3, () => G.hud.toast(`+${got} ${{ bow: 'arrows', rifle: 'shot', cannon: got > 1 ? 'shells' : 'shell' }[p.rangedSel]}`, 'item'));
+  }
 };
 
 function blast(b) {
@@ -410,8 +420,29 @@ function grantWeapon(id, quiet = false) {
   }
   return true;
 }
+// A ranged weapon won the same way: carried at once, in place of whatever was carried before.
+function grantRanged(id, quiet = false) {
+  const d = G.save.data, p = G.player, R = RANGED[id];
+  if (!R || d.ranged.includes(id)) return false;
+  d.ranged.push(id); p.rangedOwned = [...d.ranged];
+  if (!quiet) {
+    readyRanged(id);
+    G.after(.9, () => { G.hud.toast(`Ranged weapon: ${R.name}`, 'item'); G.audio.sfx('pickup'); });
+    G.tipAfter(1.8, `${R.name}: ${R.desc}\nAim with ${G.hud.key('aim')} and strike to fire; ${G.hud.key('aim')} again or guard to lower it. Ammunition is refilled at every Moonwell. Change ranged weapons in the Arsenal.`);
+  }
+  return true;
+}
+function readyRanged(id) {
+  const d = G.save.data, p = G.player;
+  if (!d.ranged.includes(id)) return;
+  d.rangedSel = id; p.rangedSel = id; p.endAim(); p.refillAmmo();
+  p.k.setRanged(null, RANGED[id].kind === 'pod' ? null : id);
+}
+G.readyRanged = id => { readyRanged(id); G.audio.sfx('stance', { pitch: 1.2 }); G.save.write(); };
 // Gatekeepers and warlords already felled (older saves, or a mission cleared before charms) still owe theirs.
 function grantTrophies() {
+  const d = G.save.data;
+  d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[0]; d.mastery ||= {};
   for (const L of Object.values(LEVELS)) {
     const dead = G.save.mission(L.id).dead;
     const gateDown = L.gate && dead.includes(L.gate.guardian), bossDown = bossIds(L).every(id => dead.includes(id));
@@ -419,6 +450,8 @@ function grantTrophies() {
     if (L.bossCharm && bossDown) grantCharm(L.bossCharm, true);
     if (gateDown) for (const w of armoryFrom('gate', L.id)) grantWeapon(w, true);
     if (bossDown) for (const w of armoryFrom('boss', L.id)) grantWeapon(w, true);
+    if (gateDown) for (const r of rangedFrom('gate', L.id)) grantRanged(r, true);
+    if (bossDown) for (const r of rangedFrom('boss', L.id)) grantRanged(r, true);
   }
 }
 G.equipCharm = id => {
@@ -436,6 +469,7 @@ function gatekeeperDefeated() {
   G.save.m.dead.push(gt.guardian);
   if (gt.charm) G.after(3.4, () => { grantCharm(gt.charm); G.save.write(); });
   for (const w of armoryFrom('gate', G.level.id)) G.after(4.2, () => { grantWeapon(w); G.save.write(); });
+  for (const r of rangedFrom('gate', G.level.id)) G.after(6.4, () => { grantRanged(r); G.save.write(); });
   G.save.write();
   G.slowmo = .9;
   G.after(0.9, () => {
@@ -465,6 +499,7 @@ function bossDefeated() {
   for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
   for (const w of armoryFrom('boss', G.level.id)) G.after(3.8, () => { grantWeapon(w); G.save.write(); });
+  for (const r of rangedFrom('boss', G.level.id)) G.after(6.2, () => { grantRanged(r); G.save.write(); });
   G.save.write();
   G.slowmo = 1.6;
   G.audio.music('none');
@@ -552,7 +587,7 @@ function rest(shrine) {
   G.after(0.9, () => {
     if (G.state !== 'play') return;
     applyWorldState();
-    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw();
+    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw(); p.refillAmmo();
     G.save.write();
     G.input.wantLock = false; G.input.releaseLock();
     G.menu.show('shrine', shrine);
@@ -578,6 +613,16 @@ G.wieldWeapon = w => {
   p.loadout = [...d.loadout]; p.resetChain(); p.setWeapon(w);
   G.audio.sfx('stance', { pitch: .9 });
   G.save.write();
+};
+// Skills (skills.js): spend a weapon's skill points on one of its skills, once what it needs is learned.
+G.learnSkill = (w, id) => {
+  const d = G.save.data, m = ((d.mastery ||= {})[w] ||= { xp: 0, learned: [] }), tree = treeFor(w), t = tree.find(x => x.id === id);
+  if (!t || !canLearn(tree, m.learned, id) || pointsAt(m.xp) - treeCost(m.learned) < t.cost) return false;
+  m.learned.push(id);
+  G.audio.sfx('levelUp');
+  const p = G.player; G.fx.motes({ x: p.pos.x, y: .8, z: p.pos.z }, 0x9ff3ff, 24, .6, 2, .1, 1);
+  G.save.write();
+  return true;
 };
 G.forgeWeapon = w => {
   const sv = G.save, d = sv.data, rank = d.forge[w] || 0, cost = forgeCost(rank);

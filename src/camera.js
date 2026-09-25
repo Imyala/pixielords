@@ -33,6 +33,9 @@ export class CameraRig {
     this.pivot.set(p.x, this.pivotY, p.z);
     const bigLock = lock && lock.height > 3;
     this.dist = damp(this.dist, bigLock ? 6 : 4.7, 2, dt);
+    // Aiming a ranged weapon: in close over the right shoulder.
+    const ak = this.aimK = dt ? damp(this.aimK || 0, player.aiming ? 1 : 0, 9, dt) : player.aiming ? 1 : 0;
+    if (ak > .001) this.pivot.add({ x: -Math.cos(this.yaw) * .78 * ak, y: .1 * ak, z: Math.sin(this.yaw) * .78 * ak });
     if (lock) {
       const lp = lock.pos, d = Math.hypot(lp.x - p.x, lp.z - p.z);
       this.yaw = dampAngle(this.yaw, yawTo(p.x, p.z, lp.x, lp.z), 9, dt);
@@ -41,15 +44,16 @@ export class CameraRig {
       this.pitch = damp(this.pitch, want, 4, dt);
       this.look.set(lp.x, lp.y + Math.min(lock.height * .55, 3), lp.z).lerp(this.pivot, big ? .5 : .6);
     } else {
-      this.yaw -= look.x; this.pitch = clamp(this.pitch + look.y, -.32, 1.15);
+      this.yaw -= look.x; this.pitch = clamp(this.pitch + look.y, player.aiming ? -.6 : -.32, 1.15);
       if (this.recenterT > 0) { this.recenterT -= dt; this.yaw = dampAngle(this.yaw, this.recenterYaw, 14, dt); this.pitch = damp(this.pitch, .32, 10, dt); }
       this.look.copy(this.pivot);
     }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     const dir = new THREE.Vector3(-fx * cp, sp, -fz * cp);
     // Pull in when a wall is between the player and the camera.
-    const hit = this.world.raycast(this.pivot, dir, this.dist + .3, true);
-    const want = Math.max(.7, Math.min(this.dist, hit - .35));
+    const dist = this.dist + (3 - this.dist) * ak;
+    const hit = this.world.raycast(this.pivot, dir, dist + .3, true);
+    const want = Math.max(.7, Math.min(dist, hit - .35));
     this.curDist = want < this.curDist ? want : damp(this.curDist, want, 3, dt);
     const cam = this.camera;
     cam.position.copy(this.pivot).addScaledVector(dir, this.curDist);

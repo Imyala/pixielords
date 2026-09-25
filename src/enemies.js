@@ -1180,13 +1180,13 @@ export class Enemy {
   }
 
   // Wolf Claws: wounds stack for four seconds; the fifth bursts for a slice of the foe's health.
-  bleed() {
+  bleed(burst = 5) {
     if (!this.alive) return;
     const G = this.G;
     if (G.time - (this.bleedT ?? -9) > 4) this.bleedN = 0;
     this.bleedT = G.time; this.bleedN = (this.bleedN || 0) + 1;
     G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xd02020, 2, .3, .2, .08, .6);
-    if (this.bleedN < 5) return;
+    if (this.bleedN < burst) return;
     this.bleedN = 0;
     const dmg = this.maxHp * (this.boss ? .03 : this.elite ? .07 : .15) + 20;
     this.hp -= dmg; this.dmgShown += dmg; this.dmgShowT = 2.5; this.barT = 6;

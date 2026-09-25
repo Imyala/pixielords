@@ -39,7 +39,7 @@ export function buildArmory({ THREE, mats, mesh, node, armR, armL, chest, backMo
     const rim = new THREE.TorusGeometry(.3, .02, 6, 26); rim.rotateY(Math.PI / 2); mesh(rim, mats.trim, sh);
     mesh(new THREE.SphereGeometry(.07, 10, 8), mats.trim, sh, -.03, 0, 0).scale.set(.6, 1, 1);
     const star = new THREE.OctahedronGeometry(.05); mesh(star, mats.visor, sh, -.06, 0, 0);
-    out.aegis = { node: n, off: sh, tip: node(n, 0, 0, 1.08), base: node(n, 0, 0, .2), grip: -.11, back: backMount(n, V(-.16, .42, -.21), V(.38, -.92, -.05)) };
+    out.aegis = { node: n, off: sh, shield: true, tip: node(n, 0, 0, 1.08), base: node(n, 0, 0, .2), grip: -.11, back: backMount(n, V(-.16, .42, -.21), V(.38, -.92, -.05)) };
     hide(n, sh);
   }
   // Thorn Daggers: two short straight blades.

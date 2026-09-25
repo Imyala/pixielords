@@ -12,7 +12,8 @@ const BIND = {
   interact: ['KeyE', 'Pad0'],
   shift:    ['KeyG', 'Pad3'],
   pause:    ['Escape', 'KeyP', 'Pad9'],
-  nextTarget: ['Tab', 'WheelDown', 'Pad15'],
+  nextTarget: ['Tab', 'WheelDown'],   // on a gamepad: flick the right stick
+  aim:      ['ControlLeft', 'KeyL', 'Pad15'],   // raise or lower the ranged weapon
   prevTarget: ['WheelUp'],
   swap:     ['KeyV', 'Pad14'],
   slide:    ['KeyZ', 'Pad10'],   // also: guard while sprinting
@@ -20,7 +21,7 @@ const BIND = {
   artNext:  ['KeyY', 'Pad8'],
   up:    ['KeyW', 'ArrowUp', 'Pad12'],
   down:  ['KeyS', 'ArrowDown', 'Pad13'],
-  left:  ['KeyA', 'ArrowLeft', 'Pad14'],   // menus only (in play the d-pad's left and right are swap and next target)
+  left:  ['KeyA', 'ArrowLeft', 'Pad14'],   // menus only (in play the d-pad's left and right are swap and aim)
   right: ['KeyD', 'ArrowRight', 'Pad15'],
   stanceHigh: ['Digit1'],
   stanceMid:  ['Digit2'],
@@ -33,11 +34,11 @@ const BIND = {
 
 export const KEY_LABEL = {
   light: 'LMB', heavy: 'RMB', guard: 'Shift', dodge: 'Space', burst: 'F', lock: 'Q', heal: 'R',
-  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V', slide: 'Z', art: 'T', artNext: 'Y',
+  interact: 'E', shift: 'G', pause: 'Esc', stance: '1 2 3', swap: 'V', slide: 'Z', art: 'T', artNext: 'Y', aim: 'Ctrl',
 };
 export const PAD_LABEL = {
   light: 'RB', heavy: 'RT', guard: 'LB', dodge: 'B', burst: 'LT', lock: 'R3', heal: 'X',
-  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓', swap: 'D-pad ←', slide: 'L3', art: 'LB+X', artNext: 'Select',
+  interact: 'A', shift: 'Y', pause: 'Start', stance: 'D-pad ↑↓', swap: 'D-pad ←', slide: 'L3', art: 'LB+X', artNext: 'Select', aim: 'D-pad →',
 };
 
 export class Input {

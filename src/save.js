@@ -15,6 +15,8 @@ export function freshSave(ng = 0) {
     v: 2, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, deaths: 0, time: 0, ng,
     mission: 'keep', unlocked: ['keep'], missions: {}, grave: null, charms: [], equipped: [], arms: ['sword'], wield: 'sword', letters: [], pixies: [],
     loadout: ['sword'], forge: {}, arts: ['darts'], artSel: 'darts',
+    mastery: {},   // per weapon: { xp, learned: [skill ids] } (skills.js)
+    ranged: ['wisp'], rangedSel: 'wisp',   // ranged weapons found, and the one carried (ranged.js)
   };
 }
 
@@ -45,6 +47,8 @@ function migrate(d) {
   if (!d.loadout.length) d.loadout = [d.arms[0]];
   if (!d.loadout.includes(d.wield)) d.wield = d.loadout[0];
   if (!d.arts.includes(d.artSel)) d.artSel = d.arts[0];
+  d.mastery ||= {};
+  d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
   return d;
 }
 

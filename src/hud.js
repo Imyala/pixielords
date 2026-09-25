@@ -5,6 +5,7 @@ import { CHARMS } from './charms.js';
 import { COMBO } from './movesets.js';
 import { WEAPONS } from './player.js';
 import { ARTS } from './arts.js';
+import { RANGED } from './ranged.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -25,6 +26,8 @@ export class HUD {
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
       <div class="artslot" hidden><i>◆</i><div><b></b><small></small></div></div>
+      <div class="rangedslot" hidden><i>➶</i><div><b></b><small></small><s><u></u></s></div></div>
+      <div class="reticle" hidden><i></i><b></b></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
       <div class="combo"><b>0</b><small>hits</small></div>
       <div class="lock"></div>
@@ -53,6 +56,8 @@ export class HUD {
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
       combo: $('.combo', el), comboN: $('.combo b', el), comboS: $('.combo small', el),
       art: $('.artslot', el), artI: $('.artslot i', el), artB: $('.artslot b', el), artS: $('.artslot small', el),
+      rng: $('.rangedslot', el), rngI: $('.rangedslot i', el), rngB: $('.rangedslot b', el), rngS: $('.rangedslot small', el), rngH: $('.rangedslot s', el), rngHI: $('.rangedslot u', el),
+      ret: $('.reticle', el), retRing: $('.reticle b', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), msgH: $('.msg h3', el), msgE: $('.msg em', el), fade: $('.fade', el),
     };
     this.bars = new Map();
@@ -232,6 +237,28 @@ export class HUD {
       q.artI.style.color = A.color; q.artB.textContent = `${A.name} ×${p.artUses[p.art] ?? 0}`;
       q.artS.textContent = `${this.key('art')}${p.arts.length > 1 ? `  ·  ${this.key('artNext')} to change` : ''}`;
       q.art.classList.toggle('empty', !(p.artUses[p.art] > 0));
+    }
+    // The ranged weapon: its ammunition (or the pod's heat), and the reticle while aimed.
+    const R = RANGED[p.rangedSel];
+    q.rng.hidden = !R;
+    if (R) {
+      const n = p.ammo?.[p.rangedSel], rk = `${p.rangedSel}|${n}|${this.key('aim')}|${p.aiming}|${p.hot > 0}`;
+      if (rk !== this.rngShown) {
+        this.rngShown = rk;
+        q.rngI.style.color = '#' + R.color.toString(16).padStart(6, '0');
+        q.rngB.textContent = R.ammo ? `${R.name} ×${n ?? 0}` : R.name;
+        q.rngS.textContent = p.aiming ? `${this.key('light')} to ${R.kind === 'bow' ? 'draw and loose' : 'fire'}  ·  ${this.key('aim')} to lower` : `${this.key('aim')} to aim`;
+        q.rng.classList.toggle('empty', !!R.ammo && !(n > 0));
+        q.rngH.hidden = R.kind !== 'pod';
+      }
+      if (R.kind === 'pod') { q.rngHI.style.width = `${Math.round(p.heat || 0)}%`; q.rngH.classList.toggle('hot', p.hot > 0); }
+    }
+    q.ret.hidden = !p.aiming;
+    if (p.aiming) {
+      const drawK = R?.kind === 'bow' ? Math.min(1, (p.drawT || 0) / (R.draw * .9)) : 1;
+      q.retRing.style.transform = `translate(-50%,-50%) scale(${(2.2 - 1.2 * drawK).toFixed(3)})`;
+      q.ret.classList.toggle('wait', (p.reloadT || 0) > 0 || (!!R?.ammo && !(p.ammo?.[p.rangedSel] > 0)) || p.hot > 0);
+      q.ret.classList.toggle('lock', !!p.lock);
     }
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);

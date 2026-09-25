@@ -6,6 +6,8 @@ import { FORMS, KIT } from './movesets.js';
 import { levelCost, forgeCost, FORGE } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
+import { RANGED } from './ranged.js';
+import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -27,6 +29,9 @@ const CONTROLS = [
   ['Stance: High / Mid / Low', '1  2  3  (or C / X)', 'D-pad ↑ / ↓'],
   ['Switch weapon (two carried)  ·  as a strike ends: Switch Strike', 'V', 'D-pad ←'],
   ['Fae Art: use  ·  change', 'T (or Shift + R)  ·  Y', 'LB + X  ·  Select'],
+  ['Aim the ranged weapon  ·  fire (hold to draw the bow)', 'Ctrl or L  ·  left click', 'D-pad →  ·  RB'],
+  ['Skills once learned: Weapon Skill', 'Hold Shift + right click', 'Hold LB + RT'],
+  ['Skills once learned: Backstep Strike  ·  Guard Counter', 'Space (no direction), strike  ·  strike after a block', 'B (no direction), RB  ·  RB after a block'],
   ['Charge a heavy (Moonglaive)', 'Hold right click', 'Hold RT'],
   ['Launcher  ·  then strike in the air', 'Hold Shift + left click', 'Hold LB + RB'],
   ['In the air: Starfall  ·  air dash', 'Right click  ·  Space', 'RT  ·  B'],
@@ -139,8 +144,12 @@ export class Menu {
       case 'moves': this.push('moves', { w: G.player.weapon }); break;
       case 'arsenal': this.push('arsenal', { forge: this.top?.screen === 'shrine' }); break;
       case 'wield': { const f = this.focus; G.wieldWeapon(b.dataset.w); this.render(); this.focus = f; this.paint(); break; }
+      case 'ready': { const f = this.focus; G.readyRanged(b.dataset.r); this.render(); this.focus = f; this.paint(); break; }
       case 'forge': { const f = this.focus; if (!G.forgeWeapon(b.dataset.w)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
       case 'movesW': this.top.data = { w: b.dataset.w }; this.render(); break;
+      case 'skills': this.push('skills', { w: G.player.weapon }); break;
+      case 'skillsW': this.top.data = { w: b.dataset.w }; this.render(); break;
+      case 'learn': { const f = this.focus; if (!G.learnSkill(b.dataset.w, b.dataset.id)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
       case 'letter': { const y = this.el.querySelector('.map')?.scrollTop || 0; this.top.scroll = y; this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break; }
       case 'charm': { const f = this.focus; if (!G.equipCharm(b.dataset.id)) G.hud.toast('All three charm slots are worn'); const y = this.el.querySelector('.map')?.scrollTop || 0; this.render(); this.focus = f; this.paint(); const m = this.el.querySelector('.map'); if (m) m.scrollTop = y; break; }
     }
@@ -173,7 +182,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
@@ -183,6 +192,8 @@ export class Menu {
           <p><b>Resonance</b>: as a strike ends, blue light gathers around you. Tap guard then and the stamina you spent flows back. Change stance in that moment for a Resonant Shift.</p>
           <p><b>Forms</b>: every weapon fights its own way in each stance (High hits hardest, Mid is balanced, Low is quick). Strike standing still and strike on the move for two different chains. Two strikes in, wait for the blade to glint, then strike: the form's <b>pause combo</b>. Strike then heavy for a <b>finisher</b>, chosen by how many strikes came first; it spends the combo counter for extra damage. See <b>Movesets</b> for every form.</p>
           <p><b>Arsenal</b>: you carry two weapons at a time; choose them in the Arsenal (pause menu or any Moonwell), and forge them stronger at a Moonwell. The <b>Thornhammer</b> is Stalwart (blows can't stagger its swings); the <b>Starfists</b> punch and kick, and every hit wins back stamina.</p>
+          <p><b>Skills</b>: every weapon learns from use. Blows landed earn it mastery and skill points; spend them under Skills on new moves (a Backstep Strike, a Guard Counter, an Air Finisher, the weapon's own Weapon Skill on guard + heavy) and on mastery of its ways.</p>
+          <p><b>Ranged weapons</b>: aim to bring the camera over your shoulder, strike to fire. The Wisp Pod needs no ammunition but overheats; the Moonbow draws while you hold strike; the rifle and hand cannon hit hardest but reload slowly. Shots to the head hit harder. Ammunition refills at every Moonwell.</p>
           <p><b>Fae Arts</b>: thrown darts and pixie bombs, and brands that set your weapon burning, crackling or frosting for thirty seconds. Their uses return at every Moonwell.</p>
           <p><b>Movement</b>: at a sprint, guard to <b>slide</b> (strike for a slide attack), dash out of the slide to <b>Wingleap</b>, and hold dash while falling to <b>glide</b>. Chains carry on through dashes.</p>
           <p><b>Deflect</b> by tapping guard just as a blow lands. Strike straight after for a <b>Flashcut</b>, one cut that fells ordinary foes and chains from one to the next.</p>
@@ -225,6 +236,7 @@ export class Menu {
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
           <button class="btn" data-act="arsenal">Arsenal <small>choose two weapons · forge them stronger</small></button>
+          <button class="btn" data-act="skills">Skills <small>spend what each weapon has taught you</small></button>
           <button class="btn" data-act="moves">Movesets <small>each weapon's forms, combos and finishers</small></button>
           <button class="btn" data-act="journal">Journal <small>${sv.data.letters.length} letters · ${sv.data.pixies.length} Lost Pixies freed</small></button>
           ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
@@ -288,8 +300,15 @@ export class Menu {
             <small>${esc(W.desc)}</small>${W.mech ? `<small><b class="mech">${esc(W.mech)}</b>: ${esc(W.mechDesc)}</small>` : ''}<small class="dim">${esc(forms)}${rank ? ` · +${Math.round(rank * FORGE.per * 100)}% damage` : ''}</small></div>
           <div class="abtns"><button class="btn small" data-act="wield" data-w="${w}" ${inHand ? 'disabled' : ''}>${inHand ? 'Wielded' : 'Take in hand'}</button>${forge}</div></div>`;
       }).join('');
+      // The ranged weapon carried: one at a time.
+      const rrows = (d.ranged || ['wisp']).map(r => {
+        const R = RANGED[r], on = d.rangedSel === r;
+        return `<div class="arm ${on ? 'hand' : ''}"><div class="ainfo"><b>${esc(R.name)}</b><span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Carried' : 'Stowed'}</span>
+          <small>${esc(R.desc)}</small><small class="dim">${R.ammo ? `${R.ammo} ${{ bow: 'arrows', rifle: 'shot', cannon: 'shells' }[r]}, refilled at Moonwells` : 'No ammunition: it overheats'}</small></div>
+          <div class="abtns"><button class="btn small" data-act="ready" data-r="${r}" ${on ? 'disabled' : ''}>${on ? 'Carried' : 'Carry'}</button></div></div>`;
+      }).join('');
       h = `<div class="panel wide arsenal"><div class="kicker">Arsenal · ${d.arms.length} weapons found · two carried</div><h2>What will you fight with?</h2>
-        <div class="map">${rows}</div>
+        <div class="map">${rows}<div class="kicker rhead">Ranged · one carried · aim with ${esc(G.hud.key('aim'))}</div>${rrows}</div>
         <p class="dim">${data.forge ? `Glimmer: ${sv.glimmer.toLocaleString()}. Each forging adds 5% damage with that weapon, up to +10.` : 'Weapons can be forged stronger at any Moonwell.'} Switch between your two weapons with ${esc(G.hud.key('swap'))}.</p>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'moves') {
@@ -309,7 +328,31 @@ export class Menu {
         <div class="forms">${forms}</div>
         <div class="kit">${Wp.mech ? `<p><em>${esc(Wp.mech)}</em>${esc(Wp.desc)} ${esc(Wp.mechDesc)}.</p>` : `<p><em>The weapon</em>${esc(Wp.desc)}</p>`}<p><em>Finishers</em>strike then heavy: <b>${nm(K.fin[0])}</b> · two strikes then heavy: <b>${nm(K.fin[1])}</b> · three or more: <b>${nm(K.fin[2])}</b>. A finisher spends the combo counter: the more hits counted, the harder it lands (up to 1.8×).</p>
           <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} (the chain carries on through dashes) · from a slide: <b>${nm(K.slide)}</b></p>
+          <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill']].map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' <span class="dim">(not yet learned)</span>'}`; }).join(' · ')}</p>
           <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'skills') {
+      // Each weapon's tree: mastery earned by using it, points to spend, skills in tiers.
+      const d = G.save.data, owned = [...G.player.arms, ...(G.player.rangedOwned || [])], w = owned.includes(data.w) ? data.w : owned[0];
+      const m = d.mastery?.[w] || { xp: 0, learned: [] }, tree = treeFor(w), earned = pointsAt(m.xp), free = earned - treeCost(m.learned);
+      const Wn = WEAPONS[w]?.name || G.player.rangedDef?.(w)?.name || w, K = SKILL_KITS[w] || {};
+      const tabs = owned.map(id => {
+        const mi = d.mastery?.[id] || { xp: 0, learned: [] }, f = pointsAt(mi.xp) - treeCost(mi.learned);
+        return `<button class="btn tab${id === w ? ' on' : ''}" data-act="skillsW" data-w="${id}">${esc(WEAPONS[id]?.name || G.player.rangedDef?.(id)?.name || id)}${f > 0 ? ` <span class="pts">${f}</span>` : ''}</button>`;
+      }).join('');
+      const next = xpFor(earned + 1), prev = xpFor(earned), frac = Math.min(1, (m.xp - prev) / (next - prev));
+      const tiers = [0, 1, 2, 3].map(tier => tree.filter(t => t.tier === tier)).filter(r => r.length).map(row => `<div class="srow">${row.map(t => {
+        const has = m.learned.includes(t.id), open = canLearn(tree, m.learned, t.id), afford = free >= t.cost;
+        const needs = t.req ? t.req.map(r => tree.find(x => x.id === r).name).join(' or ') : '';
+        const desc = t.id === 'mech' ? `${WEAPONS[w]?.mech || 'Mechanic'} Mastery: ${MECH_MASTERY[w] || ''}` : t.move && K[t.move] ? `${t.desc} <b>${esc(G.player.moveName(K[t.move], w))}</b>` : esc(t.desc);
+        const tag = has ? 'Learned' : !open ? `Needs ${esc(needs)}` : `${t.cost} point${t.cost > 1 ? 's' : ''}`;
+        return `<button class="btn skill ${has ? 'has' : open && afford ? 'can' : 'no'}" data-act="learn" data-w="${w}" data-id="${t.id}" ${has || !open || !afford ? 'disabled' : ''}>
+          <b>${esc(t.id === 'mech' ? `${WEAPONS[w]?.mech || ''} Mastery` : t.name)}</b><small>${desc}</small><span class="stag">${tag}</span></button>`;
+      }).join('')}</div>`).join('');
+      h = `<div class="panel wide skills"><div class="kicker">Skills · learned with use</div><h2>${esc(Wn)}</h2><div class="tabs">${tabs}</div>
+        <div class="mastery"><span>Mastery ${Math.floor(m.xp).toLocaleString()}</span><i><b style="width:${Math.round(frac * 100)}%"></b></i><span>${free} of ${earned} skill point${earned === 1 ? '' : 's'} to spend · next at ${next.toLocaleString()}</span></div>
+        <div class="tree">${tiers}</div>
+        <p class="dim">Every blow landed with a weapon teaches it a little; felling a foe teaches more. Skills can be learned anywhere.</p>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'letter') {
       const L = G.LEVELS[data.m], l = (L.letters || []).find(x => x.id === data.id);

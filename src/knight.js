@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { wingTexture, glowTexture } from './textures.js';
 import { lerp, smooth, clamp } from './util.js';
 import { buildArmory } from './armorymodels.js';
+import { buildRanged } from './rangedmodels.js';
 
 // ---------------------------------------------------------------- pose channels
 const CH = [
@@ -641,6 +642,9 @@ export function buildKnight() {
   // The armory's fifteen (armorymodels.js).
   Object.assign(weapons, buildArmory({ THREE, mats, mesh, node, armR, armL, chest, backMount, V, sword, fangGeo }));
 
+  // The ranged weapons (ranged.js): the bow in the left hand, the guns in the right; shown while aimed.
+  const ranged = buildRanged({ THREE, mats, mesh, node, armR, armL, chest, backMount, V });
+
   // Elixir vial in the left hand.
   const vial = mesh(new THREE.CapsuleGeometry(.035, .06, 4, 8), mats.vial, armL.hand, 0, -.08, .03);
   vial.visible = false;
@@ -649,12 +653,22 @@ export function buildKnight() {
   glow.scale.setScalar(2.4); glow.position.y = 1.1; root.add(glow);
 
   const k = { root, body, hips, spine, chest, neck, head, armL, armR, sword, blade, fuller, tip, base, capeNode, cape, wings, wingRoot, vial, mats, glow, antTip, UP, LO,
-    weapons, grip: -.11, weapon: 'sword', ...legs(hips, mats, mesh, node) };
+    weapons, ranged, grip: -.11, weapon: 'sword', ...legs(hips, mats, mesh, node) };
   // Draw a weapon; the others the knight owns hang on the back.
   k.setWeapon = (id, owned = [id]) => {
     for (const [w, W] of Object.entries(weapons)) { W.node.visible = w === id; if (W.off) W.off.visible = w === id; W.back.visible = w !== id && owned.includes(w); }
     const W = weapons[id];
     k.weapon = id; k.tip = W.tip; k.base = W.base; k.grip = W.grip; k.tip2 = W.tip2 || null; k.base2 = W.base2 || null; k.bare = !!W.bare;
+    k.pair = !!W.off && !W.bare && !W.shield;   // a blade in the off hand, aimed by the lb* channels
+    k.owned = owned; k.setRanged(k.aimed || null);
+  };
+  // Raise a ranged weapon (or put it away: null): the drawn weapon is hidden while it is held.
+  k.setRanged = (id, carried = k.carried) => {
+    k.aimed = id; k.carried = carried;
+    const W = weapons[k.weapon], R = id && ranged[id];
+    W.node.visible = !R; if (W.off) W.off.visible = !R;
+    for (const [rid, r] of Object.entries(ranged)) { r.node.visible = rid === id; r.back.visible = rid === carried && rid !== id; }
+    k.grip = R?.grip ?? W.grip; k.bowHand = !!R?.leftHand;
   };
   return k;
 }
@@ -790,10 +804,17 @@ export class KnightAnimator {
           if (Number.isNaN(v)) continue;
           // Whole-body spins take the key value outright so they never unwind backwards.
           if ((c === IDX.bodyRx && A.spinX) || (c === IDX.bodyRy && A.spinY)) out[c] = v;
-          else if (ANGLES.has(c)) out[c] = v - wrapPi(v - out[c]) * (1 - w);
+          else if (ANGLES.has(c) || (c === IDX.bladePitch && A.wrapPitch)) out[c] = v - wrapPi(v - out[c]) * (1 - w);
           else out[c] = lerp(out[c], v, w);
         }
       }
+    }
+
+    // Aiming a ranged weapon: the upper body pitches with the aim, the bow's draw hand comes back to the jaw,
+    // and a shot kicks the shoulders back.
+    if (m.aim !== undefined) {
+      out[IDX.chestRx] -= m.aim * .85 + (m.recoil || 0) * .3; out[IDX.headRx] -= m.aim * .25;
+      if (m.draw) for (let c = 0; c < N; c++) if (!Number.isNaN(m.draw.pose[c])) out[c] = lerp(out[c], m.draw.pose[c], m.draw.w);
     }
 
     // Additive lean (dash direction, turning) on top of everything.
@@ -803,9 +824,11 @@ export class KnightAnimator {
 
     // Smooth toward the target a little so action changes don't pop.
     const cur = this.cur, k = 1 - Math.exp(-dt * 34), A = this.action;
+    // A windmill (wrapPitch) turns the blade's pitch through whole circles; once it ends, fold it back.
+    if (!A?.wrapPitch && Math.abs(cur[IDX.bladePitch]) > 4) cur[IDX.bladePitch] = wrapPi(cur[IDX.bladePitch]);
     for (let c = 0; c < N; c++) {
       if ((c === IDX.bodyRx && A?.spinX) || (c === IDX.bodyRy && A?.spinY)) { cur[c] = out[c]; continue; }
-      cur[c] = ANGLES.has(c) ? cur[c] + wrapPi(out[c] - cur[c]) * k : lerp(cur[c], out[c], k);
+      cur[c] = ANGLES.has(c) || (c === IDX.bladePitch && A?.wrapPitch) ? cur[c] + wrapPi(out[c] - cur[c]) * k : lerp(cur[c], out[c], k);
     }
     const wrap = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     if (!A?.spinX) cur[IDX.bodyRx] = wrap(cur[IDX.bodyRx]);
@@ -843,7 +866,7 @@ export class KnightAnimator {
     _grip.copy(_hilt).addScaledVector(_blade, k.grip);
     _lh.lerp(_grip, two);
     solveArm(k.armL, _lh, POLE_L, k.UP, k.LO + .04);
-    if (k.weapon === 'fangs' && two < .5) {
+    if ((k.pair || k.bowHand) && two < .5) {
       // The off-hand fang points where lbYaw / lbPitch say, rolled by lbRoll, like the main blade.
       const ly = p[I.lbYaw], lp = p[I.lbPitch];
       _blade.set(Math.sin(ly) * Math.cos(lp), Math.sin(lp), Math.cos(ly) * Math.cos(lp));

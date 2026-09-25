@@ -27,11 +27,14 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
 | Switch between your two weapons (as a strike ends: Switch Strike) | V | D-pad left |
 | Fae Art: use · change | T (or Shift + R) · Y | LB + X · Select |
+| Aim the ranged weapon · fire (hold to draw the bow) | Ctrl or L · left click | D-pad right · RB |
+| Weapon Skill (once learned) | Hold Shift + right click | Hold LB + RT |
+| Backstep Strike · Guard Counter (once learned) | Space with no direction, then strike · strike just after a block | B with no direction, then RB · RB just after a block |
 | Charge a heavy (Moonglaive) | Hold right click | Hold RT |
 | Launcher | Hold Shift + left click | Hold LB + RB |
 | In the air: strike · Starfall · air dash | Left click · right click · Space | RB · RT · B |
 | Thorn Counter | F | LT |
-| Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick / D-pad right |
+| Lock on · switch target | Q or middle click · wheel or Tab | R3 · flick right stick |
 | Drink Moondew | R | X |
 | Interact · read a letter | E | A |
 | Fae Shift (Faelight full) | G | Y |
@@ -41,7 +44,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 
 - **Stances.** High hits hardest and breaks posture, Mid is balanced, Low is quick and dashes further.
 - **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: sixty forms in
-  all across twenty weapons (see [The armory](#the-armory)). Each form has three strings:
+  all across twenty weapons, every one with strikes of its own (see [The armory](#the-armory)). Each form
+  has three strings:
   - **Standing**: strike standing still (or circling a locked foe).
   - **Moving**: strike on the move and a different chain comes out.
   - **Pause combo**: two strikes in, let the blade rest a beat. A glint and a chime mark the moment; strike
@@ -75,6 +79,22 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   on the Moonspire, fight with punches and kicks, quickest of all, and **Flow**: every hit wins back a little
   stamina and breaks posture 30% harder. Switch weapons as a strike ends for a **Switch Strike**, a wheeling
   cut with the weapon you draw, which also counts as Resonance if the window is open.
+- **Skills.** Every weapon learns from use, as in Nioh: blows landed with it earn mastery (felling a foe
+  earns more), and mastery earns skill points for that weapon. Spend them under **Skills** (pause menu or any
+  Moonwell) on its tree: four new moves (a **Backstep Strike** out of a backstep, a **Guard Counter** just
+  after a blocked blow, an **Air Finisher** that slams airborne foes down, and the weapon's own **Weapon
+  Skill** on guard + heavy, such as the Warblade's Tempest Cleave or the Rimeblade's Winter Moon Iai) and
+  passives: Proficiency, Pause Mastery, Finisher Mastery and mastery of the weapon's own mechanic (Momentum
+  to +54%, five hex charges, Bleed on the fourth wound, and so on). A weapon's whole tree takes twenty points,
+  a few missions of steady use. Ranged weapons have a shorter tree of their own.
+- **Ranged weapons.** One carried beside the two melee weapons. Aim (Ctrl, L or D-pad right) brings the
+  camera in over the shoulder and the knight to a steady walk; strike fires. The **Wisp Pod** (from the start,
+  after NieR's pods) pours motes while strike is held and needs no ammunition, but overheats. The **Moonbow**
+  (the Gatewarden) draws while strike is held and looses on release, harder the longer the draw. The
+  **Starlock Rifle** (Grimtusk) fires one heavy shot, then a long reload. The **Thunder Cannon** (Mother
+  Skritch) throws a shell that bursts where it lands and knocks everything down, and kicks you back. Shots to
+  the head hit half again as hard. Arrows, shot and shells refill at every Moonwell, and crates sometimes
+  hold a few. Lock on and the aim goes straight to the locked foe.
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
   to +10; each rank is 5% more damage with it.
@@ -151,9 +171,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 
 Twenty weapons, covering every melee archetype of Warframe, Nioh, Nioh 2 and NieR: Automata. Each has its own
 model and hold, its own numbers (speed, stamina, damage, reach), a mechanic, and three stance forms with
-standing, moving and pause strings, finishers, a slide attack and air strikes. You carry two; choose them in
-the Arsenal. The fifteen newest fight with strikes borrowed from the first five, reordered and renamed, and
-with a few of their own; their own attack patterns come next.
+standing, moving and pause strings, finishers, a slide attack, air strikes and a Weapon Skill, all its own.
+You carry two; choose them in the Arsenal.
 
 | Weapon | Covers | Mechanic | Where |
 |---|---|---|---|
@@ -179,6 +198,35 @@ with a few of their own; their own attack patterns come next.
 | Moonring | Glaives (thrown) | Ring Throw: heavies throw the ring out and home | the Winter Court |
 
 A save that has already felled a gatekeeper or warlord is given its weapon on the next load.
+
+How the fifteen newest fight (the first five are in [How it plays](#how-it-plays)):
+
+| Weapon | High | Mid | Low | Weapon Skill |
+|---|---|---|---|---|
+| Warblade | *Heaven's Edge*: falling and crossing cleaves, a leaping cleave; pause: Heaven Splitter, which throws moonlight | *Iron Tide*: two-handed sweeps both ways, the Iron Wheel, an overhead cleave, a striding thrust; pause: Iron Tide | *Ground Reaver*: the blade dragged and ripped up, low wheels, a scooping cut; pause: Reaver's Whirl | Tempest Cleave |
+| Warden's Aegis | *Bastion*: falling cuts, the Shield Uppercut, a leaping cut; pause: Bastion Break, a shield slam and a chop | *Warden's Way*: cuts and stabs over the shield's rim, shield bashes; pause: Warden's Rhythm | *Low Wall*: low cuts, a low bash that trips, a shield wheel; pause: Turning Wall | Bulwark Charge |
+| Thorn Daggers | *Magpie*: a crossing cut, falling stabs, a rising spin; pause: Thorn Rain | *Needlework*: cut and counter-cut with both hands, twin stabs, a slipping cut straight through; pause: Thousand Needles | *Shadow Step*: hamstring cuts, needle stabs, a low spin; pause: Shadow Cyclone | Shadow Dance |
+| Twin Hatchets | *Woodsplitter*: twin chops, a bearded hook, a splitting leap; pause: Splitting Storm | *Chopping Dance*: right chop, left chop, hook, the Woodsman's Wheel; pause: Kindling | *Root Cutter*: root hacks, ankle hooks, a root wheel; pause: Timber Wheel | Timberfall |
+| Briar Chain | *Hanging Thorn*: an overhead crack, a falling sickle, the chain whirled overhead; pause: Thorn Storm | *Briar Dance*: lashes both ways, the sickle snapped out and hauled back, a chain windmill; pause: Briar Dance | *Creeping Vine*: ankle lashes, low snaps, a creeping wheel; pause: Strangling Vine | Briar Tempest |
+| Harvest Moon | *Grim Harvest*: a harvest hook, falling and rising crescents, a leaping reap; pause: Reaper's Moon | *Sickle Moon*: reaping sweeps that drag foes in, the Crescent Wheel; pause: Harvest Dance | *Gleaner*: gleaning sweeps and wheels, a flick that lifts; pause: Threshing Wheel | Reaper's Eclipse |
+| Wolf Claws | *Pounce*: falling rends, a rising rake, a pounce from range; pause: Rending Moon | *Rending Moon*: right rake, left rake, the Twin Rend, a rake spin; pause: Thousand Rends | *Belly Rake*: low rakes, gutting hooks up from a crouch; pause: Rake Storm | Blood Moon |
+| Grinder's Wheel | *Rockcutter*: the Grinding Press held down, a leaping fall; pause: Cave-in | *Grindstone*: grinding sweeps, the Wheel Ram held in, the Grindstone; pause: Millstone | *Undercut*: undercuts, low rams, a low grind; pause: Grinding Top | Grinding Ascent |
+| Seer's Hexblade | *Hexfall*: falling and rising hexes, a hex cleave, a leaping Hexfall | *Seer's Path*: hex cuts, the Sigil Wheel, a hex palm; pause: Triple Hex | *Plague Cuts*: low cuts, a low sigil, a plague wheel; pause: Hexstorm | Hex Nova |
+| Moonstaff | *Pillar*: falling staff, butt strikes, the staff whirled overhead, a pole-vault kick; pause: Pillar Dance | *Whirling Staff*: jabs, sweeps both ways, a windmill; pause: Rolling Thunder | *Leg Breaker*: leg breakers, low butt strikes, shin jabs; pause: Rolling Thunder | Monkey King's Whirl |
+| Moth Fans | *Moth Wing*: falling wings, rising gusts, a diving leap; pause: Moth Storm | *Paper Moon*: both fans opened outward and swept closed, a turning dance, a flutter; pause: Paper Moon | *Dust Devil*: low gusts and turns; pause: Dust Devil | Moon Moth Waltz |
+| Moon Tonfas | *Rising Guard*: hammer batons, twin uppercuts, a leaping hammer; pause: Moon Storm | *Twin Batons*: jab, cross, a turning elbow led by the baton, spinning batons; pause: Baton Barrage | *Low Batons*: low jabs, twin uppercuts, a sliding baton; pause: Rising Batons | Crescent Barrage |
+| Silkclaw's Rapier | *Silk Needle*: head thrusts, the coupé, a crown moulinet, the balestra; pause: Starpoint | *Duelist's Line*: the fencer's lunge, parry and cut, feint and lunge, moulinets, the flèche; pause: Hundred Stings | *Crouching Fence*: low lines, ankle cuts, low moulinets; pause: Petal Fence | Silk Thousand |
+| Rimeblade | *Winter Moon*: two-handed downward, crossing and rising cuts, a falling frost; pause: Frostfall Draw | *Still Water*: the draw-cut from the hip and its flick, two-handed cuts, a passing draw straight through; pause: Three Frosts | *Drawn Frost*: low draws, crescent draws, a frost wheel; pause: Scattering Petals | Winter Moon Iai |
+| Moonring | *Moonlit Arc*: falling and rising rings, a crown loop overhead; pause: Moonlit Arc | *Orbit*: ring arcs, the ring punch, the Orbit; pause: Triple Orbit | *Rolling Ring*: low arcs, rolling loops, a low orbit; pause: Ring Storm | Eclipse |
+
+The ranged weapons:
+
+| Weapon | Fires | Ammunition | Where |
+|---|---|---|---|
+| Wisp Pod | a stream of motes while strike is held (NieR's pod) | none: it overheats | from the start |
+| Moonbow | hold to draw, release to loose; a longer draw hits harder and falls less | 30 arrows | the Gatewarden (Grubhold) |
+| Starlock Rifle | one heavy, fast shot, then a long reload | 12 shot | Grimtusk (Rotwood) |
+| Thunder Cannon | a shell that bursts where it lands and throws foes down; it kicks | 5 shells | Mother Skritch (Gnawed Deep) |
 
 ## Missions
 
@@ -265,9 +313,14 @@ index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
 src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
-src/movesets.js   the fifteen stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
+src/movesets.js   the first five weapons' stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
 src/arts.js       the Fae Arts: darts, pixie bombs and the three brands
-src/armory.js     the fifteen armory weapons: which archetypes they cover, their numbers, mechanics, forms and where they are won
+src/armory.js     the fifteen armory weapons: which archetypes they cover, their numbers, mechanics and where they are won
+src/signatures.js the fifteen's own strikes: animations, numbers and forms, heavies, finishers, run, dash, slide, air and Switch strikes
+src/strikeshapes.js  shapes of strike the movesets are built from: cuts, chops, thrusts, whirls, rising blows, twirls, windmills, punches, rakes, strings
+src/skills.js     weapon skills: the skill tree, mastery and points, and every weapon's Backstep Strike, Guard Counter, Air Finisher and Weapon Skill
+src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thunder Cannon; aiming, firing, ammunition, shots in flight, headshots
+src/rangedmodels.js  their models (the bow's string follows the draw hand)
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
@@ -277,11 +330,11 @@ src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, 
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
-src/camera.js     third-person camera with lock-on, wall collision and shake
+src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision and shake
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout and forging), movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Skills, movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

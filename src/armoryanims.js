@@ -31,7 +31,7 @@ for (const [k, A] of Object.entries({ ...ACTIONS })) {
 const AEGIS_END = { hiltA: -.5, hiltR: .38, hiltH: -.1, bladeYaw: .2, bladePitch: .3, bladeRoll: 0, ...SHIELD, chestRy: 0 };
 Object.assign(ACTIONS, {
   // A punch with the shield's rim, off the back foot.
-  ae_bash: { dur: .56, keys: [
+  ae_bash: { dur: .56, hit: [.16, .28], keys: [
     K(0, { ...AEGIS_END, lhX: .3, lhY: .05, lhZ: .15, chestRy: .4, ...LUNGE_R, lift: -.06 }),
     K(.12, { lhX: .32, lhY: .08, lhZ: .08, chestRy: .55 }),
     K(.2, { lhX: .02, lhY: .1, lhZ: .6, chestRy: -.35, chestRx: .25, ...DEEP }),
@@ -39,7 +39,7 @@ Object.assign(ACTIONS, {
     K(.56, { ...AEGIS_END }),
   ] },
   // Behind the shield at a run, shoulder down.
-  ae_charge: { dur: .7, keys: [
+  ae_charge: { dur: .7, hit: [.12, .42], keys: [
     K(0, { lhX: .05, lhY: .12, lhZ: .5, chestRx: .3, chestRy: -.3, hiltA: -1.1, hiltR: .3, hiltH: -.2, bladeYaw: -2.4, bladePitch: -.2, bladeRoll: 0, twoHand: 0, lift: -.14, thLx: -.8, knL: .9, thRx: .5, knR: .6, wings: 1.6 }),
     K(.14, { chestRx: .45, lhZ: .56, lift: -.2, thLx: -1.0, knL: .8, thRx: .8, knR: .4, wings: 2 }),
     K(.42, { lhZ: .55 }),
