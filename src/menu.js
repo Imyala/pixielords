@@ -13,8 +13,8 @@ import { TIER, DEED_GLIMMER } from './deeds.js';
 import { PACK } from './loot.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES, sidesOf } from './sides.js';
-import { wayName, wayDesc } from './ways.js';
-import { themeOf } from './underbriar.js';
+import { wayName, wayDesc, wayLvl } from './ways.js';
+import { themeOf, depthScale } from './underbriar.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 import { esc, glyph, head, keybar, entries, infoBox, option, inkWash, padDiagram } from './menuui.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
@@ -497,7 +497,7 @@ export class Menu {
       const keys = G.input.usingPad ? 'D-pad or stick to travel · A to set out' + (data?.from === 'cleared' ? '' : ' · B to go back') : 'Arrows or WASD to travel · Enter to set out' + (data?.from === 'cleared' ? '' : ' · Esc to go back') + ' · or click a landmark';
       h = `<div class="owlabels">${labels}</div>
         <div class="panel owpanel">
-          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level + d.ng * 20}+${d.ng ? ' · ' + esc(wayName(d.ng)) : ''}</div>
+          <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level + wayLvl(d.ng)}+${d.ng ? ' · ' + esc(wayName(d.ng)) : ''}</div>
           <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
           ${opening ? '<div class="kicker">A new path opens</div>' : ''}
           <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
@@ -511,7 +511,7 @@ export class Menu {
       // A cleared mission's side missions (sides.js), over the Crossroads.
       const d = G.save.data, L = G.LEVELS[data.m];
       const rows = sidesOf(data.m).map(S => {
-        const n = d.sides?.[S.id] || 0, lv = L.level + S.lvl + d.ng * 20;
+        const n = d.sides?.[S.id] || 0, lv = L.level + S.lvl + wayLvl(d.ng);
         return `<button class="btn side" data-act="side" data-m="${data.m}" data-id="${S.id}"><span class="kicker">${esc(S.kindName)} · Lv ${lv}+${n ? ` · done ×${n}` : ' · first run: double Glimmer and an extra piece'}</span><b>${esc(S.name.replace(/^[^:]*: /, ''))}</b><small>${esc(S.desc)}</small></button>`;
       }).join('');
       h = `<div class="panel wide sides"><div class="kicker">${esc(L.name)} · side missions</div><h2>Side Missions</h2>
@@ -524,7 +524,7 @@ export class Menu {
       const a = G.save.data.abyss || { cps: [1], best: 0 };
       const rows = [...a.cps].sort((x, y) => y - x).map(cp => {
         const L = G.LEVELS[themeOf(cp)];
-        return `<button class="btn side" data-act="descend" data-depth="${cp}"><span class="kicker">Depth ${cp} · Lv ${Math.round(1 + (cp - 1) * 2.3) + G.save.data.ng * 20}+${cp === 1 ? ' · the beginning' : ' · a lit Moonwell'}</span><b>Descend from Depth ${cp}</b><small>Its halls are dressed as ${esc(L.name)}'s.</small></button>`;
+        return `<button class="btn side" data-act="descend" data-depth="${cp}"><span class="kicker">Depth ${cp} · Lv ${depthScale(cp).level + wayLvl(G.save.data.ng)}+${cp === 1 ? ' · the beginning' : ' · a lit Moonwell'}</span><b>Descend from Depth ${cp}</b><small>Its halls are dressed as ${esc(L.name)}'s.</small></button>`;
       }).join('');
       h = `<div class="panel wide sides"><div class="kicker">Beneath the Fae Crossroads · deepest cleared: ${a.best || 0}</div><h2>The Underbriar</h2>
         <p>An endless maze where everything the moon ever lit goes to dream, made anew at every depth. Slay every foe on a depth to open the way down; every fifth depth ends with a warlord, and the depth after it holds a lit Moonwell to start from again. The deeper, the harder, and the richer.</p>

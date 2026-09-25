@@ -7,6 +7,7 @@ import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
 import { AFFIXES, rollChampion, championDress, championDispose } from './champions.js';
 import { actTwo } from './foes2.js';
+import { tierHp, tierDmg } from './ways.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
 // ---------------------------------------------------------------- definitions
@@ -944,12 +945,16 @@ export class Enemy {
     this.active = true; this.outer.visible = true;
     this.pos.set(s.x, 0, s.z); this.yaw = s.yaw || 0;
     this.home = { x: s.x, z: s.z, yaw: s.yaw || 0 };
-    // Later missions field hardier rank-and-file (their own elites and warlords are tuned as written).
-    const tier = this.boss || this.elite ? 1 : (this.G.level?.tier || 1);
-    this.tier = tier;
-    this.maxHp = Math.round(T.hp * ng * tier); this.hp = this.maxHp;
-    this.maxKi = Math.round(T.ki * (1 + (tier - 1) * .5)); this.ki = this.maxKi;
-    this.dmgMul = (1 + (ng - 1) * .6) * (1 + (tier - 1) * .55);
+    // Later missions field hardier rank-and-file (their own elites and warlords are tuned as written, then scaled
+    // by the mission's gatekeeper and warlord multipliers, so they keep pace with the knight's level and gear).
+    // A Way (ways.js) lifts the mission's tier, and its gatekeepers and warlords as much as its rank and file.
+    const L = this.G.level || {}, wt = this.G.wayTier || 0, lead = this.boss || this.elite, base = L.tier || 1;
+    const role = s.elite === 'boss' || s.id === 'revenant' ? L.warlord : s.elite === 'warden' ? L.gatekeeper : null;
+    const tier = lead ? 1 : base + wt, way = lead && wt ? { hp: tierHp(base + wt) / tierHp(base), dmg: tierDmg(base + wt) / tierDmg(base) } : null;
+    this.tier = lead ? way?.hp || 1 : tier;   // Glimmer scales with it
+    this.maxHp = Math.round(T.hp * ng * tierHp(tier) * (role?.hp || 1) * (way?.hp || 1)); this.hp = this.maxHp;
+    this.maxKi = Math.round(T.ki * (1 + (tier - 1) * .5) * (role ? 1 + ((role.hp || 1) - 1) * .5 : 1) * (way ? 1 + (way.hp - 1) * .3 : 1)); this.ki = this.maxKi;
+    this.dmgMul = (1 + (ng - 1) * .6) * tierDmg(tier) * (role?.dmg || 1) * (way?.dmg || 1);
     this.poiseDmg = 0; this.poiseT = 0; this.kiT = 0;
     this.state = s.idle === 'sleep' ? 'sleep' : s.patrol ? 'patrol' : 'idle';
     this.st = 0; this.atk = null; this.step = null;

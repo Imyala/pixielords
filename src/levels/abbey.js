@@ -32,7 +32,9 @@ export default {
   id: 'abbey',
   name: 'The Drowned Abbey',
   blurb: 'An abbey of the Lantern Court, sunk to its knees in the Moonlit Sea. Its bells still ring at high tide, and something in the choir still sings.',
-  level: 60,
+  level: 42,
+  gatekeeper: { hp: 1, dmg: 1.7 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.25, dmg: 2 },
   map: { x: 68, z: 30 },
   seed: 6161,
   forest: true,

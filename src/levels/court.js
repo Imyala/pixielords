@@ -30,7 +30,9 @@ export default {
   id: 'court',
   name: 'The Waning Court',
   blurb: 'The palace of the Waning Queen, hung in the sky where the moon once rose. Everything the moon has lost is here, and she will not give it back.',
-  level: 108,
+  level: 74,
+  gatekeeper: { hp: 1, dmg: 2.3 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.2, dmg: 2.3 },
   map: { x: 74, z: -4 },
   seed: 10108,
   spire: true,

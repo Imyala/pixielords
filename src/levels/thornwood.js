@@ -31,7 +31,9 @@ export default {
   id: 'thornwood',
   name: 'The Thornwood Court',
   blurb: 'The Lantern Court\'s own garden palace, overgrown with briar since its queen went into the dark. Her son keeps it still, crowned in thorns.',
-  level: 84,
+  level: 58,
+  gatekeeper: { hp: 1, dmg: 2.1 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.3, dmg: 2.1 },
   map: { x: 112, z: 8 },
   seed: 8484,
   forest: true,

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RARITY, SLOTS, SETS, MISSION_GEAR, makeItem, rollRarity, itemName } from './gear.js';
 import { CORES, CORE_OF } from './cores.js';
-import { divineWeight } from './ways.js';
+import { divineWeight, wayLvl } from './ways.js';
 
 export const PACK = 80;   // pieces carried, equipped ones included
 
@@ -33,8 +33,8 @@ export class Loot {
   roll(luck = 0, minRar = 0) {
     const G = this.G, d = G.save.data, MG = MISSION_GEAR[G.level.id] || MISSION_GEAR[G.level.theme] || MISSION_GEAR.keep;
     const S = G.sideDef?.();   // a side mission's harder foes drop better, and higher-level
-    const deep = G.level.depth, range = deep ? [Math.max(1, deep * 2 - 1), deep * 2 + 4] : MG.lvl;   // the Underbriar: by depth
-    const lvl = Math.round(range[0] + Math.random() * (range[1] - range[0])) + d.ng * 20 + (S?.lvl || 0);
+    const deep = G.level.depth, range = deep ? [Math.max(1, G.level.level), G.level.level + 6] : MG.lvl;   // the Underbriar: by its depth's level
+    const lvl = Math.round(range[0] + Math.random() * (range[1] - range[0])) + wayLvl(d.ng) + (S?.lvl || 0);
     const rar = Math.max(minRar, rollRarity(luck + (S?.luck || 0) + (deep ? Math.min(1.2, deep * .025) : 0), Math.random, divineWeight(d.ng, G.level.depth)));
     d.gear.uid = (d.gear.uid || 1) + 1;
     if (Math.random() < .42) {

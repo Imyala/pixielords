@@ -28,7 +28,9 @@ export default {
   id: 'crater',
   name: 'The Starfall Crater',
   blurb: 'Where a shard of the moon fell long ago: a crater of glass and starlight, and the things that grew fat on it. The Queen came here to drink.',
-  level: 96,
+  level: 66,
+  gatekeeper: { hp: 1, dmg: 2 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.3, dmg: 2.1 },
   map: { x: 96, z: -12 },
   seed: 9696,
   forest: true,

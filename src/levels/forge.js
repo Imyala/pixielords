@@ -31,7 +31,9 @@ export default {
   id: 'forge',
   name: 'The Emberforge',
   blurb: 'The goblins\' war-forge in the belly of a fire mountain. Its hammers made the chains of winter, and something in iron still sits on its throne.',
-  level: 72,
+  level: 50,
+  gatekeeper: { hp: 1, dmg: 1.8 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.25, dmg: 1.9 },
   map: { x: 100, z: 32 },
   seed: 7272,
   cave: true,

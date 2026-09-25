@@ -24,7 +24,9 @@ export default {
   id: 'rotwood',
   name: 'The Rotwood Hollow',
   blurb: 'A drowned forest where goblin fires never go out. Its warlord feeds a great pyre with the roots of the fae realm.',
-  level: 12,
+  level: 10,
+  gatekeeper: { hp: 1, dmg: 1.35 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1, dmg: 1.25 },
   map: { x: -25, z: -2 },   // where it sits on the Fae Crossroads
   seed: 4321,
   forest: true,

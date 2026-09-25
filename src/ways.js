@@ -12,3 +12,14 @@ export const wayName = ng => ng < WAYS.length ? WAYS[ng].name : `${WAYS[WAYS.len
 export const wayDesc = ng => WAYS[Math.min(ng, WAYS.length - 1)].desc + (ng >= WAYS.length ? ' And harder again, every time.' : '');
 // Divine gear's weight in a rarity roll (0 on the first Way).
 export const divineWeight = (ng, depth = 0) => (ng ? .35 * ng : 0) + (depth >= 25 ? (depth - 20) * .03 : 0);
+
+// How much harder a Way makes every mission: its foes are as hardy as a mission this many tiers further on, so
+// a Way's first mission stands where the last Way ended, and the levels shown and gear dropped rise to match
+// (21 levels a tier, as the missions' own recommended levels go).
+export const WAY_TIER = 6;
+export const wayLvl = ng => Math.round((ng || 0) * WAY_TIER * 21);
+// Glimmer from missions' Moonwell-side payouts (side missions, the Underbriar's depths) in a Way.
+export const wayGlimmer = ng => 1 + (ng || 0) * WAY_TIER * .8;
+// A foe's hardiness at a tier: its health, and its blows.
+export const tierHp = t => t * (1 + (t - 1) * .05);
+export const tierDmg = t => 1 + (t - 1) * .85;

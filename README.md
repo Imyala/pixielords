@@ -308,19 +308,19 @@ warlords and items. Level, Glimmer and Moondew carry over.
 1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
    portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Off the yard,
    through a gap in the west wall: the Goblin Larder, with its meat hooks and a stack of powder kegs.
-2. **The Rotwood Hollow** (level 12+): a winding cliff trail, the goblin village of Grubnest (Brakka the
+2. **The Rotwood Hollow** (level 10+): a winding cliff trail, the goblin village of Grubnest (Brakka the
    Skullsplitter holds its palisade gate), the Rotting Glade with its poison pools and ratman pack, then
    the Pyre of Grimtusk, Warlord of the Pyre. West of Grubnest, through the palisade: the Tanner's Camp.
    New foes: Goblin Hexers, whose chant heals nearby allies; Goblin Trappers; and the Ratman Packleader,
    whose howl wakes the glade.
-3. **The Gnawed Deep** (level 24+): a ratman mine lit by moon-crystals. The Upper Drift, the Crystal
+3. **The Gnawed Deep** (level 18+): a ratman mine lit by moon-crystals. The Upper Drift, the Crystal
    Gallery, the Lower Drift, the Breaker's Pit (Grinder the Tunnel-Breaker brings the roof down on you
    and holds the mine gate), the Brood Warren, then the Seer's Hollow and Mother Skritch, the Plague Seer:
    she blinks away when cornered, casts orbs in fans and rings, rains plague vials and bursts in a Dread
    nova. Her crystals block orbs, so use them as cover. New foes: Ratman Delvers, who burrow under you and
    erupt; and Glowseers, who blink away. Off the Crystal Gallery: the Glimmer Grotto, where a great crystal
    heart holds a hoard.
-4. **The Moonspire** (level 36+): a ruined fae temple above the clouds. The Moonstair Landing, the Broken
+4. **The Moonspire** (level 26+): a ruined fae temple above the clouds. The Moonstair Landing, the Broken
    Bridge, the Terrace of Chimes, the Pilgrim's Stair, the Moon Gate (Varkh the Moon-Pike holds it), the
    Garden of Still Water, then the Crown of the Spire and Silkclaw, the Moonless Blade: a fast duelist who
    steps behind you, throws fans of knives, lunges in Dread and, at half health, splits into shadows. New
@@ -328,7 +328,7 @@ warlords and items. Level, Glimmer and Moondew carry over.
    with heavies); Warchanters, whose chant makes nearby allies burn red, hit harder and ignore stagger;
    and Ratman Shadowblades, who vanish and reappear behind you. A bridge off the Terrace of Chimes leads to
    the Starlit Library, its shelves round a great orrery.
-5. **The Frostmere** (level 48+): a frozen mere under the aurora, where the stolen moonlight ran. The
+5. **The Frostmere** (level 34+): a frozen mere under the aurora, where the stolen moonlight ran. The
    Shivering Pass, the Rimefall Stair with its frozen waterfall, the Icefisher's Hamlet on its iced-over
    pond, the Causeway across the mere, the Knight's Vigil, the Frozen Court (a ruined winter palace), then
    the Mirror of the Mere. East of the hamlet, on the shore: the Frozen Boathouse. New foes, all rimed and
@@ -342,31 +342,31 @@ Crossroads map. The Lantern Court's own lands, gone over to the Waning Queen. Ea
 halls joined by passages (built with the room kit, `src/levels/rooms.js`), and its foes include fae knights
 gone over to the Queen, who fight with your own weapons and strikes.
 
-6. **The Drowned Abbey** (level 60+): the Sea Stair, the Flooded Cloister round a sea-cold pool (the Sunken
+6. **The Drowned Abbey** (level 42+): the Sea Stair, the Flooded Cloister round a sea-cold pool (the Sunken
    Garth off its west walk), the Nave of Bells (the Scriptorium off to the east), the Bell Tower Gate
    (**Brother Tolland, the Bell-Warden**: a hammer, and a bell whose toll sends rings of the tide racing out),
    the Undercroft, then the Drowned Choir and **Abbess Morwen, the Drowned Saint** (a staff of the tide, orbs,
    undertows, a blink and a bell that drowns). New foes: Drowned Ratmen and Brine Brutes whose blows chill,
    Goblin Tidecallers who mend their kin, and the abbey's Hollow Squires (sword and shield) and Hollow Lancers.
-7. **The Emberforge** (level 72+): a war-forge in a fire mountain, its halls pooled with molten iron. The Ashen
+7. **The Emberforge** (level 50+): a war-forge in a fire mountain, its halls pooled with molten iron. The Ashen
    Gate, the Bellows Hall (the Slag Pits off to the west), the Foundry Floor, the Great Anvil (**Forgemaster
    Ghurk**: every slam leaves the ground burning; he throws slag, and rains it in his second wind), the Cooling
    Halls, then the Iron Throne and **the Iron Tyrant**, a fae knight the forge swallowed (a greatblade, crowns
    of fire racing out along the floor). New foes: Forgeguards (shields), Hammerers, Smelters (slag pots) and
    Slag Brutes, and Iron Sentinels, slow knights in forge-iron whose vents send fire along the ground.
-8. **The Thornwood Court** (level 84+): the Lantern Court's palace garden, walled in hedges of briar. The Briar
+8. **The Thornwood Court** (level 58+): the Lantern Court's palace garden, walled in hedges of briar. The Briar
    Wicket, the Overgrown Parterre (a garden maze; the Ruined Orangery off to the east), the Gallery of Thorns,
    the Warden's Court (**Sir Caddoc, the Briar Warden**, whose chain-blade reaches farther than any sword), the
    Queen's Rose Garden, then the Thorned Throne and **Prince Hawthorn, the Thorned Heir** (a scythe; crescents
    of thorn, blinks, and a field of thorns in his second phase). New foes: Thorn Knights (rapiers, and they
    parry), Thorn Reavers (scythes), Thornlings, Briar Stalkers, Briar Hexers and Thornbows.
-9. **The Starfall Crater** (level 96+): glass fields and crystal groves round a fallen shard of the moon. The
+9. **The Starfall Crater** (level 66+): glass fields and crystal groves round a fallen shard of the moon. The
    Crater Rim, the Glass Fields (the Geode off to the west), the Long Descent, the Shard Gate (**the Shardling**,
    a brute grown through with moon-glass: lines and rings of shards), the Heart of the Crater, then the
    Moonshard and **Gorgathul, the Star-Eater**, a rat grown vast on the moon's light (orbs, falling moons,
    star rings and a nova). New foes: Starbitten Ratmen, Shardseers, Crystal Brutes, Goblin Starcallers and
    Star-Shades (twin daggers; they blink behind you).
-10. **The Waning Court** (level 108+): the Queen's palace hung in the sky. The Last Stair, the Hall of Crescents,
+10. **The Waning Court** (level 74+): the Queen's palace hung in the sky. The Last Stair, the Hall of Crescents,
    the Night Gardens over the clouds (the Observatory off to the east), the Queen's Vigil (**Maelis, the Lost
    Knight**, the knight who went ahead of you, now the Queen's: your own strikes, and she drops her guard after
    the fourth cut of a chain), the Antechamber of the Moon, then the Throne of the Waning Moon and **the Waning
@@ -458,6 +458,16 @@ Foes grow hardier the deeper you go (by the twenty-first depth, as hardy as the 
 seventy-fifth, everything, warlords included, keeps growing), Champions rise more often, and gear drops at
 higher levels and rarer.
 
+### Balance
+
+Every mission has a recommended level that its gear drops around: the Grubhold 1, then 10, 18, 26, 34, 42,
+50, 58, 66 and 74 for the Waning Court. A knight who clears each mission once (and a side mission or two) arrives
+at about that level. A mission's **tier** sets how hardy its rank and file are (health by the tier, blows by
+1 + 0.85 a tier), and each mission gives its gatekeeper and warlord their own multipliers (`gatekeeper` and
+`warlord` in its file), so they keep pace with the knight's level, gear and forging: across every mission an
+ordinary foe falls to three or four strikes and takes eight to twelve of its blows to fell you; a warlord takes
+forty-odd and needs five to eight. The Underbriar's warlords scale the same way with their depth.
+
 ### Champions and the Ways
 
 **Champions** are foes risen with the moon's leftover light: one or more affixes, shown in the name over their
@@ -483,7 +493,9 @@ Gatekeepers, warlords and Revenants are never Champions.
 Each New Game+ is a **Way**, as Nioh's difficulties are: the **Way of the Knight** (the first walk), the **Way
 of the Thorn**, the **Way of the Moon**, the **Way of the Fae Lord**, and then the Fae Lord +1, +2... Each keeps
 your level, gear, weapons, Soul Cores, skills, side-mission record and Underbriar record, and begins the
-missions again with foes half again as hardy, hitting harder, gear twenty levels higher, and Champions: a few
+missions again, each as hard as a mission six tiers further on (the Way's first mission stands where the
+last Way ended; its gatekeepers and warlords rise with it), with the recommended levels and gear 126 levels
+higher, and Champions: a few
 on the first Way (never in the Grubhold), one in seven on the Thorn, more with two affixes on the Moon, and up
 to three affixes on the Fae Lord. Divine gear drops from the Way of the Thorn on, more often on each Way after.
 

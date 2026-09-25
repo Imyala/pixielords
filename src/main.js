@@ -24,7 +24,7 @@ import { Loot, PACK } from './loot.js';
 import { RARITY, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
-import { wayName, wayDesc } from './ways.js';
+import { wayName, wayDesc, WAY_TIER, wayGlimmer } from './ways.js';
 import { makeFloor, isCheckpoint, checkpointOf, isBossDepth } from './underbriar.js';
 import { DEEDS, TIER, DEED_GLIMMER, deedTier } from './deeds.js';
 import { clamp, damp, rand } from './util.js';
@@ -258,7 +258,7 @@ function applyWorldState() {
   const d = G.save.data, m = G.save.m, L = G.level, S = sideDef();
   syncSide();
   G.player.lock = null;
-  G.ngMul = (1 + d.ng * .5) * (S?.hard || 1) * (L.depthMul || 1);
+  G.ngMul = (S?.hard || 1) * (L.depthMul || 1); G.wayTier = (d.ng || 0) * WAY_TIER;
   for (const e of G.enemies) {
     e.reset();
     if (e.spawn.add || m.dead.includes(e.id)) e.kill();
@@ -302,7 +302,7 @@ function depthCleared() {
   const d = G.save.data, m = G.save.m, L = G.level, a = d.abyss;
   if (m.cleared) return;
   m.cleared = true;
-  const gl = Math.round(90 * L.depth ** 1.2 * (1 + d.ng * .5));
+  const gl = Math.round(90 * L.depth ** 1.2 * wayGlimmer(d.ng));
   a.best = Math.max(a.best || 0, L.depth); G.tally('depth', L.depth, true);
   G.save.glimmer += gl; G.hud.addGlimmer(gl);
   G.after(.8, () => { G.world.setExit(true); G.hud.toast(`Depth ${L.depth} cleared · ${gl.toLocaleString()} Glimmer · the way down opens`, 'item'); G.audio.sfx('rest'); });
@@ -541,7 +541,7 @@ G.onEnemyKilled = (e, hit = {}) => {
 // Broken crates and urns spill a little Glimmer (more in later missions), now and then a mote of healing, and
 // whatever was shut inside. A powder keg goes up a moment later.
 G.onBreak = b => {
-  const L = G.level, p = G.player, mult = (L.tier || 1) * (1 + (L.level || 1) / 16) * G.ngMul;
+  const L = G.level, p = G.player, mult = (L.tier || 1) * (1 + (L.level || 1) / 11) * G.ngMul;
   const at = { x: b.x, y: b.h * .5 + .3, z: b.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
   if (b.glim[1]) {
     const amt = Math.round(rand(b.glim[0], b.glim[1]) * mult);
@@ -720,7 +720,7 @@ function sideComplete(S) {
   for (const e of [G.sideTarget, ...G.bosses]) if (e && !m.dead.includes(e.id)) m.dead.push(e.id);
   const first = !d.sides[S.id];
   d.sides[S.id] = (d.sides[S.id] || 0) + 1; G.tally('sides');
-  const gl = Math.round(S.glimmer * (1 + d.ng * .5) * (first ? 2 : 1));
+  const gl = Math.round(S.glimmer * wayGlimmer(d.ng) * (first ? 2 : 1));
   const spoils = [G.loot.roll(1.5, first && S.moonlit ? 4 : S.minRar)];
   if (first) spoils.push(G.loot.roll(1.5, S.minRar));
   G.save.write();

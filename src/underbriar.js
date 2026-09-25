@@ -56,7 +56,8 @@ export const bossOf = depth => BOSSES[(depth / CHECK_EVERY - 1) % BOSSES.length]
 export function depthScale(depth) {
   const tier = depth <= 21 ? 1 + (depth - 1) * .07 : 2.4 + (depth - 21) * .05;
   const mul = 1 + Math.max(0, depth - 75) * .045;
-  return { tier, mul, level: Math.round(1 + (depth - 1) * 2.3) };
+  // The level shown: as a mission of that hardiness would be (its tier sets it, 21 levels a step).
+  return { tier, mul, level: Math.round((1 + (tier - 1) * 21) * mul) };
 }
 
 const TIPS = [
@@ -184,9 +185,11 @@ export function makeFloor(depth, seed = 1) {
     }
   }
   // The warlord of a fifth depth, and whatever it calls to its side.
-  let bossIds = [], adds = [], phase2Line;
+  let bossIds = [], adds = [], phase2Line, warlord = null;
   if (boss) {
     const B = bossOf(depth), home = B.from && LEVELS[B.from];
+    // Scaled with the depth, as the missions' own warlords are with theirs (balance pass).
+    warlord = { hp: 1 + (sc.tier - 1) * .3, dmg: 1 + (sc.tier - 1) * .55 };
     B.types.forEach((type, i) => {
       const id = i ? 'boss' + (i + 1) : 'boss';
       spawns.push({ id, type, x: arena.cx + (B.types.length > 1 ? (i ? 4.5 : -4.5) : 0), z: arena.cz + 4 + i * 2, yaw: Math.PI, elite: 'boss' });
@@ -218,7 +221,7 @@ export function makeFloor(depth, seed = 1) {
 
   return {
     id: 'underbriar', depth, theme, boss: bossIds, isBoss: boss, lit,
-    name: `The Underbriar · Depth ${depth}`, level: sc.level, tier: sc.tier, depthMul: sc.mul, seed: (seed * 131 + depth * 977) >>> 0,
+    name: `The Underbriar · Depth ${depth}`, level: sc.level, tier: sc.tier, depthMul: sc.mul, warlord, seed: (seed * 131 + depth * 977) >>> 0,
     ...look.flags, fog: { color: src.fog.color, base: src.fog.base * 1.15 }, light: src.light, moon: src.moon, aurora: src.aurora, enemyGlow: (src.enemyGlow ?? .08) + .04,
     motes: { base: src.motes?.base ?? 0xc9b4ff }, leaves: src.leaves, leafColors: src.leafColors, snow: src.snow,
     phase2Line, exitToast: 'The way down opens',

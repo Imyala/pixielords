@@ -17,7 +17,9 @@ export default {
   id: 'moonspire',
   name: 'The Moonspire',
   blurb: 'A ruined fae temple above the clouds, where the moon comes close enough to touch. Something has been drinking from it.',
-  level: 36,
+  level: 26,
+  gatekeeper: { hp: 1, dmg: 1.4 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.25, dmg: 1.8 },
   map: { x: 9, z: 17 },   // where it sits on the Fae Crossroads
   seed: 8642,
   spire: true,

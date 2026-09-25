@@ -30,7 +30,9 @@ export default {
   id: 'frostmere',
   name: 'The Frostmere',
   blurb: 'A frozen mere under the aurora, where the moonlight the warlords stole runs north to pool beneath the ice. A court of winter sits upon it.',
-  level: 48,
+  level: 34,
+  gatekeeper: { hp: 1, dmg: 1.6 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.15, dmg: 1.3 },
   seed: 9753,
   frost: true,
   snow: true,

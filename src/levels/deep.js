@@ -27,7 +27,9 @@ export default {
   id: 'deep',
   name: 'The Gnawed Deep',
   blurb: 'A ratman mine beneath the mountains, lit by moon-crystals. Its brood-mother reads the future in the plague she brews.',
-  level: 24,
+  level: 18,
+  gatekeeper: { hp: 1, dmg: 1.3 },   // scaled to keep pace with the knight (balance pass)
+  warlord: { hp: 1.15, dmg: 1.7 },
   map: { x: -3, z: 5 },   // where it sits on the Fae Crossroads
   seed: 2468,
   cave: true,
