@@ -127,6 +127,7 @@
 
   .prompt{position:absolute;left:50%;bottom:19vh;transform:translateX(-50%);background:rgba(8,8,12,.78);border:1px solid var(--line);padding:9px 18px;font:15px var(--serif);letter-spacing:1px;white-space:nowrap}
   kbd{display:inline-block;min-width:22px;padding:1px 6px;margin-right:6px;border:1px solid var(--gold);border-radius:4px;color:var(--gold);font:600 12px var(--sans);text-align:center}
+  .toast.loot{font-weight:600}.toast.loot.r0{color:#d8d8d8}.toast.loot.r1{color:#9fe07a}.toast.loot.r2{color:#6ab4ff}.toast.loot.r3{color:#c88aff}.toast.loot.r4{color:#ffd36a}
   .toasts{position:absolute;left:50%;top:62%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}
   .toast{font:600 15px var(--serif);letter-spacing:2px;text-transform:uppercase;text-shadow:0 0 8px rgba(0,0,0,.9),0 2px 4px #000;transition:opacity .6s,transform .6s;white-space:nowrap}
   .toast.out{opacity:0;transform:translateY(-10px)}
@@ -208,7 +209,12 @@
   .moves .form.high .fh i{color:#ffb060}.moves .form.mid .fh i{color:var(--cyan)}.moves .form.low .fh i{color:#9dff9a}
   .moves p{margin:4px 0;font-size:13px;line-height:1.45}.moves p em{display:block;font:600 10px var(--sans);letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-style:normal}
   .moves .kit{margin-top:10px}
-  #menu.skills{background:rgba(5,6,10,.88)}
+  #menu.skills,#menu.gear{background:rgba(5,6,10,.88)}
+  .gear .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 6px}.gear .tabs.sub{margin-bottom:8px}
+  .gear .btn.tab{width:auto;padding:5px 12px;font-size:13px;opacity:.6}.gear .btn.tab.on{opacity:1;border-color:var(--gold)}
+  .gear .map{max-height:48vh}
+  .gear .gsum{display:flex;flex-direction:column;gap:4px;padding:8px 12px;border:1px solid rgba(255,255,255,.08);font-size:12px}.gear .gsum .on{color:var(--gold)}
+  .gear .btns.row{flex-direction:row;gap:8px;margin-top:8px}.gear .btns.row .btn{width:auto}
   .skills .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
   .skills .btn.tab{width:auto;padding:6px 14px;font-size:14px;opacity:.6}.skills .btn.tab.on{opacity:1;border-color:var(--gold)}
   .skills .pts{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;background:var(--gold);color:#1a1408;font:700 11px var(--sans);border-radius:9px}

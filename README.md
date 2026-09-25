@@ -95,6 +95,16 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   Skritch) throws a shell that bursts where it lands and knocks everything down, and kicks you back. Shots to
   the head hit half again as hard. Arrows, shot and shells refill at every Moonwell, and crates sometimes
   hold a few. Lock on and the aim goes straight to the locked foe.
+- **Gear.** Foes drop loot, as in Nioh: weapons (only of kinds you already carry) and armour, marked by a
+  beam of light in the rarity's colour and taken by walking over it. Ordinary foes drop now and then, elites
+  often, gatekeepers and warlords always, and better. Every piece has a **rarity** (Common, Fine, Rare,
+  Fabled, Moonlit: the rarer, the more effects), an **item level** (higher in later missions and every New
+  Game+) and **effects** rolled from a pool of 28, such as +damage at full health, a chance to set foes
+  burning, health mended per hit, cheaper dashes, fire resistance or more Glimmer. A weapon's level and
+  rarity raise its damage; armour's raise its defence, which takes a share off every blow. Armour comes in
+  **sets**, one per mission plus the Knight-Errant's you start in, and two or four pieces of one set wake its
+  bonuses; the knight takes on the colours of the set its mail belongs to. Equip it under **Gear** (pause
+  menu or any Moonwell) and dismantle what you won't wear for Glimmer.
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
   to +10; each rank is 5% more damage with it.
@@ -198,6 +208,20 @@ You carry two; choose them in the Arsenal.
 | Moonring | Glaives (thrown) | Ring Throw: heavies throw the ring out and home | the Winter Court |
 
 A save that has already felled a gatekeeper or warlord is given its weapon on the next load.
+
+The armour sets:
+
+| Set | Drops in | Two pieces | Four pieces |
+|---|---|---|---|
+| Knight-Errant's | worn from the start | +10 stamina | +20 health |
+| Gatewarden's | the Grubhold | blocked blows cost 15% less stamina | Deflects give back 20 more stamina |
+| Rotwood Stalker's | the Rotwood Hollow | +15% damage from behind | strikes from behind open a bleeding wound |
+| Deepdelver's | the Gnawed Deep | 40% less harm from fire | below half health: +12% damage, stamina returns 25% faster |
+| Moon Pilgrim's | the Moonspire | +15% Faelight | Fae Shift lasts 5 s longer, strikes in it hit 15% harder |
+| Winter Court | the Frostmere | chill builds half as fast | one strike in five frosts foes, slowing them |
+
+Item levels run 1–6 in the Grubhold, 8–14 in the Rotwood, 16–22 in the Deep, 24–30 on the Moonspire and
+32–38 on the Frostmere, twenty higher each New Game+, which keeps your gear, skills and weapons.
 
 How the fifteen newest fight (the first five are in [How it plays](#how-it-plays)):
 
@@ -321,6 +345,8 @@ src/strikeshapes.js  shapes of strike the movesets are built from: cuts, chops, 
 src/skills.js     weapon skills: the skill tree, mastery and points, and every weapon's Backstep Strike, Guard Counter, Air Finisher and Weapon Skill
 src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thunder Cannon; aiming, firing, ammunition, shots in flight, headshots
 src/rangedmodels.js  their models (the bow's string follows the draw hand)
+src/gear.js       gear: rarities, the effect pool, armour sets and their bonuses, item generation, names, damage and defence
+src/loot.js       loot on the ground: what fallen foes drop, the beams, walking over it to take it
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
@@ -334,7 +360,7 @@ src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, w
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Skills, movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear, Skills, movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

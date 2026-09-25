@@ -14,6 +14,7 @@ import { ARMORY, ARMORY_MOVES } from './armory.js';
 import { SIG_MOVES, SIG_KITS } from './signatures.js';
 import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
+import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
@@ -205,6 +206,23 @@ export class Player {
     // Every Lost Pixie freed lends its light: a hundredth more health and stamina each.
     const px = this.G.save?.data.pixies?.length || 0;
     this.maxHp = Math.round(this.maxHp * (1 + px * .01)); this.maxKi = Math.round(this.maxKi * (1 + px * .01));
+    // Gear worn (gear.js): health, stamina, Faelight, and the sets' bonuses.
+    this.maxHp += this.gf('hp') + (this.setBonus('errant4') ? 20 : 0);
+    this.maxKi += this.gf('kiMax') + (this.setBonus('errant2') ? 10 : 0);
+    this.animaGain *= 1 + this.gf('anima') / 100 + (this.setBonus('pilgrim2') ? .15 : 0);
+    if (this.setBonus('pilgrim4')) this.shiftDur += 5;
+  }
+  // Gear: what is worn, and the weapon in hand, summed (gear.js). The knight takes on its mail's colours.
+  gf(id) { return this.gear?.fx[id] || 0; }
+  setBonus(id) { return !!this.gear?.bonus.has(id); }
+  weaponName(id) { return WEAPONS[id]?.name || id; }
+  applyGear() {
+    const g = this.G.save?.data?.gear;
+    this.gear = g ? gearStats(g.items, g.equip, this.weapon) : null;
+    const hp = this.hp / (this.maxHp || 1);
+    this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp));
+    const body = g?.items.find(it => it.uid === g.equip.armor.body), L = SETS[body?.set || 'errant'].look;
+    this.k.mats.steel.color.setHex(L.steel); this.k.mats.cloth.color.setHex(L.cloth); this.k.mats.trim.color.setHex(L.trim);
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
@@ -238,6 +256,7 @@ export class Player {
     if (!WEAPONS[id] || !this.arms.includes(id)) id = this.loadout[0] || this.arms[0] || 'sword';
     this.weapon = id;
     this.k.setWeapon(id, this.loadout);
+    this.applyGear();   // the weapon's own effects come with it
     this.refreshLook();
     this.G.hud?.weapon?.(id);
   }
@@ -310,6 +329,7 @@ export class Player {
     const G = this.G;
     if (this.shifted) { this.anima -= dmg * .5; if (this.anima <= 0) this.endShift(); return; }
     if (this.has('emberwing')) dmg *= .5;
+    dmg *= (1 - this.gf('fireRes') / 100) * (this.setBonus('delver2') ? .6 : 1);
     this.hp -= dmg; this.burnedT = G.time;
     G.hud.screenFlash('hurt'); G.audio.sfx('playerHurt', { vol: .35 });
     if (this.hp <= 0) this.die();
@@ -317,7 +337,7 @@ export class Player {
 
   addPoison(n) {
     if (this.poisoned > 0 || !this.alive) return;
-    this.poison += n * (this.has('rootbound') ? .5 : 1);
+    this.poison += n * (this.has('rootbound') ? .5 : 1) * (1 - this.gf('poisonRes') / 100);
     if (this.poison >= 100) { this.poison = 0; this.poisoned = 12; this.G.hud.toast('Blighted', 'poison'); this.G.audio.sfx('poison'); }
   }
 
@@ -325,7 +345,7 @@ export class Player {
   // slow on the feet and slow to catch breath. Moondew or a Moonwell thaws it.
   addChill(n) {
     if (this.frozen > 0 || !this.alive || this.shifted) return;
-    this.chill += n * (this.has('hearthstone') ? .5 : 1);
+    this.chill += n * (this.has('hearthstone') ? .5 : 1) * (1 - this.gf('chillRes') / 100) * (this.setBonus('winter2') ? .5 : 1);
     this.chillT = this.G.time;
     if (this.chill >= 100) {
       this.chill = 0; this.frozen = 6;
@@ -629,12 +649,12 @@ export class Player {
     this.sprintArmed = true;
     this.moonstepped = false;
     if (this.inputYaw === null) {
-      this.spendKi(HOP.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1));
+      this.spendKi(HOP.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1) * (1 - this.gf('dash') / 100));
       this.setState('hop'); this.anim.play('hop', 1, .03);
       this.dashYaw = this.yaw + Math.PI;
       this.dash = { dur: HOP.dur, dist: HOP.dist * S.dash.dist, iframes: HOP.iframes };
     } else {
-      this.spendKi(DASH.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1));
+      this.spendKi(DASH.cost * S.dash.cost * (this.has('quickstep') ? .67 : 1) * (this.has('shadowsilk') ? .5 : 1) * (1 - this.gf('dash') / 100));
       this.setState('dash');
       this.dashYaw = this.inputYaw;
       const dur = DASH.dur * S.dash.dur;
@@ -845,7 +865,7 @@ export class Player {
     const justPressed = G.time - this.guardPressT <= window && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
     if ((this.guarding || justPressed) && facing && !h.burst) {
       if (justPressed && !h.aoe) return this.deflect(h);
-      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1) * (this.weapon === 'aegis' ? (this.sk('mech') ? .4 : .6) : this.weapon === 'tonfas' ? .7 : 1);
+      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1) * (this.weapon === 'aegis' ? (this.sk('mech') ? .4 : .6) : this.weapon === 'tonfas' ? .7 : 1) * (1 - this.gf('guard') / 100) * (this.setBonus('warden2') ? .85 : 1);
       if (h.chill) this.addChill(h.chill * .35);   // the cold seeps through a guard
       this.ki -= kiDmg; this.kiSpentT = G.time;
       const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .5, 1.25, this.pos.z + Math.cos(this.yaw) * .5);
@@ -861,8 +881,8 @@ export class Player {
       G.hitstop = .04;
       return 'blocked';
     }
-    // Hit.
-    let dmg = h.dmg;
+    // Hit: armour and wards take their share.
+    let dmg = h.dmg * (1 - defReduce(this.gear?.def || 0)) * (1 - this.gf('ward') / 100);
     const stalwart = this.state === 'attack' && this.weapon === 'hammer' && !this.atk.air && this.st * this.aspeed < this.atk.hit[1] + .1;
     if (stalwart) dmg *= this.sk('mech') ? .65 : STALWART.dmg;
     if (this.shifted) {
@@ -896,7 +916,7 @@ export class Player {
   deflect(h) {
     const G = this.G;
     this.setState('deflect'); this.anim.play('deflect', 1.3, .02);
-    this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8) + (this.weapon === 'tonfas' ? (this.sk('mech') ? 22 : 10) : 0));
+    this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8) + (this.weapon === 'tonfas' ? (this.sk('mech') ? 22 : 10) : 0) + this.gf('deflect') + (this.setBonus('warden4') ? 20 : 0));
     this.gainAnima(this.has('thornheart') ? 10 : 6);
     const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .6, 1.3, this.pos.z + Math.cos(this.yaw) * .6);
     G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 34, 0xdff8ff, 9);
@@ -1393,7 +1413,7 @@ export class Player {
         if (moveInput() && !this.lock) { turn = this.inputYaw; turnRate = 8; }
         if (!this.healed && this.st >= .48) {
           this.healed = true;
-          this.heal((this.maxHp * .42 + 40) * (this.has('dewdrop') ? 1.33 : 1));
+          this.heal((this.maxHp * .42 + 40) * (this.has('dewdrop') ? 1.33 : 1) * (1 + this.gf('moondew') / 100));
           this.poisoned = 0; this.poison = 0; this.thaw();
           if (this.has('winterbloom')) { this.ki = this.maxKi; this.gainAnima(10); }
           G.audio.sfx('heal');
@@ -1603,7 +1623,7 @@ export class Player {
     if (!e.alive) return;
     const big = e.boss || e.elite;
     if (this.fc.kind === 'riposte') return this.riposteHit(e, big);
-    const dmg = (e.boss ? e.maxHp * .1 : e.elite ? Math.max(e.maxHp * .28, 150) : e.hp + 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : 1);
+    const dmg = (e.boss ? e.maxHp * .1 : e.elite ? Math.max(e.maxHp * .28, 150) : e.hp + 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : 1) * (1 + this.gf('exec') / 100);
     this.chain = G.time - (this.chainT || -9) < 3 ? this.chain + 1 : 1;
     this.chainT = G.time;
     const res = e.takeHit({ dmg: dmg * (this.shifted ? 1.3 : 1), ki: big ? 140 : 999, poise: 99, dir: this.yaw, heavy: true, crit: true, flash: true });
@@ -1623,7 +1643,7 @@ export class Player {
   // Moonstep Riposte: heavy damage and posture, not an outright kill.
   riposteHit(e, big) {
     const G = this.G;
-    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : this.weapon === 'sword' && this.sk('mech') ? 1.3 : 1);
+    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1) * (this.weapon === 'rapier' ? (this.sk('mech') ? 2 : 1.5) : this.weapon === 'sword' && this.sk('mech') ? 1.3 : 1) * (1 + this.gf('exec') / 100);
     const res = e.takeHit({ dmg, ki: big ? 90 : 140, poise: 60, dir: this.yaw, heavy: true, crit: true });
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 4.5, 0xb8c8ff);
@@ -1718,6 +1738,12 @@ export class Player {
     if (a.counter) mech *= wid === 'rapier' ? (mm ? 2 : 1.5) : 1;
     // Skills learned: Proficiency, and Pause Mastery for the form's pause combo.
     mech *= (this.sk('prof1') ? 1.06 : 1) * (this.sk('prof2') ? 1.08 : 1) * (this.isPause && this.sk('pause') ? 1.2 : 1);
+    // Gear: the weapon's level and rarity, its effects, and the sets' bonuses.
+    const behind = Math.abs(angleDiff(e.yaw, yawTo(e.pos.x, e.pos.z, this.pos.x, this.pos.z))) > 2, hpK = this.hp / this.maxHp;
+    mech *= weaponMul(this.gear?.weapon) * (1 + this.gf('dmg') / 100) * (hpK >= .999 ? 1 + this.gf('dmgFull') / 100 : 1) * (hpK < .34 ? 1 + this.gf('dmgLow') / 100 : 1)
+      * (a.heavy || a.fin ? 1 + this.gf('heavy') / 100 : 1) * (this.isPause ? 1 + this.gf('pause') / 100 : 1)
+      * (behind ? 1 + this.gf('back') / 100 + (this.setBonus('stalker2') ? .15 : 0) : 1)
+      * (this.setBonus('delver4') && hpK < .5 ? 1.12 : 1) * (this.setBonus('pilgrim4') && this.shifted ? 1.15 : 1);
     const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
     // Knockback: Snare pulls, Reap's sweeps draw in, Sweep and Gale push.
     let kb = last > 1 ? Math.max(a.kb ?? 0, 4.5) : a.kb;
@@ -1725,7 +1751,7 @@ export class Player {
     if (wid === 'scythe' && kb === undefined && a.arc >= 180) kb = -1.5;
     if (wid === 'staff') kb = (kb ?? (a.heavy ? 4.5 : 2)) + 2;
     if (wid === 'fans' && !(kb < 0)) kb = Math.max(kb ?? 0, 4);
-    const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1);
+    const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1) * (1 + this.gf('ki') / 100);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
     this.combo.n++; this.combo.t = G.time;
@@ -1741,6 +1767,14 @@ export class Player {
     if (wid === 'hexblade' && !a.hexBolt) {
       this.hexHits = (this.hexHits || 0) + 1;
       if (this.hexHits >= HEX.per) { this.hexHits = 0; if ((this.hexN || 0) < (mm ? 5 : HEX.max)) { this.hexN = (this.hexN || 0) + 1; G.audio.sfx('glint', { vol: .5 }); } }
+    }
+    // Gear on the blow: mending, and chances to burn, frost and bleed (the Stalker's set bleeds from behind,
+    // the Winter Court's frosts one strike in five).
+    if (res !== 'blocked') {
+      if (this.gf('leech')) this.heal(this.gf('leech'));
+      if (Math.random() * 100 < this.gf('burn')) e.burn(BRAND.burn);
+      if (Math.random() * 100 < this.gf('frost') + (this.setBonus('winter4') ? 20 : 0)) e.rime(BRAND.rime);
+      if (Math.random() * 100 < this.gf('bleed') || (behind && this.setBonus('stalker4'))) e.bleed?.();
     }
     // Brands: fire burns, frost slows, storm leaps to a second foe nearby.
     const brand = this.brand?.kind;
@@ -1773,14 +1807,15 @@ export class Player {
       if (f.n === max && before < max) { G.hud.toast('Frenzy', 'anima'); G.fx.ring(this.pos, 0xffb4c8, 2, .3); }
     }
     G.cam.shake(a.heavy ? .22 : .08);
-    this.gainAnima(a.heavy ? 7 : 4);
+    this.gainAnima((a.heavy ? 7 : 4) * (1 + this.gf('animaHit') / 100));
   }
 
   updateResources(dt) {
     const G = this.G;
     const busy = ['attack', 'dash', 'hop', 'thorn'].includes(this.state);
     if (!busy && G.time - this.kiSpentT > .35 && this.ki < this.maxKi) {
-      const rate = 52 * (this.guarding ? .45 : 1) * (this.state === 'exhausted' || this.state === 'stagger' ? 1.5 : 1) * (this.sprinting ? .6 : 1) * (this.frozen > 0 ? .5 : 1);
+      const rate = 52 * (this.guarding ? .45 : 1) * (this.state === 'exhausted' || this.state === 'stagger' ? 1.5 : 1) * (this.sprinting ? .6 : 1) * (this.frozen > 0 ? .5 : 1)
+        * (1 + this.gf('kiRegen') / 100) * (this.setBonus('delver4') && this.hp < this.maxHp * .5 ? 1.25 : 1);
       this.ki = Math.min(this.maxKi, this.ki + rate * dt);
     }
     if (this.poisoned > 0 && this.alive && G.state === 'play' && this.state !== 'rest') {
@@ -1805,7 +1840,7 @@ export class Player {
     }
     if (this.state !== 'attack') this.aoeDone = false;
     if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep * (this.has('wildfang') ? 1.8 : 1)) this.frenzy.n = 0;
-    if (this.combo.n && G.time - this.combo.t > COMBO.keep) this.combo.n = 0;
+    if (this.combo.n && G.time - this.combo.t > COMBO.keep + this.gf('comboKeep')) this.combo.n = 0;
     if (this.brand) {
       if (G.time >= this.brand.until) { this.brand = null; this.refreshLook(); }
       else if (Math.random() < dt * 24) { this.k.tip.getWorldPosition(_b); G.fx.motes(_b, ARTS[this.brand.kind].hex, 1, .12, .4, .07, .45); }

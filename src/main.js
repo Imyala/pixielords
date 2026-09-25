@@ -14,12 +14,14 @@ import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
-import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings } from './save.js';
+import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGear } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
+import { Loot, PACK } from './loot.js';
+import { RARITY, itemName, dismantleValue } from './gear.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -102,6 +104,7 @@ G.hud = new HUD(G);
 G.menu = new Menu(G);
 G.overworld = new Overworld(G);
 G.projectiles = new Projectiles(G);
+G.loot = new Loot(G);
 G.player = new Player(G);
 const envTex = makeEnv();
 for (const m of Object.values(G.player.k.mats)) if (m.isMeshStandardMaterial) { m.envMap = envTex; m.envMapIntensity = .9; }
@@ -172,7 +175,7 @@ async function setLevel(id) {
   if (G.level !== L) {
     for (const e of G.enemies) e.dispose();
     G.enemies = [];
-    G.projectiles.clear();
+    G.projectiles.clear(); G.loot.clear();
     G.world.dispose();
     G.level = L;
     G.world = new World(G, L);
@@ -292,7 +295,8 @@ G.startMission = async id => {
 };
 G.newGamePlus = async () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -326,7 +330,8 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
-  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1));
+  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
+  G.loot.dropFrom(e);
   G.save.glimmer += amt;
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
@@ -443,6 +448,7 @@ G.readyRanged = id => { readyRanged(id); G.audio.sfx('stance', { pitch: 1.2 }); 
 function grantTrophies() {
   const d = G.save.data;
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[0]; d.mastery ||= {};
+  d.gear ||= freshGear();
   for (const L of Object.values(LEVELS)) {
     const dead = G.save.mission(L.id).dead;
     const gateDown = L.gate && dead.includes(L.gate.guardian), bossDown = bossIds(L).every(id => dead.includes(id));
@@ -614,6 +620,41 @@ G.wieldWeapon = w => {
   G.audio.sfx('stance', { pitch: .9 });
   G.save.write();
 };
+// Gear (gear.js, loot.js): a piece picked up goes in the pack, and straight into use if nothing of its kind is.
+G.takeGear = it => {
+  const d = G.save.data, g = d.gear, p = G.player;
+  if (g.items.length >= PACK) return false;
+  g.items.push(it);
+  const worn = it.kind === 'weapon' ? g.equip.weapons : g.equip.armor, key = it.kind === 'weapon' ? it.type : it.slot;
+  if (!worn[key]) { worn[key] = it.uid; p.applyGear(); }
+  const R = RARITY[it.rar];
+  G.hud.toast(`${itemName(it, w => p.weaponName(w))} · Lv ${it.lvl}`, 'loot r' + it.rar);
+  G.audio.sfx('pickup', { vol: .6 + it.rar * .1 });
+  if (it.rar >= 3) G.fx.ring(p.pos, R.color, 2, .35);
+  if (!d.gearTip) { d.gearTip = true; G.tipAfter(1, 'Gear: foes drop weapons and armour, better from elites and warlords. Each has a rarity, a level and effects, and armour of one set wakes bonuses when two or four pieces are worn. Equip it under Gear (pause menu or any Moonwell); dismantle what you won\'t wear for Glimmer.'); }
+  G.save.write();
+  return true;
+};
+G.equipGear = uid => {
+  const d = G.save.data, g = d.gear, it = g.items.find(x => x.uid === uid);
+  if (!it) return false;
+  if (it.kind === 'weapon') g.equip.weapons[it.type] = uid; else g.equip.armor[it.slot] = uid;
+  G.player.applyGear(); G.audio.sfx('stance', { pitch: .9 }); G.save.write();
+  return true;
+};
+const equippedUids = g => new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+G.dismantleGear = uids => {
+  const d = G.save.data, g = d.gear, worn = equippedUids(g);
+  let got = 0, n = 0;
+  g.items = g.items.filter(it => { if (!uids.includes(it.uid) || worn.has(it.uid)) return true; got += dismantleValue(it); n++; return false; });
+  if (!n) return 0;
+  G.save.glimmer += got; G.hud.addGlimmer(got); G.hud.glimmerShown = G.save.glimmer;
+  G.audio.sfx('shatter', { vol: .5 }); G.save.write();
+  return got;
+};
+// Everything not worn at or below a rarity.
+G.dismantleBelow = rar => { const g = G.save.data.gear, worn = equippedUids(g); return G.dismantleGear(g.items.filter(it => it.rar <= rar && !worn.has(it.uid)).map(it => it.uid)); };
+
 // Skills (skills.js): spend a weapon's skill points on one of its skills, once what it needs is learned.
 G.learnSkill = (w, id) => {
   const d = G.save.data, m = ((d.mastery ||= {})[w] ||= { xp: 0, learned: [] }), tree = treeFor(w), t = tree.find(x => x.id === id);
@@ -826,6 +867,7 @@ function step(dt, rdt) {
   }
   if (grave.visible) { echoAnim.update(rdt, { speed: 0 }); grave.userData.core.rotation.y += rdt * 2; grave.userData.core.position.y = 1.9 + Math.sin(G.time * 2) * .1; if (Math.random() < rdt * 20) G.fx.motes({ x: grave.position.x, y: .3, z: grave.position.z }, 0x9dff9a, 1, .3, 1.2, .08, 1); }
 
+  G.loot.update(rdt);
   // Lost Pixies are freed by coming close.
   if (G.state === 'play' && p.alive) for (const px of G.world.pixieList) {
     if (px.taken || px.hidden) continue;

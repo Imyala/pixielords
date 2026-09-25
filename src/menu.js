@@ -7,6 +7,8 @@ import { levelCost, forgeCost, FORGE } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
 import { RANGED } from './ranged.js';
+import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue } from './gear.js';
+import { PACK } from './loot.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -148,6 +150,13 @@ export class Menu {
       case 'forge': { const f = this.focus; if (!G.forgeWeapon(b.dataset.w)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
       case 'movesW': this.top.data = { w: b.dataset.w }; this.render(); break;
       case 'skills': this.push('skills', { w: G.player.weapon }); break;
+      case 'gear': this.push('gear', { tab: 'armor', w: G.player.weapon, slot: 'body' }); break;
+      case 'gearTab': Object.assign(this.top.data, { tab: b.dataset.tab }); this.render(); break;
+      case 'gearW': Object.assign(this.top.data, { w: b.dataset.w }); this.render(); break;
+      case 'gearSlot': Object.assign(this.top.data, { slot: b.dataset.slot }); this.render(); break;
+      case 'equipGear': { const f = this.focus; G.equipGear(+b.dataset.uid); this.render(); this.focus = f; this.paint(); break; }
+      case 'dismantle': { const f = this.focus, got = G.dismantleGear([+b.dataset.uid]); if (got) G.hud.toast(`Dismantled for ${got} Glimmer`, 'item'); this.render(); this.focus = Math.min(f, this.items().length - 1); this.paint(); break; }
+      case 'dismantleBelow': { const got = G.dismantleBelow(+b.dataset.rar); G.hud.toast(got ? `Dismantled for ${got.toLocaleString()} Glimmer` : 'Nothing to dismantle', 'item'); this.render(); break; }
       case 'skillsW': this.top.data = { w: b.dataset.w }; this.render(); break;
       case 'learn': { const f = this.focus; if (!G.learnSkill(b.dataset.w, b.dataset.id)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
       case 'letter': { const y = this.el.querySelector('.map')?.scrollTop || 0; this.top.scroll = y; this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break; }
@@ -182,7 +191,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button><button class="btn" data-act="quit">Quit to title</button></div>
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
       h = `<div class="panel wide"><h2>Controls</h2><table class="ctl"><tr><th></th><th>Keyboard + mouse</th><th>Gamepad</th></tr>
@@ -192,6 +201,7 @@ export class Menu {
           <p><b>Resonance</b>: as a strike ends, blue light gathers around you. Tap guard then and the stamina you spent flows back. Change stance in that moment for a Resonant Shift.</p>
           <p><b>Forms</b>: every weapon fights its own way in each stance (High hits hardest, Mid is balanced, Low is quick). Strike standing still and strike on the move for two different chains. Two strikes in, wait for the blade to glint, then strike: the form's <b>pause combo</b>. Strike then heavy for a <b>finisher</b>, chosen by how many strikes came first; it spends the combo counter for extra damage. See <b>Movesets</b> for every form.</p>
           <p><b>Arsenal</b>: you carry two weapons at a time; choose them in the Arsenal (pause menu or any Moonwell), and forge them stronger at a Moonwell. The <b>Thornhammer</b> is Stalwart (blows can't stagger its swings); the <b>Starfists</b> punch and kick, and every hit wins back stamina.</p>
+          <p><b>Gear</b>: foes drop weapons and armour, marked by beams of light in their rarity's colour; walk over them to take them. Rarer pieces carry more effects, and two or four pieces of one armour set wake its bonuses. Equip under Gear; dismantle the rest for Glimmer.</p>
           <p><b>Skills</b>: every weapon learns from use. Blows landed earn it mastery and skill points; spend them under Skills on new moves (a Backstep Strike, a Guard Counter, an Air Finisher, the weapon's own Weapon Skill on guard + heavy) and on mastery of its ways.</p>
           <p><b>Ranged weapons</b>: aim to bring the camera over your shoulder, strike to fire. The Wisp Pod needs no ammunition but overheats; the Moonbow draws while you hold strike; the rifle and hand cannon hit hardest but reload slowly. Shots to the head hit harder. Ammunition refills at every Moonwell.</p>
           <p><b>Fae Arts</b>: thrown darts and pixie bombs, and brands that set your weapon burning, crackling or frosting for thirty seconds. Their uses return at every Moonwell.</p>
@@ -236,6 +246,7 @@ export class Menu {
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
           <button class="btn" data-act="arsenal">Arsenal <small>choose two weapons · forge them stronger</small></button>
+          <button class="btn" data-act="gear">Gear <small>weapons and armour found · dismantle for Glimmer</small></button>
           <button class="btn" data-act="skills">Skills <small>spend what each weapon has taught you</small></button>
           <button class="btn" data-act="moves">Movesets <small>each weapon's forms, combos and finishers</small></button>
           <button class="btn" data-act="journal">Journal <small>${sv.data.letters.length} letters · ${sv.data.pixies.length} Lost Pixies freed</small></button>
@@ -293,11 +304,12 @@ export class Menu {
       const rows = d.arms.map(w => {
         const W = WEAPONS[w], rank = d.forge[w] || 0, cost = forgeCost(rank), inHand = d.wield === w, onBack = !inHand && d.loadout.includes(w);
         const forms = ['high', 'mid', 'low'].map(s => FORMS[w][s].name).join(' · ');
+        const gw = d.gear?.items.find(it => it.uid === d.gear.equip.weapons[w]);
         const forge = !data.forge ? '' : rank >= FORGE.max ? '<button class="btn small" disabled>Forged to +10</button>'
           : `<button class="btn small" data-act="forge" data-w="${w}" ${sv.glimmer >= cost ? '' : 'disabled'}>Forge to +${rank + 1} <small>${cost.toLocaleString()} Glimmer</small></button>`;
         return `<div class="arm ${inHand ? 'hand' : onBack ? 'back' : ''}"><div class="ainfo"><b>${esc(W.name)}${rank ? ` <span class="rank">+${rank}</span>` : ''}</b>
             <span class="mtag ${inHand || onBack ? 'cleared' : 'sealed'}">${inHand ? 'In hand' : onBack ? 'On your back' : 'Stowed'}</span>
-            <small>${esc(W.desc)}</small>${W.mech ? `<small><b class="mech">${esc(W.mech)}</b>: ${esc(W.mechDesc)}</small>` : ''}<small class="dim">${esc(forms)}${rank ? ` · +${Math.round(rank * FORGE.per * 100)}% damage` : ''}</small></div>
+            <small>${esc(W.desc)}</small>${W.mech ? `<small><b class="mech">${esc(W.mech)}</b>: ${esc(W.mechDesc)}</small>` : ''}<small class="dim">${esc(forms)}${rank ? ` · +${Math.round(rank * FORGE.per * 100)}% damage` : ''}</small>${gw ? `<small>Gear: <span style="color:#${RARITY[gw.rar].color.toString(16).padStart(6, '0')}">${esc(itemName(gw, id => G.player.weaponName(id)))}</span> · Lv ${gw.lvl} · ×${weaponMul(gw).toFixed(2)}</small>` : ''}</div>
           <div class="abtns"><button class="btn small" data-act="wield" data-w="${w}" ${inHand ? 'disabled' : ''}>${inHand ? 'Wielded' : 'Take in hand'}</button>${forge}</div></div>`;
       }).join('');
       // The ranged weapon carried: one at a time.
@@ -330,6 +342,36 @@ export class Menu {
           <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} (the chain carries on through dashes) · from a slide: <b>${nm(K.slide)}</b></p>
           <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill']].map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' <span class="dim">(not yet learned)</span>'}`; }).join(' · ')}</p>
           <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'gear') {
+      // Gear found: weapons by kind, armour by slot. Equip, or dismantle for Glimmer.
+      const d = G.save.data, g = d.gear, p = G.player, wn = id => p.weaponName(id), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+      const col = r => '#' + RARITY[r].color.toString(16).padStart(6, '0');
+      const row = it => {
+        const on = worn.has(it.uid), stat = it.kind === 'weapon' ? `×${weaponMul(it).toFixed(2)} damage` : `${armorDef(it)} defence`;
+        return `<div class="arm ${on ? 'hand' : ''}"><div class="ainfo"><b style="color:${col(it.rar)}">${esc(itemName(it, wn))}</b>
+          <span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Equipped · ' : ''}${RARITY[it.rar].name} · Lv ${it.lvl} · ${stat}</span>
+          ${it.fx.map(([id, v]) => `<small>${esc(fxText(id, v))}</small>`).join('')}${it.set ? `<small class="dim">${esc(SETS[it.set].name)} set</small>` : ''}</div>
+          <div class="abtns">${on ? '<button class="btn small" disabled>Equipped</button>' : `<button class="btn small" data-act="equipGear" data-uid="${it.uid}">${it.kind === 'weapon' ? 'Wield' : 'Wear'}</button><button class="btn small" data-act="dismantle" data-uid="${it.uid}">Dismantle <small>${dismantleValue(it)} Glimmer</small></button>`}</div></div>`;
+      };
+      const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
+      let body = '', tabs2 = '';
+      if (data.tab === 'weapons') {
+        const w = d.arms.includes(data.w) ? data.w : d.arms[0];
+        tabs2 = d.arms.map(id => `<button class="btn tab${id === w ? ' on' : ''}" data-act="gearW" data-w="${id}">${esc(wn(id))} <span class="dim">${g.items.filter(it => it.type === id).length}</span></button>`).join('');
+        const list = g.items.filter(it => it.type === w).sort(sort);
+        body = (g.equip.weapons[w] ? '' : `<p class="dim">No ${esc(wn(w))} of any rarity yet: the one you carry hits at ×1.00. Foes drop better ones.</p>`) + list.map(row).join('');
+      } else {
+        const slot = SLOTS.includes(data.slot) ? data.slot : 'body', st = p.gear || { def: 0, sets: {}, bonus: new Set() };
+        tabs2 = SLOTS.map(s => `<button class="btn tab${s === slot ? ' on' : ''}" data-act="gearSlot" data-slot="${s}">${SLOT_NAME[s]} <span class="dim">${g.items.filter(it => it.slot === s).length}</span></button>`).join('');
+        const sets = Object.entries(st.sets).map(([id, n]) => `<small><b>${esc(SETS[id].name)}</b> ${n} / 4 · two: <span class="${n >= 2 ? 'on' : 'dim'}">${esc(SETS[id].two)}</span> · four: <span class="${n >= 4 ? 'on' : 'dim'}">${esc(SETS[id].four)}</span></small>`).join('');
+        body = `<div class="gsum"><small>Defence <b>${st.def}</b> · blows land for ${Math.round(defReduce(st.def) * 100)}% less</small>${sets}</div>` + g.items.filter(it => it.slot === slot).sort(sort).map(row).join('');
+      }
+      h = `<div class="panel wide arsenal gear"><div class="kicker">Gear · pack ${g.items.length} / ${PACK}</div><h2>${data.tab === 'weapons' ? 'Weapons' : 'Armour'}</h2>
+        <div class="tabs"><button class="btn tab${data.tab === 'armor' ? ' on' : ''}" data-act="gearTab" data-tab="armor">Armour</button><button class="btn tab${data.tab === 'weapons' ? ' on' : ''}" data-act="gearTab" data-tab="weapons">Weapons</button></div>
+        <div class="tabs sub">${tabs2}</div>
+        <div class="map">${body || '<p class="dim">Nothing here yet.</p>'}</div>
+        <div class="btns row"><button class="btn small" data-act="dismantleBelow" data-rar="0">Dismantle all Common</button><button class="btn small" data-act="dismantleBelow" data-rar="1">Dismantle all Common and Fine</button></div>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'skills') {
       // Each weapon's tree: mastery earned by using it, points to spend, skills in tiers.

@@ -8,6 +8,10 @@ export const levelCost = lvl => Math.round(160 + 70 * (lvl - 1) + 9 * (lvl - 1) 
 export const FORGE = { max: 10, per: .05 };
 export const forgeCost = rank => Math.round(700 * 1.42 ** rank);
 
+// The starting harness: the Knight-Errant's set (gear.js), worn.
+export const freshGear = () => ({ items: ['head', 'body', 'hands', 'legs'].map((slot, i) => ({ uid: i + 1, kind: 'armor', slot, set: 'errant', lvl: 1, rar: 0, fx: [] })),
+  equip: { weapons: {}, armor: { head: 1, body: 2, hands: 3, legs: 4 } }, uid: 4 });
+
 export const freshMission = () => ({ shrine: null, kindled: [], dead: [], items: [], cleared: false });
 
 export function freshSave(ng = 0) {
@@ -17,6 +21,7 @@ export function freshSave(ng = 0) {
     loadout: ['sword'], forge: {}, arts: ['darts'], artSel: 'darts',
     mastery: {},   // per weapon: { xp, learned: [skill ids] } (skills.js)
     ranged: ['wisp'], rangedSel: 'wisp',   // ranged weapons found, and the one carried (ranged.js)
+    gear: freshGear(),   // gear found and worn (gear.js)
   };
 }
 
@@ -49,6 +54,7 @@ function migrate(d) {
   if (!d.arts.includes(d.artSel)) d.artSel = d.arts[0];
   d.mastery ||= {};
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
+  d.gear ||= freshGear();
   return d;
 }
 
