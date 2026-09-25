@@ -180,6 +180,7 @@ export const rangedMethods = {
         this.combo.n++; this.combo.t = G.time;
         this.gainMastery(res === 'kill' ? 6 : R.kind === 'pod' ? .25 : 2, s.id);
         if (head && R.kind !== 'pod') G.hud.toast('Headshot', 'pulse');
+        if (R.kind !== 'pod') G.tally?.('ranged');
       }
       G.fx.spark({ x: hx, y: hy, z: hz }, { x: s.vx, z: s.vz }, R.kind === 'pod' ? 4 : 12, R.kind === 'pod' ? 0xcff6ff : 0xffd080, R.kind === 'pod' ? 2 : 5);
       G.audio.sfx(R.kind === 'pod' ? 'glint' : 'hit', { x: hx, z: hz, vol: R.kind === 'pod' ? .15 : .7 });

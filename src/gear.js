@@ -149,3 +149,13 @@ export function gearStats(items, equip, weaponType) {
   if (w) { out.weapon = w; add(w); }
   return out;
 }
+
+// The Moonwell's forge. Reforging rerolls one effect into another the piece doesn't carry (at a value for its
+// rarity); soul-matching raises a piece's level to that of another of its kind, which is consumed.
+export const reforgeCost = it => Math.round((300 + it.lvl * 45) * (1 + it.rar * .6));
+export function rerollFx(it, i, rnd = Math.random) {
+  const pool = POOL[it.kind === 'weapon' ? 'w' : 'a'].filter(id => !it.fx.some(([f], k) => f === id && k !== i));
+  const id = pool[Math.floor(rnd() * pool.length)], [a, b] = FX[id].r;
+  return [id, Math.round(a + (b - a) * rnd() * (.75 + it.rar * .08))];
+}
+export const soulMatchCost = (it, to) => Math.round(Math.max(1, to.lvl - it.lvl) * 110 * (1 + it.rar * .5));

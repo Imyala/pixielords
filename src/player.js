@@ -17,6 +17,7 @@ import { RANGED, DRAW, rangedMethods } from './ranged.js';
 import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
 import { CHARMS } from './charms.js';
+import { deedFx } from './deeds.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
@@ -215,7 +216,9 @@ export class Player {
     if (this.setBonus('pilgrim4')) this.shiftDur += 5;
   }
   // Gear: what is worn, and the weapon in hand, summed (gear.js). The knight takes on its mail's colours.
-  gf(id) { return (this.gear?.fx[id] || 0) + (this.charmFx?.[id] || 0); }
+  gf(id) { return (this.gear?.fx[id] || 0) + (this.charmFx?.[id] || 0) + (this.deedFx?.[id] || 0); }
+  // Deeds earned (deeds.js): their bonuses, for good.
+  applyDeeds() { this.deedFx = deedFx(this.G.save?.data.deeds); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
   setBonus(id) { return !!this.gear?.bonus.has(id); }
   weaponName(id) { return WEAPONS[id]?.name || id; }
   applyGear() {
@@ -519,7 +522,7 @@ export class Player {
       if (this.elixirs <= 0) { G.hud.toast('No Moondew left'); return false; }
       this.elixirs--; this.healed = false;
       this.setState('drink'); this.anim.play('drink', 1.25);
-      G.audio.sfx('drink');
+      G.audio.sfx('drink'); G.tally?.('moondew');
       return true;
     }
     if (a === 'shift') {
@@ -790,7 +793,7 @@ export class Player {
     this.grapple.x = e.pos.x - Math.sin(toE) * stand; this.grapple.z = e.pos.z - Math.cos(toE) * stand;
     this.setState('grapple'); this.anim.play('grapple', 1.25, .04);
     this.iframes = true; this.iframesT = .1;   // nothing may interrupt it on its first frame
-    G.hud.toast(kind === 'ambush' ? 'Ambush' : 'Execution', 'crit');
+    G.hud.toast(kind === 'ambush' ? 'Ambush' : 'Execution', 'crit'); G.tally?.('executions');
     G.audio.sfx('swingHeavy');
     this.lock = this.lock || e;
     return true;
@@ -933,7 +936,7 @@ export class Player {
     if (!h.projectile && h.from?.alive) {
       h.from.deflected(h);
       this.flash = { until: G.time + FLASH_WINDOW, e: h.from };
-      G.hud.toast('Deflect', 'pulse');
+      G.hud.toast('Deflect', 'pulse'); G.tally?.('deflects');
     }
     return 'deflected';
   }
@@ -1017,7 +1020,7 @@ export class Player {
     const G = this.G, id = this.art, A = ARTS[id];
     if (!A || !this.arts.includes(id)) return false;
     if (!(this.artUses[id] > 0)) { G.hud.toast(`No ${A.name} left — more at a Moonwell`); return false; }
-    this.artUses[id]--;
+    this.artUses[id]--; G.tally?.('arts');
     this.artKind = id; this.artFired = false; this.pulse = null;
     this.setState('art'); this.anim.play(A.brand ? 'brand' : 'throw', 1.2, .04);
     this.faceTarget(true);
@@ -1653,6 +1656,7 @@ export class Player {
     this.chain = G.time - (this.chainT || -9) < 3 ? this.chain + 1 : 1;
     this.chainT = G.time;
     const res = e.takeHit({ dmg: dmg * (this.shifted ? 1.3 : 1), ki: big ? 140 : 999, poise: 99, dir: this.yaw, heavy: true, crit: true, flash: true });
+    if (res) G.tally?.('flashcuts');
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 5.5, 0xffffff);
     G.fx.spark(p, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 50, 0xffffff, 12);

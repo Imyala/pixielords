@@ -7,7 +7,8 @@ import { levelCost, forgeCost, FORGE } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
 import { RANGED } from './ranged.js';
-import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue } from './gear.js';
+import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue, reforgeCost, soulMatchCost } from './gear.js';
+import { TIER, DEED_GLIMMER } from './deeds.js';
 import { PACK } from './loot.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES, sidesOf } from './sides.js';
@@ -165,7 +166,11 @@ export class Menu {
       case 'forge': { const f = this.focus; if (!G.forgeWeapon(b.dataset.w)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
       case 'movesW': this.top.data = { w: b.dataset.w }; this.render(); break;
       case 'skills': this.push('skills', { w: G.player.weapon }); break;
-      case 'gear': this.push('gear', { tab: 'armor', w: G.player.weapon, slot: 'body' }); break;
+      case 'gear': this.push('gear', { tab: 'armor', w: G.player.weapon, slot: 'body', forge: this.top?.screen === 'shrine' }); break;
+      case 'smith': this.push('smith', { uid: +b.dataset.uid }); break;
+      case 'reforge': { const f = this.focus; if (!G.reforge(this.top.data.uid, +b.dataset.i)) G.audio.sfx('ui'); this.render(); this.focus = f; this.paint(); break; }
+      case 'soulmatch': { if (G.soulMatch(this.top.data.uid, +b.dataset.from)) { this.render(); } else G.audio.sfx('ui'); break; }
+      case 'deeds': this.push('deeds'); break;
       case 'gearTab': Object.assign(this.top.data, { tab: b.dataset.tab }); this.render(); break;
       case 'gearW': Object.assign(this.top.data, { w: b.dataset.w }); this.render(); break;
       case 'gearSlot': Object.assign(this.top.data, { slot: b.dataset.slot }); this.render(); break;
@@ -207,7 +212,7 @@ export class Menu {
     } else if (screen === 'pause') {
       h = `<div class="panel"><h2>Paused</h2>
         <div class="btns"><button class="btn" data-act="resume">Resume</button><button class="btn" data-act="controls">Controls</button>
-        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="settings">Settings</button>${G.sideDef() ? '<button class="btn" data-act="abandon">Abandon side mission</button>' : ''}${G.level.depth ? '<button class="btn" data-act="leaveAbyss">Leave the Underbriar</button>' : ''}<button class="btn" data-act="quit">Quit to title</button></div>
+        <button class="btn" data-act="arsenal">Arsenal</button><button class="btn" data-act="gear">Gear</button><button class="btn" data-act="skills">Skills</button><button class="btn" data-act="moves">Movesets</button><button class="btn" data-act="journal">Journal</button><button class="btn" data-act="deeds">Deeds</button><button class="btn" data-act="settings">Settings</button>${G.sideDef() ? '<button class="btn" data-act="abandon">Abandon side mission</button>' : ''}${G.level.depth ? '<button class="btn" data-act="leaveAbyss">Leave the Underbriar</button>' : ''}<button class="btn" data-act="quit">Quit to title</button></div>
         ${G.sideDef() ? `<p class="dim">${esc(G.sideDef().name)}: a side run keeps its own Moonwells. Abandon it to return to the mission itself.</p>` : ''}
         <p class="dim">Progress is saved each time you rest at a Moonwell or vanquish a warlord.</p></div>`;
     } else if (screen === 'controls') {
@@ -224,6 +229,8 @@ export class Menu {
           <p><b>Champions</b>: now and then a foe rises with one or more affixes (Swift, Bloodthirsty, Emberborn, Rimebound, Blighted, Warded, Wrathful, Stoneskin, Stormcaller, Phasing), named for them and ringed in their colour. Hardier and more dangerous, they pay out as elites do. More come on later Ways, in Twilight and deep in the Underbriar.</p>
           <p><b>Ways</b>: each New Game+ is a Way: the Thorn, the Moon, the Fae Lord and beyond. Foes grow hardier, Champions carry more affixes, gear drops higher, and <b>Divine</b> gear, the rarest, appears.</p>
           <p><b>The Underbriar</b> (from the Crossroads map, once the Grubhold is cleared): an endless maze made anew at every depth. Slay every foe to open the way down; every fifth depth ends with a warlord, and the next holds a lit Moonwell to start from again. Health and Moondew carry from depth to depth; fall, and you wake at the last lit Moonwell.</p>
+          <p><b>Deeds</b> (pause menu or any Moonwell): long goals kept across every mission, Way and depth: foes felled by kind, Deflects, Flashcuts, missions and side missions, the Underbriar's depths, pixies and letters found, gear smithed. Each has three tiers; each tier pays Glimmer and a small bonus for good.</p>
+          <p><b>The Moonwell's forge</b>: open Gear at a Moonwell to <b>reforge</b> a piece (roll one of its effects anew) or <b>soul-match</b> it (raise its level to that of another piece of its kind, which is consumed), so a favourite piece can keep up as you go deeper.</p>
           <p><b>Skills</b>: every weapon learns from use. Blows landed earn it mastery and skill points; spend them under Skills on new moves (a Backstep Strike, a Guard Counter, an Air Finisher, the weapon's own Weapon Skill on guard + heavy) and on mastery of its ways.</p>
           <p><b>Ranged weapons</b>: aim to bring the camera over your shoulder, strike to fire. The Wisp Pod needs no ammunition but overheats; the Moonbow draws while you hold strike; the rifle and hand cannon hit hardest but reload slowly. Shots to the head hit harder. Ammunition refills at every Moonwell.</p>
           <p><b>Fae Arts</b>: thrown darts and pixie bombs, and brands that set your weapon burning, crackling or frosting for thirty seconds. Their uses return at every Moonwell.</p>
@@ -268,10 +275,11 @@ export class Menu {
           ${other.map(s => `<button class="btn" data-act="travel" data-shrine="${s.id}">Travel to ${esc(s.name)}</button>`).join('')}
           ${sv.data.charms.length ? `<button class="btn" data-act="charms">Charms (${sv.data.equipped.length} / ${CHARM_SLOTS} worn)</button>` : ''}
           <button class="btn" data-act="arsenal">Arsenal <small>choose two weapons · forge them stronger</small></button>
-          <button class="btn" data-act="gear">Gear <small>weapons and armour found · dismantle for Glimmer</small></button>
+          <button class="btn" data-act="gear">Gear <small>weapons and armour found · reforge, soul-match, dismantle</small></button>
           <button class="btn" data-act="skills">Skills <small>spend what each weapon has taught you</small></button>
           <button class="btn" data-act="moves">Movesets <small>each weapon's forms, combos and finishers</small></button>
           <button class="btn" data-act="journal">Journal <small>${sv.data.letters.length} letters · ${sv.data.pixies.length} Lost Pixies freed</small></button>
+          <button class="btn" data-act="deeds">Deeds <small>${Object.values(sv.data.deeds || {}).reduce((a, b) => a + b, 0)} of ${G.deedsView().length * 3} earned</small></button>
           ${sv.data.unlocked.length > 1 ? '<button class="btn" data-act="journey">Journey elsewhere…</button>' : ''}
           <button class="btn" data-act="leave">Rise</button>
         </div>
@@ -403,7 +411,7 @@ export class Menu {
         return `<div class="arm ${on ? 'hand' : ''}"><div class="ainfo"><b style="color:${col(it.rar)}">${esc(itemName(it, wn))}</b>
           <span class="mtag ${on ? 'cleared' : 'sealed'}">${on ? 'Equipped · ' : ''}${RARITY[it.rar].name} · Lv ${it.lvl} · ${stat}</span>
           ${it.fx.map(([id, v]) => `<small>${esc(fxText(id, v))}</small>`).join('')}${it.set ? `<small class="dim">${esc(SETS[it.set].name)} set</small>` : ''}</div>
-          <div class="abtns">${on ? '<button class="btn small" disabled>Equipped</button>' : `<button class="btn small" data-act="equipGear" data-uid="${it.uid}">${it.kind === 'weapon' ? 'Wield' : 'Wear'}</button><button class="btn small" data-act="dismantle" data-uid="${it.uid}">Dismantle <small>${dismantleValue(it)} Glimmer</small></button>`}</div></div>`;
+          <div class="abtns">${on ? '<button class="btn small" disabled>Equipped</button>' : `<button class="btn small" data-act="equipGear" data-uid="${it.uid}">${it.kind === 'weapon' ? 'Wield' : 'Wear'}</button><button class="btn small" data-act="dismantle" data-uid="${it.uid}">Dismantle <small>${dismantleValue(it)} Glimmer</small></button>`}${data.forge ? `<button class="btn small" data-act="smith" data-uid="${it.uid}">Forge <small>reforge · soul-match</small></button>` : ''}</div></div>`;
       };
       const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
       let body = '', tabs2 = '';
@@ -434,7 +442,36 @@ export class Menu {
         <div class="tabs"><button class="btn tab${data.tab === 'armor' ? ' on' : ''}" data-act="gearTab" data-tab="armor">Armour</button><button class="btn tab${data.tab === 'weapons' ? ' on' : ''}" data-act="gearTab" data-tab="weapons">Weapons</button><button class="btn tab${data.tab === 'cores' ? ' on' : ''}" data-act="gearTab" data-tab="cores">Soul Cores</button></div>
         <div class="tabs sub">${tabs2}</div>
         <div class="map">${body || '<p class="dim">Nothing here yet.</p>'}</div>
+        ${data.forge ? '' : '<p class="dim">Reforge and soul-match gear at any Moonwell.</p>'}
         <div class="btns row"><button class="btn small" data-act="dismantleBelow" data-rar="0">Dismantle all Common</button><button class="btn small" data-act="dismantleBelow" data-rar="1">Dismantle all Common and Fine</button></div>
+        <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+    } else if (screen === 'smith') {
+      // The Moonwell's forge: reroll an effect, or raise the piece's level with another of its kind.
+      const d = G.save.data, g = d.gear, p = G.player, it = g.items.find(x => x.uid === data.uid), wn = id => p.weaponName(id);
+      if (!it) { h = '<div class="panel"><p class="dim">That piece is gone.</p><div class="btns"><button class="btn" data-act="back">Back</button></div></div>'; }
+      else {
+        const col = '#' + RARITY[it.rar].color.toString(16).padStart(6, '0'), rc = reforgeCost(it), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+        const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
+        h = `<div class="panel wide arsenal gear"><div class="kicker">The Moonwell's forge · Glimmer ${G.save.glimmer.toLocaleString()}</div><h2 style="color:${col}">${esc(itemName(it, wn))}</h2>
+          <p class="dim">${RARITY[it.rar].name} · Lv ${it.lvl} · ${it.kind === 'weapon' ? `×${weaponMul(it).toFixed(2)} damage` : `${armorDef(it)} defence`}</p>
+          <div class="map"><div class="kicker rhead">Reforge: roll one effect anew · ${rc.toLocaleString()} Glimmer each</div>
+          ${it.fx.length ? it.fx.map(([id, v], i) => `<div class="arm"><div class="ainfo"><small>${esc(fxText(id, v))}</small></div><div class="abtns"><button class="btn small" data-act="reforge" data-i="${i}" ${G.save.glimmer >= rc ? '' : 'disabled'}>Reforge</button></div></div>`).join('') : '<p class="dim">A Common piece has no effects to reforge.</p>'}
+          <div class="kicker rhead">Soul Match: raise it to another piece's level (that piece is consumed)</div>
+          ${fod.length ? fod.map(x => { const c = soulMatchCost(it, x); return `<div class="arm"><div class="ainfo"><small>To Lv <b>${x.lvl}</b>, consuming ${esc(itemName(x, wn))}</small></div><div class="abtns"><button class="btn small" data-act="soulmatch" data-from="${x.uid}" ${G.save.glimmer >= c ? '' : 'disabled'}>Soul Match <small>${c.toLocaleString()} Glimmer</small></button></div></div>`; }).join('') : '<p class="dim">No higher-level piece of this kind to match it with (worn pieces are never consumed).</p>'}</div>
+          <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
+      }
+    } else if (screen === 'deeds') {
+      // Deeds: long goals across every mission, Way and depth (deeds.js).
+      const list = G.deedsView(), earned = list.reduce((a, r) => a + r.tier, 0);
+      const rows = list.map(({ D, n, tier }) => {
+        const next = D.tiers[tier], pct = next ? Math.min(100, n / next * 100) : 100;
+        return `<div class="arm deed ${tier ? 'hand' : ''}"><div class="ainfo"><b>${esc(D.name)} <span class="rank">${tier ? TIER[tier - 1] : ''}</span></b>
+          <span class="mtag ${tier === 3 ? 'cleared' : 'sealed'}">${esc(D.desc)} · ${n.toLocaleString()}${next ? ` / ${next.toLocaleString()}` : ' · complete'}</span>
+          <s class="dbar"><u style="width:${pct}%"></u></s>
+          <small>Each tier: ${esc(fxText(D.fx[0], D.fx[1]))}, for good${next ? ` · next pays ${DEED_GLIMMER[tier].toLocaleString()} Glimmer` : ''}</small></div></div>`;
+      }).join('');
+      h = `<div class="panel wide arsenal deeds"><div class="kicker">Deeds · ${earned} of ${list.length * 3} tiers earned</div><h2>Deeds</h2>
+        <div class="map">${rows}</div>
         <div class="btns"><button class="btn" data-act="back">Back</button></div></div>`;
     } else if (screen === 'skills') {
       // Each weapon's tree: mastery earned by using it, points to spend, skills in tiers.

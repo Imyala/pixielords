@@ -21,11 +21,12 @@ import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
 import { Loot, PACK } from './loot.js';
-import { RARITY, itemName, dismantleValue } from './gear.js';
+import { RARITY, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
 import { wayName, wayDesc } from './ways.js';
 import { makeFloor, isCheckpoint, checkpointOf, isBossDepth } from './underbriar.js';
+import { DEEDS, TIER, DEED_GLIMMER, deedTier } from './deeds.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -39,6 +40,40 @@ const armoryFrom = (kind, mission) => Object.keys(ARMORY).filter(id => ARMORY[id
 const rangedFrom = (kind, mission) => Object.keys(RANGED).filter(id => RANGED[id].source?.[kind] === mission);
 // The side mission under way (sides.js), or null.
 const sideDef = () => SIDES[G.save.data.side] || null;
+// Deeds (deeds.js): tally what the knight does; a tier reached pays Glimmer and a bonus for good.
+// max: the tally is a high-water mark (deepest depth, pixies freed) rather than a count.
+G.tally = (key, n = 1, max = false) => {
+  const d = G.save.data, t = d.tally ||= {};
+  t[key] = max ? Math.max(t[key] || 0, n) : (t[key] || 0) + n;
+  checkDeeds(false);
+};
+function checkDeeds(quiet) {
+  const d = G.save.data, t = d.tally ||= {}, got = d.deeds ||= {};
+  let n = 0, gl = 0;
+  for (const D of DEEDS) {
+    const tier = deedTier(D, t[D.tally] || 0);
+    while ((got[D.id] || 0) < tier) {
+      const k = got[D.id] || 0; got[D.id] = k + 1; n++; gl += DEED_GLIMMER[k];
+      if (!quiet) G.after(.3 + n * .6, () => { G.hud.toast(`Deed: ${D.name} ${TIER[k]} · ${fxText(D.fx[0], D.fx[1])} · ${DEED_GLIMMER[k].toLocaleString()} Glimmer`, 'loot r4'); G.audio.sfx('levelUp'); });
+    }
+  }
+  if (!n) return;
+  G.save.glimmer += gl; if (!quiet) G.hud.addGlimmer(gl);
+  G.player.applyDeeds();
+  if (quiet) G.after(2, () => G.hud.toast(`Deeds earned: ${n} · ${gl.toLocaleString()} Glimmer`, 'loot r4'));
+  G.save.write();
+}
+// Older saves: count what was done before Deeds were kept.
+function syncDeeds() {
+  const d = G.save.data, t = d.tally ||= {};
+  t.pixies = Math.max(t.pixies || 0, d.pixies.length); t.letters = Math.max(t.letters || 0, d.letters.length);
+  t.depth = Math.max(t.depth || 0, d.abyss?.best || 0); t.ways = Math.max(t.ways || 0, d.ng || 0);
+  t.missions = Math.max(t.missions || 0, Object.entries(d.missions).filter(([id, m]) => LEVELS[id] && m.cleared).length);
+  t.sides = Math.max(t.sides || 0, Object.values(d.sides || {}).reduce((a, b) => a + b, 0));
+  checkDeeds(true);
+}
+G.deedsView = () => DEEDS.map(D => ({ D, n: G.save.data.tally?.[D.tally] || 0, tier: G.save.data.deeds?.[D.id] || 0 }));
+
 // In the Underbriar (underbriar.js): its depths are made as they are reached, not kept in LEVELS.
 const abyss = () => G.level?.id === 'underbriar';
 const levelFor = id => {
@@ -266,7 +301,7 @@ function depthCleared() {
   if (m.cleared) return;
   m.cleared = true;
   const gl = Math.round(90 * L.depth ** 1.2 * (1 + d.ng * .5));
-  a.best = Math.max(a.best || 0, L.depth);
+  a.best = Math.max(a.best || 0, L.depth); G.tally('depth', L.depth, true);
   G.save.glimmer += gl; G.hud.addGlimmer(gl);
   G.after(.8, () => { G.world.setExit(true); G.hud.toast(`Depth ${L.depth} cleared · ${gl.toLocaleString()} Glimmer · the way down opens`, 'item'); G.audio.sfx('rest'); });
   abyssObjective();
@@ -360,7 +395,7 @@ function firstShrine() { return G.level.titleShrine || Object.keys(G.level.shrin
 function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
-  p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []);
+  p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []); p.applyDeeds();
   const d = G.save.data;
   p.arms = [...d.arms]; p.loadout = [...d.loadout]; p.forge = d.forge; p.setWeapon(d.wield);
   p.arts = [...d.arts]; p.art = d.artSel;
@@ -393,6 +428,7 @@ async function startRun() {
   if (!m.shrine) { if (S) beginSide(S, m); else { m.shrine = firstShrine(); m.kindled.push(m.shrine); } }
   G.sideEnding = false;
   grantTrophies();
+  syncDeeds();
   applyWorldState();
   placeAtShrine(m.shrine);
   G.player.anima = 0;
@@ -436,9 +472,10 @@ G.startSide = async id => {
 G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
-    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' } };
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
+  G.tally('ways', d.ng + 1, true);
   G.save.write();
   await startRun();
   G.after(1.2, () => G.hud.big(wayName(d.ng + 1), 'intro side', 6, wayDesc(d.ng + 1)));
@@ -475,6 +512,15 @@ G.onEnemyKilled = (e, hit = {}) => {
   const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
   G.loot.dropFrom(e, e === G.sideTarget);
   G.save.glimmer += amt;
+  const ty = e.spawn.type || '';
+  if (ty.startsWith('revenant-')) G.tally('revenant');
+  else if (e.spawn.elite === 'warden' || e === G.gatekeeper) G.tally('gatekeeper');
+  else if (e.T.boss || (G.bosses.includes(e) && G.level.depth)) G.tally('warlord');
+  else if (e.T.knight) G.tally('knight');
+  else if (ty.startsWith('goblin') || (e.T.model || '').startsWith('goblin')) G.tally('goblin');
+  else if (ty.startsWith('ratman') || (e.T.model || '').startsWith('ratman')) G.tally('ratman');
+  if (e.champion) G.tally('champion');
+  G.tally('glimmer', amt);
   G.hud.addGlimmer(amt);
   const p = G.player, at = { x: e.pos.x, y: e.height * .5, z: e.pos.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
   G.fx.wisps(at, Math.min(24, 4 + Math.round(amt / 60)), to, () => G.audio.sfx('glimmer', { vol: .5 }));
@@ -527,14 +573,14 @@ function readLetter(it) {
   const d = G.save.data, key = G.level.id + ':' + it.id, first = !d.letters.includes(key);
   G.hud.letter(it.letter.title, it.letter.text, first ? 'Kept in your Journal' : '');
   G.audio.sfx('page');
-  if (first) { d.letters.push(key); G.world.setLetterRead(it.id, true); G.save.write(); }
+  if (first) { d.letters.push(key); G.world.setLetterRead(it.id, true); G.tally('letters', d.letters.length, true); G.save.write(); }
 }
 
 // A Lost Pixie flies into the knight's wisp; each one freed adds a little health and stamina for good.
 function freePixie(px) {
   const d = G.save.data, p = G.player, L = G.level, key = L.id + ':' + px.id;
   if (d.pixies.includes(key)) return;
-  d.pixies.push(key);
+  d.pixies.push(key); G.tally('pixies', d.pixies.length, true);
   G.world.setPixie(px.id, true);
   G.fx.wisps({ x: px.g.position.x, y: px.g.position.y, z: px.g.position.z }, 8, () => ({ x: p.pos.x, y: 1.8, z: p.pos.z }), null, 0xff9cf0);
   G.fx.ring(p.pos, 0xff9cf0, 1.8, .4, 1.2);
@@ -671,7 +717,7 @@ function sideComplete(S) {
   const d = G.save.data, p = G.player, m = G.save.m;
   for (const e of [G.sideTarget, ...G.bosses]) if (e && !m.dead.includes(e.id)) m.dead.push(e.id);
   const first = !d.sides[S.id];
-  d.sides[S.id] = (d.sides[S.id] || 0) + 1;
+  d.sides[S.id] = (d.sides[S.id] || 0) + 1; G.tally('sides');
   const gl = Math.round(S.glimmer * (1 + d.ng * .5) * (first ? 2 : 1));
   const spoils = [G.loot.roll(1.5, first && S.moonlit ? 4 : S.minRar)];
   if (first) spoils.push(G.loot.roll(1.5, S.minRar));
@@ -740,7 +786,7 @@ G.onPlayerDeath = () => {
   const p = G.player, d = G.save.data;
   G.state = 'dead'; G.controlsOn = false;
   G.hud.closeMessage();
-  d.deaths++;
+  d.deaths++; G.tally('deaths');
   d.grave = d.glimmer > 0 ? { mission: G.level.id, side: d.side || null, depth: G.level.depth || 0, x: p.pos.x, z: p.pos.z, amount: d.glimmer } : null;
   d.glimmer = 0;
   G.save.write();
@@ -828,7 +874,7 @@ G.takeCore = id => {
   const n = d.cores[id] || 0;
   if (n >= CORE_MAX) { G.save.glimmer += 600; G.hud.addGlimmer(600); G.hud.toast(`${C.name} (fully fused): 600 Glimmer`, 'loot r3'); G.save.write(); return; }
   d.cores[id] = n + 1;
-  if (!n) { const i = d.coreSlots.indexOf(null); if (i >= 0) d.coreSlots[i] = id; }
+  if (!n) { const i = d.coreSlots.indexOf(null); if (i >= 0) d.coreSlots[i] = id; } else G.tally('fused');
   p.applyGear();
   G.hud.toast(n ? `${C.name} fused: +${n}` : `Soul Core: ${C.name}`, 'loot r3');
   G.audio.sfx('magic'); G.fx.ring(p.pos, 0xb07aff, 2.2, .4);
@@ -857,12 +903,35 @@ G.dismantleGear = uids => {
   let got = 0, n = 0;
   g.items = g.items.filter(it => { if (!uids.includes(it.uid) || worn.has(it.uid)) return true; got += dismantleValue(it); n++; return false; });
   if (!n) return 0;
-  G.save.glimmer += got; G.hud.addGlimmer(got); G.hud.glimmerShown = G.save.glimmer;
+  G.save.glimmer += got; G.hud.addGlimmer(got); G.hud.glimmerShown = G.save.glimmer; G.tally('dismantled', n);
   G.audio.sfx('shatter', { vol: .5 }); G.save.write();
   return got;
 };
 // Everything not worn at or below a rarity.
 G.dismantleBelow = rar => { const g = G.save.data.gear, worn = equippedUids(g); return G.dismantleGear(g.items.filter(it => it.rar <= rar && !worn.has(it.uid)).map(it => it.uid)); };
+
+// The Moonwell's forge (gear.js): reroll one of a piece's effects, or raise its level to another piece's of the
+// same kind (a weapon of the same type, armour for the same slot), which is consumed.
+G.reforge = (uid, i) => {
+  const d = G.save.data, it = d.gear.items.find(x => x.uid === uid), cost = it && reforgeCost(it);
+  if (!it || !it.fx[i] || G.save.glimmer < cost) return false;
+  G.save.glimmer -= cost; G.hud.glimmerShown = G.save.glimmer;
+  it.fx[i] = rerollFx(it, i);
+  G.player.applyGear(); G.audio.sfx('levelUp'); G.audio.sfx('shatter', { vol: .3 }); G.tally('smithed');
+  G.save.write();
+  return true;
+};
+G.soulMatch = (uid, fromUid) => {
+  const d = G.save.data, g = d.gear, it = g.items.find(x => x.uid === uid), fod = g.items.find(x => x.uid === fromUid), worn = equippedUids(g);
+  if (!it || !fod || fod === it || worn.has(fod.uid) || fod.lvl <= it.lvl || (it.kind === 'weapon' ? fod.type !== it.type : fod.slot !== it.slot)) return false;
+  const cost = soulMatchCost(it, fod);
+  if (G.save.glimmer < cost) return false;
+  G.save.glimmer -= cost; G.hud.glimmerShown = G.save.glimmer;
+  it.lvl = fod.lvl; g.items = g.items.filter(x => x !== fod);
+  G.player.applyGear(); G.audio.sfx('levelUp'); G.tally('smithed');
+  G.save.write();
+  return true;
+};
 
 // Skills (skills.js): spend a weapon's skill points on one of its skills, once what it needs is learned.
 G.learnSkill = (w, id) => {
@@ -976,7 +1045,7 @@ function interact(it) {
       G.state = 'ending'; G.controlsOn = false;
       p.poisoned = 0; p.poison = 0; p.thaw(); p.iframesT = 99;
       // Mission cleared: unlock the next one.
-      m.cleared = true;
+      m.cleared = true; G.tally('missions');
       const next = ORDER[ORDER.indexOf(G.level.id) + 1];
       if (next && !d.unlocked.includes(next)) d.unlocked.push(next);
       G.save.write();

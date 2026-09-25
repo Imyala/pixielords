@@ -122,6 +122,15 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   thrown axes, Grimtusk's ring of fire, Varkh's lance, the Rime Knight's crescents and the Frost-Hexer's nova.
   A tap of Fae Shift still shifts. A core found again **fuses** into the one you hold, up to +4: each step
   makes its skill hit harder and its passive stronger.
+- **The Moonwell's forge.** Open Gear at a Moonwell to **reforge** a piece (roll one of its effects anew, for
+  Glimmer by its level and rarity) or **soul-match** it (raise its level to that of another piece of its kind,
+  a weapon of the same type or armour for the same slot, which is consumed), so a favourite piece can keep up.
+- **Deeds.** Long goals, as Nioh's titles are, kept across every mission, Way and depth (pause menu or any
+  Moonwell): goblins, ratmen, fae knights, Champions, gatekeepers, warlords and Revenants felled; Deflects,
+  Flashcuts, Executions, ranged hits and Fae Arts; missions and side missions cleared; the deepest Underbriar
+  depth; Lost Pixies and letters found; gear dismantled and smithed; Soul Cores fused; Ways walked; Moondew
+  drunk; Glimmer taken; and falls. Each of the 24 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000)
+  and a small bonus for good (Goblinbane: +3% posture damage a tier; Warlord's Bane: +20 health a tier...).
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
   to +10; each rank is 5% more damage with it.
@@ -498,6 +507,7 @@ src/sides.js      side missions: Twilight, Hunts and Duels for each mission, the
 src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in five looks, foes, treasure, warlord arenas), checkpoints and scaling
 src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
 src/ways.js       the Ways (New Game+ cycles): names, what each asks, and Divine gear's weight
+src/deeds.js      Deeds: the 24 long goals, their tallies, tiers and bonuses
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
