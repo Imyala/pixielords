@@ -142,8 +142,9 @@ size; the mouse or right stick tilts it further up or down.
   Moonwell): goblins, ratmen, fae knights, Champions, gatekeepers, warlords and Revenants felled; Deflects,
   Flashcuts, Executions, ranged hits and Fae Arts; missions and side missions cleared; the deepest Underbriar
   depth; Lost Pixies and letters found; gear dismantled and smithed; Soul Cores fused; Ways walked; Moondew
-  drunk; Glimmer taken; and falls. Each of the 24 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000)
-  and a small bonus for good (Goblinbane: +3% posture damage a tier; Warlord's Bane: +20 health a tier...).
+  drunk; Glimmer taken; Revenants laid to rest at their graves; wares bought at the Hidden Market; and falls.
+  Each of the 26 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000), Moonpetals (5, 10, 15) and a
+  small bonus for good (Goblinbane: +3% posture damage a tier; Warlord's Bane: +20 health a tier...).
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
   to +10; each rank is 5% more damage with it.
@@ -559,6 +560,47 @@ Moon** (twice the Champions, rarer gear) or a **Hunter's Moon** (three times the
 are marked ☾ on the Crossroads map. Tonight's phase shows on the title screen and in the pause menu; turn it
 all off in Settings (*Follow the real moon*).
 
+### Revenant Graves
+
+As Nioh's bloody graves: two **bloodied graves** lie in every mission, a blade driven into a mound and lit red,
+where fae knights fell before you. Examine one (at a distance, the world waits while you read) to see who lies
+there: a name, a level, the weapon it carried, the harness it died in, its Patron Spirit and what it fell to.
+**Challenge** it and it rises as a **Revenant**: a knight in that harness's colours with that weapon, fighting
+stroke for stroke as you would (its strokes are a Duel Revenant's of the same weapon, as strong as the
+mission's own Duel's, a little less hardy). Lay it to rest for **Moonpetals** (more in later acts and Ways, half
+again under an omen), a piece of **its harness or its weapon** (the weapon only if you carry that kind), Rare or
+finer and now and then a second, and now and then the **Revenant's Core**. The grave then lies dark until you
+rest at a Moonwell; after that another fallen knight lies in it. Fall to a Revenant and it goes back into the
+earth; its grave waits. Graves lie in a mission's own run and in its Twilight and Hunt, not on a Duel, and not in
+the Underbriar. Where they lie is worked out from each mission's layout: open ground on the way through, well
+clear of Moonwells, foes and finds, one in each half of the mission.
+
+### Moonpetals and the Hidden Market
+
+**Moonpetals** are a second coin, pink, kept apart from Glimmer and never lost when you fall. They come from
+Revenants laid to rest at their graves, side missions (a Duel pays best, the first time best of all), Deeds
+(five a tier, more for the higher), warlords felled the first time on each Way, and the Underbriar's warlords.
+
+They buy from the **Hidden Market**, as Nioh's Hidden Teahouse: a pixie pedlar at every Moonwell. Its wares
+change every night at noon, the same for everyone that night, and follow how far you have come:
+
+- **Arms & Armour**: six pieces a night, Fabled or Moonlit (Divine on a Way), at the level of the furthest
+  mission you have reached, mostly of the latest sets, weapons only of kinds you carry.
+- **Provisions**: a **Moondew Vial** (one more draught for good, up to ten; dearer each time), three **Purses of
+  Glimmer**, a **Soul Core** you already hold (to fuse), and **Grave Lanterns**, which wake every grave in the
+  mission at once with new Revenants.
+- **Dyes**: five of the night's, for the Wardrobe.
+
+What you buy is gone until the next night (lanterns aside). The stall, and what each ware is, shows like the Gear
+screen: a list by tab (Q / E, LB / RB) and the chosen ware in full.
+
+### The Wardrobe
+
+At a Moonwell or from the pause menu. The harness can wear the **look of any set** you have ever carried a
+piece of (whatever you actually wear still decides defence, effects and set bonuses), and each part can be
+**dyed**: plate, cloak, trim, wings and the visor's glow. Three dyes (Ink, Bone, Moss) are yours from the start;
+nineteen more are sold in the Hidden Market. The knight is in view at the Moonwell while you change it.
+
 ### Balance
 
 Every mission has a recommended level that its gear drops around: the Grubhold 1, then 10, 18, 26, 34, 42,
@@ -627,7 +669,7 @@ src/sides.js      side missions: Twilight, Hunts and Duels for each mission, the
 src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in fifteen looks, foes, treasure, warlord arenas), checkpoints and scaling
 src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
 src/ways.js       the Ways (New Game+ cycles): names, what each asks, and Divine gear's weight
-src/deeds.js      Deeds: the 24 long goals, their tallies, tiers and bonuses
+src/deeds.js      Deeds: the 26 long goals, their tallies, tiers and bonuses
 src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
@@ -646,6 +688,9 @@ src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and
 src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
 src/patrons.js    Patron Spirits: their passives and what each does to the Fae Shift
 src/moontonight.js the Moon Tonight: the real moon's phase and blessings, and the night's omens
+src/graves.js     Revenant Graves: where the two graves lie in each mission, who fell there (name, weapon, harness, patron, how), the Revenant it rises as, the grave itself
+src/market.js     the Hidden Market: tonight's wares (gear, provisions, dyes) and their prices in Moonpetals
+src/wardrobe.js   the Wardrobe: dyes, the parts of a look, and the colours a look and its dyes give the knight
 src/menuui.js     the menus' Nioh-style chrome: header plaque, gold-lit lists, key-hint bar (keys or pad buttons), option rows, the ink-wash ring, the gamepad diagram
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures

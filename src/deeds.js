@@ -27,6 +27,8 @@ export const DEEDS = [
   { id: 'hoarder', name: 'Glimmer-Hoarder', desc: 'Glimmer taken from fallen foes', tally: 'glimmer', tiers: [100000, 1000000, 10000000], fx: ['glimmer', 3] },
   { id: 'patronbound', name: 'Patron-Bound', desc: 'Patron Spirits freed', tally: 'patrons', max: true, tiers: [3, 8, 15], fx: ['anima', 4] },
   { id: 'undying', name: 'Undying', desc: 'Falls (and rises)', tally: 'deaths', tiers: [10, 50, 200], fx: ['hp', 10] },
+  { id: 'gravewarden', name: 'Gravewarden', desc: 'Revenants laid to rest at their graves', tally: 'graves', tiers: [5, 25, 100], fx: ['exec', 4] },
+  { id: 'pedlarsfriend', name: 'Pedlar\'s Friend', desc: 'Wares bought at the Hidden Market', tally: 'bought', tiers: [5, 30, 120], fx: ['drops', 4] },
 ];
 export const TIER = ['I', 'II', 'III'];
 export const DEED_GLIMMER = [2500, 12000, 50000];

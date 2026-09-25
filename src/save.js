@@ -1,6 +1,7 @@
 // Progress lives in localStorage; the game still runs (without saving) if storage is blocked.
 // Each mission keeps its own Moonwells, fallen bosses and taken items; stats and Glimmer are shared.
 import { wayName } from './ways.js';
+import { FREE_DYES, freshLook } from './wardrobe.js';
 
 const KEY = 'pixielords-save-v1';
 const SKEY = 'pixielords-settings-v1';
@@ -29,6 +30,8 @@ export function freshSave(ng = 0) {
     sides: {}, side: null,   // side missions done (how often), and the one under way (sides.js)
     abyss: freshAbyss(),   // the Underbriar: the depth you are on, the deepest cleared, lit Moonwells reached (underbriar.js)
     patrons: ['lantern'], patron: 'lantern',   // Patron Spirits freed, and the one pledged (patrons.js)
+    petals: 0, market: null, vials: 0,   // Moonpetals held; the Hidden Market's night and what was bought; vials bought (market.js)
+    dyes: [...FREE_DYES], look: freshLook(), looks: ['errant'],   // the Wardrobe: dyes owned, the look worn, sets whose look is known (wardrobe.js)
   };
 }
 
@@ -63,6 +66,7 @@ function migrate(d) {
   d.ranged ||= ['wisp']; if (!d.ranged.includes(d.rangedSel)) d.rangedSel = d.ranged[d.ranged.length - 1];
   d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {}; d.side ||= null;
   d.abyss ||= freshAbyss();
+  d.petals ??= 0; d.vials ??= 0; d.dyes ||= [...FREE_DYES]; d.look ||= freshLook(); d.looks ||= ['errant'];
   return d;
 }
 

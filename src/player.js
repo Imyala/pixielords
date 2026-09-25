@@ -14,7 +14,8 @@ import { ARMORY, ARMORY_MOVES } from './armory.js';
 import { SIG_MOVES, SIG_KITS } from './signatures.js';
 import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
-import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
+import { gearStats, weaponMul, defReduce } from './gear.js';
+import { lookColors } from './wardrobe.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
 import { CHARMS } from './charms.js';
 import { deedFx } from './deeds.js';
@@ -242,8 +243,12 @@ export class Player {
     if (this.gear) for (const [id, v] of Object.entries(this.coreFx())) this.gear.fx[id] = (this.gear.fx[id] || 0) + v;   // Soul Cores' passives
     const hp = this.hp / (this.maxHp || 1);
     this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp));
-    const body = g?.items.find(it => it.uid === g.equip.armor.body), L = SETS[body?.set || 'errant'].look;
+    // How it looks: the mail's set, or the Wardrobe's choice of look and dyes (wardrobe.js).
+    const body = g?.items.find(it => it.uid === g.equip.armor.body), L = lookColors(this.G.save?.data?.look, body?.set || 'errant');
     this.k.mats.steel.color.setHex(L.steel); this.k.mats.cloth.color.setHex(L.cloth); this.k.mats.trim.color.setHex(L.trim);
+    this.lookWing = L.wing == null ? 0xffffff : new THREE.Color(L.wing).lerp(new THREE.Color(0xffffff), .3).getHex();
+    this.lookVisor = L.visor ?? 0x7ff0ff;
+    if (!this.shifted) { this.k.mats.wing.color.setHex(this.lookWing); this.k.mats.visor.emissive.setHex(this.lookVisor); }
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
@@ -1010,8 +1015,8 @@ export class Player {
     const k = this.k, c = this.shiftCol();
     k.mats.blade.emissive.setHex(on ? c : 0x4fd8ff);
     k.mats.blade.emissiveIntensity = on ? 1.2 : .12;
-    k.mats.wing.color.setHex(on ? new THREE.Color(c).lerp(new THREE.Color(0xffffff), .45).getHex() : 0xffffff);
-    k.mats.visor.emissive.setHex(on ? c : 0x7ff0ff);
+    k.mats.wing.color.setHex(on ? new THREE.Color(c).lerp(new THREE.Color(0xffffff), .45).getHex() : this.lookWing ?? 0xffffff);
+    k.mats.visor.emissive.setHex(on ? c : this.lookVisor ?? 0x7ff0ff);
     k.fuller.visible = on;
     this.refreshLook();
   }

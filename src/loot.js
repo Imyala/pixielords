@@ -30,20 +30,19 @@ export class Loot {
     if (core && Math.random() < (CORES[core].boss ? 1 : elite ? .25 : .025) * mul * (T?.cores || 1)) this.place({ core }, e.pos.x - .6, e.pos.z + .4);
   }
   // A new piece for this mission: kind, level and rarity (at least minRar).
-  roll(luck = 0, minRar = 0) {
+  // want: a Revenant's own spoils, a piece of its set or its weapon ({ set, weapon }).
+  roll(luck = 0, minRar = 0, want = null) {
     const G = this.G, d = G.save.data, MG = MISSION_GEAR[G.level.id] || MISSION_GEAR[G.level.theme] || MISSION_GEAR.keep;
     const S = G.sideDef?.();   // a side mission's harder foes drop better, and higher-level
     const deep = G.level.depth, range = deep ? [Math.max(1, G.level.level), G.level.level + 6] : MG.lvl;   // the Underbriar: by its depth's level
     const lvl = Math.round(range[0] + Math.random() * (range[1] - range[0])) + wayLvl(d.ng) + (S?.lvl || 0);
     const rar = Math.max(minRar, rollRarity(luck + (S?.luck || 0) + (G.tonight?.luck || 0) + (deep ? Math.min(1.2, deep * .025) : 0), Math.random, divineWeight(d.ng, G.level.depth)));
     d.gear.uid = (d.gear.uid || 1) + 1;
-    if (Math.random() < .42) {
-      const type = d.arms[Math.floor(Math.random() * d.arms.length)];
-      return makeItem({ kind: 'weapon', type, lvl, rar }, d.gear.uid);
-    }
+    const type = want ? (want.weapon && Math.random() < .45 ? want.weapon : null) : Math.random() < .42 ? d.arms[Math.floor(Math.random() * d.arms.length)] : null;
+    if (type) return makeItem({ kind: 'weapon', type, lvl, rar }, d.gear.uid);
     // Armour: the mission's set, or now and then a set from a mission already opened.
     const others = Object.entries(MISSION_GEAR).filter(([id]) => d.unlocked.includes(id)).map(([, g]) => g.set);
-    const set = Math.random() < .72 || !others.length ? MG.set : others[Math.floor(Math.random() * others.length)];
+    const set = want?.set || (Math.random() < .72 || !others.length ? MG.set : others[Math.floor(Math.random() * others.length)]);
     return makeItem({ kind: 'armor', slot: SLOTS[Math.floor(Math.random() * SLOTS.length)], set, lvl, rar }, d.gear.uid);
   }
   place(it, x, z) {

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture, worldFace, moonPhase } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
+import { graveSpots, graveProp } from './graves.js';
 
 // ---------------------------------------------------------------- geometry helpers
 export function scaleUV(geo, su, sv) {
@@ -304,6 +305,7 @@ export class World {
     this.buildLetters();
     this.buildPixies();
     this.buildGates();
+    this.buildGraves();
     this.lightPool = [];
     for (let i = 0; i < 6; i++) {
       const l = new THREE.PointLight(0xff8a3a, 0, 13, 1.6);
@@ -794,6 +796,15 @@ export class World {
   setItemTaken(id, taken) {
     const it = this.interactables.find(i => i.kind === 'item' && i.id === id);
     if (it) { it.taken = taken; it.sprite.visible = !taken && !it.hidden; }
+  }
+
+  // ---- Revenant Graves (graves.js): two in every mission, where fae knights fell before you.
+  buildGraves() {
+    this.graves = graveSpots(this, this.level).map((g, i) => {
+      const gr = graveProp(this, g); gr.i = i;
+      this.interactables.push({ kind: 'grave', i, x: g.x, z: g.z, r: 2, prompt: 'Examine the bloodied grave', grave: gr });
+      return gr;
+    });
   }
 
   // ---- Lore: letters and notes lying where their writers left them. Read ones glow dimmer.

@@ -8,7 +8,9 @@ import { LEVELS, ORDER } from './levels/index.js';
 import { ARMORY, ARMORY_ITEMS } from './armory.js';
 import { Player } from './player.js';
 import { buildKnight, KnightAnimator } from './knight.js';
-import { Enemy, Projectiles } from './enemies.js';
+import { Enemy, Projectiles, TYPES } from './enemies.js';
+import { fallenKnight, graveType, gravePetals } from './graves.js';
+import { wares, nightOf, VIAL_MAX } from './market.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
 import { Menu } from './menu.js';
@@ -24,7 +26,7 @@ import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
 import { ARTS } from './arts.js';
 import { Loot, PACK } from './loot.js';
-import { RARITY, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
+import { RARITY, SETS as GEAR_SETS, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
 import { wayName, wayDesc, WAY_TIER, wayGlimmer } from './ways.js';
@@ -52,16 +54,17 @@ G.tally = (key, n = 1, max = false) => {
 };
 function checkDeeds(quiet) {
   const d = G.save.data, t = d.tally ||= {}, got = d.deeds ||= {};
-  let n = 0, gl = 0;
+  let n = 0, gl = 0, pt = 0;
   for (const D of DEEDS) {
     const tier = deedTier(D, t[D.tally] || 0);
     while ((got[D.id] || 0) < tier) {
-      const k = got[D.id] || 0; got[D.id] = k + 1; n++; gl += DEED_GLIMMER[k];
-      if (!quiet) G.after(.3 + n * .6, () => { G.hud.toast(`Deed: ${D.name} ${TIER[k]} · ${fxText(D.fx[0], D.fx[1])} · ${DEED_GLIMMER[k].toLocaleString()} Glimmer`, 'loot r4'); G.audio.sfx('levelUp'); });
+      const k = got[D.id] || 0; got[D.id] = k + 1; n++; gl += DEED_GLIMMER[k]; pt += (k + 1) * 5;
+      if (!quiet) G.after(.3 + n * .6, () => { G.hud.toast(`Deed: ${D.name} ${TIER[k]} · ${fxText(D.fx[0], D.fx[1])} · ${DEED_GLIMMER[k].toLocaleString()} Glimmer · ${(k + 1) * 5} Moonpetals`, 'loot r4'); G.audio.sfx('levelUp'); });
     }
   }
   if (!n) return;
   G.save.glimmer += gl; if (!quiet) G.hud.addGlimmer(gl);
+  d.petals = (d.petals || 0) + pt;   // Moonpetals (market.js), five a tier and more for the higher
   G.player.applyDeeds();
   if (quiet) G.after(2, () => G.hud.toast(`Deeds earned: ${n} · ${gl.toLocaleString()} Glimmer`, 'loot r4'));
   G.save.write();
@@ -74,6 +77,8 @@ function syncDeeds() {
   t.missions = Math.max(t.missions || 0, Object.entries(d.missions).filter(([id, m]) => LEVELS[id] && m.cleared).length);
   t.sides = Math.max(t.sides || 0, Object.values(d.sides || {}).reduce((a, b) => a + b, 0));
   t.patrons = Math.max(t.patrons || 0, (d.patrons?.length || 1) - 1);
+  // Moonpetals came after Deeds: tiers already earned pay theirs once.
+  if (!d.deedPetals) { d.deedPetals = true; d.petals = (d.petals || 0) + Object.values(d.deeds || {}).reduce((a, n) => a + 5 * n * (n + 1) / 2, 0); }
   checkDeeds(true);
 }
 G.deedsView = () => DEEDS.map(D => ({ D, n: G.save.data.tally?.[D.tally] || 0, tier: G.save.data.deeds?.[D.id] || 0 }));
@@ -265,6 +270,7 @@ function applyWorldState() {
   syncSide();
   G.player.lock = null;
   G.ngMul = (S?.hard || 1) * (L.depthMul || 1); G.wayTier = (d.ng || 0) * WAY_TIER;
+  syncGraves();
   for (const e of G.enemies) {
     e.reset();
     if (e.spawn.add || m.dead.includes(e.id)) e.kill();
@@ -325,6 +331,7 @@ function abyssWarlordFell() {
   G.after(1.4, () => { G.hud.big('WARLORD OF THE DEPTH FELLED', 'gold felled', 5, `Depth ${L.depth} · the next holds a lit Moonwell`); G.audio.sfx('felled'); G.hud.setBoss(null); G.bossFight = false; });
   G.after(3.6, () => { if (!G.takeGear(it)) G.save.glimmer += dismantleValue(it); });
   G.after(4.2, () => { G.world.setFogGate(false); depthCleared(); G.audio.music('explore'); });
+  G.after(5, () => G.addPetals(3 + Math.floor(L.depth / 5)));
 }
 // Into the Underbriar at a depth (a lit Moonwell's), or on down through the Pixie Gate.
 // carry: health, Moondew and Faelight brought down from the depth above (a Moonwell is the only refill).
@@ -399,6 +406,101 @@ function updateGrave() {
   if (g) grave.position.set(g.x, 0, g.z);
 }
 
+// ---------------------------------------------------------------- Revenant Graves (graves.js)
+// Graves lie in a mission's own run, and in its Twilight and Hunt; not on a Duel, nor in the Underbriar.
+const gravesHere = () => !G.level.depth && sideDef()?.kind !== 'duel';
+// Whoever lies in grave i now (a new knight each time one is laid to rest and you rest after).
+G.graveKnight = i => {
+  const m = G.save.m, L = G.level, an = n => (/^[AEIOU]/.test(n) ? 'an ' : 'a ') + n;
+  const foes = [...new Set(G.enemies.filter(e => !e.spawn.add && e.spawn.grave == null && e !== G.sideFoe).map(e => e.T.boss || e.spawn.elite ? e.T.name.split(',')[0] : an(e.T.name)))];
+  return fallenKnight(L.id, i, (m.graveGen || [])[i] || 0, foes, L.level || 1);
+};
+// A grave's Revenant goes back to the earth whenever the world is reset (a rest, a fall); graves dim once laid.
+function syncGraves() {
+  const m = G.save.m, on = gravesHere();
+  for (const e of G.enemies.filter(e => e.spawn.grave != null)) { e.dispose(); G.enemies.splice(G.enemies.indexOf(e), 1); }
+  G.graveFoe = null;
+  for (const g of G.world.graves || []) { g.on = on; g.grp.visible = on; g.col.on = on; g.set(on && !(m.graves || []).includes(g.i)); }
+}
+// Raise grave i's fallen knight behind its grave, facing you.
+G.challengeGrave = async i => {
+  const g = G.world.graves?.[i], p = G.player, m = G.save.m;
+  if (!g || !g.on || G.graveFoe || (m.graves || []).includes(i)) return null;
+  const K = G.graveKnight(i), key = `revenant-fallen-${K.mission}-${i}-${K.gen}`;
+  TYPES[key] ||= graveType(K, TYPES);
+  const a = Math.atan2(p.pos.x - g.x, p.pos.z - g.z);
+  const e = G.graveFoe = await Enemy.create(G, { id: `grave${i}`, type: key, x: g.x - Math.sin(a) * 1.5, z: g.z - Math.cos(a) * 1.5, yaw: a, grave: i, noChamp: true });
+  e.graveK = K;
+  G.enemies.push(e);
+  e.state = 'intro'; e.st = .7;
+  G.fx.ring(e.pos, 0xff4a4a, 6, .8); G.fx.ring(g.grp.position, 0xff8a6a, 3.5, .6);
+  G.audio.sfx('roar', { x: e.pos.x, z: e.pos.z, pitch: 1.2 }); G.audio.sfx('shift', { pitch: .7 });
+  G.cam.shake(.35);
+  p.lock = e; G.hud.setBoss(e);
+  G.hud.toast(`${K.name} rises from the grave`, 'warn');
+  if (!G.save.data.graveTip) { G.save.data.graveTip = true; G.tipAfter(2.4, 'A Revenant: the echo of a knight who fell here. Lay it to rest for Moonpetals and a piece of what it wore or carried. The grave stays dark until you rest at a Moonwell.'); }
+  return e;
+};
+// Laid to rest: Moonpetals, a piece of its harness or its weapon (Rare or finer), now and then more, and its Core.
+function graveFell(e) {
+  const d = G.save.data, m = G.save.m, i = e.spawn.grave, K = e.graveK, g = G.world.graves?.[i];
+  if (!(m.graves ||= []).includes(i)) m.graves.push(i);
+  G.graveFoe = null; g?.set(false);
+  if (G.hud.bossE === e) G.hud.setBoss(null);
+  G.tally('graves');
+  const petals = gravePetals(K, d.ng || 0, !!G.tonight?.omen);
+  const want = { set: K.set, weapon: d.arms.includes(K.weapon) ? K.weapon : null }, mul = (1 + G.player.gf('drops') / 100) * (G.tonight?.drops || 1);
+  const drops = [G.loot.roll(1.4, 2, want)];
+  if (Math.random() < .3 * mul) drops.push(G.loot.roll(.9, 1, want));
+  drops.forEach((it, k) => G.loot.place(it, e.pos.x + Math.sin(k * 2.4) * .9, e.pos.z + Math.cos(k * 2.4) * .9));
+  if (Math.random() < .2 * (G.tonight?.cores || 1)) G.loot.place({ core: 'revenant' }, e.pos.x - .7, e.pos.z + .5);
+  G.audio.sfx('glint', { vol: .7, pitch: .8 });
+  G.after(1, () => { G.hud.big('REVENANT LAID TO REST', 'gold felled', 3.4, `${K.name} · ${petals} Moonpetals`); G.audio.sfx('felled', { vol: .6 }); G.addPetals(petals); });
+  G.save.write();
+}
+// Moonpetals (market.js): the Hidden Market's coin.
+G.addPetals = (n, quiet = false) => {
+  const d = G.save.data;
+  d.petals = (d.petals || 0) + n; G.tally('petals', n);
+  if (!quiet) G.hud.toast(`+${n} Moonpetals · ${d.petals} held`, 'petal');
+  if (!d.petalTip) { d.petalTip = true; G.tipAfter(1.5, 'Moonpetals: the coin of the Hidden Market, found at any Moonwell. Revenants, Duels, Deeds and the Underbriar\'s warlords give them.'); }
+  G.save.write();
+};
+
+// ---------------------------------------------------------------- the Hidden Market (market.js) and the Wardrobe
+// The night's stall; what was bought on an earlier night is forgotten.
+G.market = () => { const d = G.save.data; if (d.market?.night !== nightOf()) d.market = { night: nightOf(), sold: [] }; return wares(d); };
+G.buy = (tab, key) => {
+  const d = G.save.data, W = G.market(), w = W[tab]?.find(x => x.key === key), p = G.player;
+  if (!w || w.off || w.owned || (!w.repeat && d.market.sold.includes(key)) || (d.petals || 0) < w.price) return false;
+  if (w.kind === 'lantern' && !(gravesHere() && G.world.graves?.length)) { G.hud.toast('No graves lie here', 'warn'); return false; }
+  if (w.it) {
+    if (d.gear.items.length >= PACK) { G.hud.toast('Your pack is full: dismantle something first', 'warn'); return false; }
+    d.gear.uid = (d.gear.uid || 1) + 1;
+    G.takeGear({ ...w.it, fx: w.it.fx.map(f => [...f]), uid: d.gear.uid });
+  } else if (w.kind === 'vial') { d.elixirMax = Math.min(VIAL_MAX, d.elixirMax + 1); d.vials = (d.vials || 0) + 1; p.elixirs = d.elixirMax; G.hud.toast(`Moondew: ${d.elixirMax} draughts`, 'item'); }
+  else if (w.kind === 'purse') { G.save.glimmer += w.glimmer; G.hud.addGlimmer(w.glimmer); G.hud.toast(`${w.glimmer.toLocaleString()} Glimmer`, 'item'); }
+  else if (w.kind === 'core') G.takeCore(w.core);
+  else if (w.kind === 'lantern') {
+    const m = G.save.m, gen = m.graveGen ||= [];
+    for (const g of G.world.graves || []) gen[g.i] = (gen[g.i] || 0) + 1;
+    m.graves = []; syncGraves(); G.hud.toast('The graves here stir: new Revenants wait in them', 'petal');
+  } else if (w.kind === 'dye') { if (!d.dyes.includes(w.dye)) d.dyes.push(w.dye); G.hud.toast(`${w.name}: find it in the Wardrobe`, 'item'); }
+  d.petals -= w.price;
+  if (!w.repeat) d.market.sold.push(key);
+  G.tally('bought');
+  G.audio.sfx('glimmer', { pitch: 1.3 });
+  G.save.write();
+  return true;
+};
+// The Wardrobe: set one part of the look (wardrobe.js); null takes the worn set's own.
+G.setLook = (k, v) => { const d = G.save.data; (d.look ||= {})[k] = v; G.player.applyGear(); G.save.write(); };
+// Sets whose look is known: the Knight-Errant's, and every set a piece of which is carried (older saves).
+function syncLooks() {
+  const d = G.save.data, L = d.looks ||= ['errant'];
+  for (const it of d.gear.items) if (it.set && GEAR_SETS[it.set] && !L.includes(it.set)) L.push(it.set);
+}
+
 function firstShrine() { return G.level.titleShrine || Object.keys(G.level.shrines)[0]; }
 function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
@@ -452,7 +554,7 @@ async function startRun() {
   if (!m.shrine) { if (S) beginSide(S, m); else { m.shrine = firstShrine(); m.kindled.push(m.shrine); } }
   G.sideEnding = false;
   grantTrophies();
-  syncDeeds();
+  syncDeeds(); syncLooks();
   applyWorldState();
   placeAtShrine(m.shrine);
   announceTonight();
@@ -497,7 +599,8 @@ G.startSide = async id => {
 G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
-    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds, patrons: d.patrons, patron: d.patron };
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds, patrons: d.patrons, patron: d.patron,
+    petals: d.petals, market: d.market, vials: d.vials, dyes: d.dyes, look: d.look, looks: d.looks, graveTip: d.graveTip, petalTip: d.petalTip, deedPetals: d.deedPetals };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.tally('ways', d.ng + 1, true);
@@ -535,7 +638,7 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
   const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + G.player.gf('glimmer') / 100) * (G.tonight?.glimmer || 1));
-  G.loot.dropFrom(e, e === G.sideTarget);
+  if (e.spawn.grave == null) G.loot.dropFrom(e, e === G.sideTarget);   // a grave's Revenant leaves its own spoils
   G.save.glimmer += amt;
   const ty = e.spawn.type || '';
   if (ty.startsWith('revenant-')) G.tally('revenant');
@@ -555,6 +658,7 @@ G.onEnemyKilled = (e, hit = {}) => {
   G.fx.wisps(at, life, to, () => { p.heal(p.maxHp * .04); G.audio.sfx('glimmer', { vol: .4 }); }, 0x7dff8a, { range: 6, hover: 14, size: .24 });
   G.fx.wisps(at, fae, to, () => { p.gainAnima(5); G.audio.sfx('glimmer', { vol: .4 }); }, 0xc08cff, { range: 6, hover: 14, size: .22 });
   const S = sideDef();
+  if (e.spawn.grave != null) graveFell(e);
   if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else if (S) sideComplete(S); else if (abyss()) abyssWarlordFell(); else bossDefeated(); }
   else if (e === G.gatekeeper) { if (S?.kind === 'hunt') sideComplete(S); else gatekeeperDefeated(); }
   if (abyss() && !e.spawn.add && !G.bosses.includes(e)) { if (!G.level.isBoss && !abyssLeft()) depthCleared(); else abyssObjective(); }
@@ -734,6 +838,7 @@ function partnerFell(e, rest) {
 
 function bossDefeated() {
   for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
+  if (!G.save.m.cleared) { const pt = 5 + 2 * Math.floor(ORDER.indexOf(G.level.id) / 5); G.after(9, () => G.addPetals(pt)); }   // a warlord felled the first time
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
   if (PATRON_OF[G.level.id]) G.after(7, () => { grantPatron(PATRON_OF[G.level.id]); G.save.write(); });
   for (const w of armoryFrom('boss', G.level.id)) G.after(3.8, () => { grantWeapon(w); G.save.write(); });
@@ -774,7 +879,10 @@ function sideComplete(S) {
     G.hud.setBoss(null); G.hud.objective(null);
     G.bossFight = false;
   });
+  // Moonpetals (market.js): a Duel pays best, and the first time best of all.
+  const act = Math.floor(ORDER.indexOf(S.mission) / 5), pt = S.kind === 'duel' ? (first ? 12 + 4 * act : 6 + 2 * act) : first ? 6 + 2 * act : 3 + act;
   G.after(3.2, () => { G.save.glimmer += gl; G.hud.addGlimmer(gl); G.hud.toast(`${S.kindName} spoils: ${gl.toLocaleString()} Glimmer`, 'item'); G.audio.sfx('glimmer'); });
+  G.after(3.9, () => G.addPetals(pt));
   spoils.forEach((it, i) => G.after(4 + i * .9, () => { if (!G.takeGear(it)) { G.save.glimmer += dismantleValue(it); G.hud.addGlimmer(dismantleValue(it)); } }));
   G.after(8.5, () => {
     G.loot.gather();
@@ -783,7 +891,7 @@ function sideComplete(S) {
     G.after(1.5, () => {
       d.side = null; d.sideRun = null; G.save.write();
       G.hud.show(false); G.input.releaseLock();
-      G.menu.show('sidecleared', { id: S.id, gl, spoils: spoils.map(it => it.uid), first });
+      G.menu.show('sidecleared', { id: S.id, gl, pt, spoils: spoils.map(it => it.uid), first });
     });
   });
 }
@@ -866,6 +974,9 @@ function rest(shrine) {
   G.audio.sfx('rest');
   G.after(0.9, () => {
     if (G.state !== 'play') return;
+    const gen = m.graveGen ||= [];   // a grave laid to rest holds another knight after a rest
+    for (const i of m.graves || []) gen[i] = (gen[i] || 0) + 1;
+    m.graves = [];
     applyWorldState();
     p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw(); p.refillAmmo();
     G.save.write();
@@ -899,6 +1010,7 @@ G.takeGear = it => {
   const d = G.save.data, g = d.gear, p = G.player;
   if (g.items.length >= PACK) return false;
   g.items.push(it);
+  if (it.set && !(d.looks ||= ['errant']).includes(it.set)) d.looks.push(it.set);   // the Wardrobe knows its look now
   const worn = it.kind === 'weapon' ? g.equip.weapons : g.equip.armor, key = it.kind === 'weapon' ? it.type : it.slot;
   if (!worn[key]) { worn[key] = it.uid; p.applyGear(); }
   const R = RARITY[it.rar];
@@ -1035,6 +1147,7 @@ function findInteractable() {
     if (it.kind === 'item' && (it.taken || it.hidden)) continue;   // an item still shut in a crate can't be picked up through it
     if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.bosses.some(b => b.alive))) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
+    if (it.kind === 'grave' && (!it.grave.on || !it.grave.lit || G.graveFoe || G.bossFight)) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
   }
@@ -1048,6 +1161,10 @@ function interact(it) {
       if (it.shrine.dim) { G.hud.toast('This Moonwell is dim: only those past a warlord burn', 'warn'); G.audio.sfx('ui'); break; }
       rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
+    case 'grave':
+      G.controlsOn = false; G.input.wantLock = false; G.input.releaseLock();
+      G.menu.show('grave', { i: it.i, K: G.graveKnight(it.i) }); G.audio.sfx('page');
+      break;
     case 'letter': readLetter(it); break;
     case 'item': {
       const item = it.item;
@@ -1170,6 +1287,8 @@ function step(dt, rdt) {
   // Boss phases and the gatekeeper's bar.
   // A pair's second phase comes when one of them falls, not from wounds.
   for (const b of G.bosses) if (b.alive && G.bossFight && !b.phase2 && !b.T.duo && b.hp < b.maxHp * (b.T.phase2At ?? .5)) b.phase2 = true;
+  const gf = G.graveFoe;
+  if (gf?.alive && !gf.phase2 && gf.hp < gf.maxHp * (gf.T.phase2At ?? .5)) gf.phase2 = true;
   const w = G.gatekeeper;
   if (w && w.alive) {
     const engaged = w.aware && w.state !== 'return' && w.distToPlayer() < 22;

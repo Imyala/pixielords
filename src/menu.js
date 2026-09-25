@@ -20,6 +20,9 @@ import { esc, glyph, head, keybar, entries, infoBox, option, inkWash, padDiagram
 import { PATRONS, PATRON_ORDER, shiftText } from './patrons.js';
 import { OMENS, phaseOf } from './moontonight.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
+import { gravePetals } from './graves.js';
+import { MARKET_TABS, VIAL_MAX } from './market.js';
+import { DYES, DYE_ORDER, LOOK_PARTS } from './wardrobe.js';
 
 const STATS = [
   { k: 'vit', name: 'Vitality', desc: 'Maximum health' },
@@ -100,6 +103,9 @@ const TIPS = [
   ['Deeds', 'long goals kept across everything. Each tier pays Glimmer and a small bonus for good.'],
   ['Patron Spirits', 'every warlord holds a fae spirit captive; fell it and the spirit is freed. Pledge to one at a Moonwell (Patronage): it lends passives and changes your Fae Shift, its element, its strength and how long it lasts.'],
   ['The Moon Tonight', 'the moon in the game keeps the real moon\'s phase, and each phase lends a small blessing. Each night three missions lie under an omen (Harvest, Blood or Hunter\'s Moon), marked ☾ on the map. It can be turned off in Settings.'],
+  ['Revenant Graves', 'two bloodied graves lie in every mission, where fae knights fell before you. Examine one to raise its Revenant, in the harness it died in and with the weapon it carried. Lay it to rest for Moonpetals and a piece of what it wore or carried. The grave then stays dark until you rest at a Moonwell, and another knight lies in it.'],
+  ['The Hidden Market', 'a pixie pedlar at every Moonwell who takes only Moonpetals: Fabled and Moonlit gear from the sets you have reached, Moondew Vials, purses of Glimmer, Soul Cores, Grave Lanterns and dyes. The wares change every night at noon.'],
+  ['Wardrobe', 'wear the look of any set you have carried a piece of, whatever you actually wear, and dye the plate, cloak, trim, wings and visor.'],
 ];
 
 const CPAGES = ['Keyboard & Mouse', 'Gamepad', 'Techniques', 'How it plays'];
@@ -181,7 +187,7 @@ export class Menu {
     // Left and right: change a setting, or else turn the page.
     for (const [d, dir] of [['left', -1], ['right', 1]]) {
       if (!inp.hit(d)) continue;
-      if (cur?.dataset.act === 'opt') { this.G.audio.sfx('ui'); this.run('opt', cur, dir); return; }
+      if (['opt', 'lookOpt'].includes(cur?.dataset.act)) { this.G.audio.sfx('ui'); this.run(cur.dataset.act, cur, dir); return; }
       const k = this.el.querySelector(`.nkeys [data-key~=${dir < 0 ? 'mPrev' : 'mNext'}][data-act]`);
       if (k) { this.G.audio.sfx('ui'); this.run(k.dataset.act, k, dir); return; }
     }
@@ -235,6 +241,13 @@ export class Menu {
         this.render(); break;
       }
       case 'journal': this.push('journal'); break;
+      case 'graveFight': this.close(); G.challengeGrave(+b.dataset.i); break;
+      case 'market': this.push('market', { tab: 'gear' }); break;
+      case 'mTab': { const i = MARKET_TABS.findIndex(t => t.id === this.top.data.tab); this.top.data.tab = MARKET_TABS[(i + dir + MARKET_TABS.length) % MARKET_TABS.length].id; this.top.focus = 0; this.top.scrolls = null; this.render(); break; }
+      case 'buy': { const key = b?.dataset.key || this.cur()?.dataset.key; if (!G.buy(this.top.data.tab, key)) G.audio.sfx('ui'); this.render(); break; }
+      case 'wardrobe': this.push('wardrobe'); break;
+      case 'lookOpt': this.setLookOpt(b.dataset.opt, dir); break;
+      case 'lookReset': for (const P of LOOK_PARTS) G.setLook(P.k, null); this.render(); break;
       case 'deeds': this.push('deeds'); break;
       case 'moves': this.push('moves', { w: G.player.weapon }); break;
       case 'arsenal': this.push('arsenal', { forge: this.atWell() }); break;
@@ -281,6 +294,13 @@ export class Menu {
   }
 
   // Gear's categories, turned through with Q / E (LB / RB): each weapon carried or found, each armour slot, Soul Cores.
+  // The Wardrobe: the next or last choice for one part of the look.
+  setLookOpt(k, dir) {
+    const G = this.G, d = G.save.data, vals = k === 'set' ? [null, ...(d.looks || ['errant']).filter(x => SETS[x])] : [null, ...DYE_ORDER.filter(x => (d.dyes || []).includes(x))];
+    const i = Math.max(0, vals.indexOf(d.look?.[k] ?? null));
+    G.setLook(k, vals[(i + dir + vals.length) % vals.length]);
+    this.render();
+  }
   gearCats() {
     const d = this.G.save.data, p = this.G.player;
     return [...d.arms.map(w => ({ id: 'w:' + w, name: p.weaponName(w), w })), ...SLOTS.map(s => ({ id: s, name: SLOT_NAME[s], slot: s })), { id: 'cores', name: 'Soul Cores' }];
@@ -306,6 +326,12 @@ export class Menu {
     const harness = C.slot ? `<div class="gd-sec">Harness</div><div class="gd-fx"><span>Defence</span><span class="v">${st.def}</span></div><div class="gd-fx"><span>Blows land lighter by</span><span class="v">${Math.round(defReduce(st.def) * 100)}%</span></div>` : '';
     const it = g.items.find(x => x.uid === +(el?.dataset.uid || 0));
     if (!it) return harness || '<div class="gd-note">Foes drop weapons of every kind you carry; better ones from elites and warlords.</div>';
+    return `${this.itemDetail(it)}${harness}
+      <div class="gd-note">Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer.${this.atWell() ? '' : ' Reforge or soul-match it at a Moonwell.'}</div>`;
+  }
+  // A piece in full, pack or not (the Hidden Market's too), set against what is worn now.
+  itemDetail(it) {
+    const G = this.G, g = G.save.data.gear, p = G.player, wn = id => p.weaponName(id), st = p.gear || { def: 0, sets: {} };
     const worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
     const isW = it.kind === 'weapon', eq = g.items.find(x => x.uid === (isW ? g.equip.weapons[it.type] : g.equip.armor[it.slot]));
     const val = isW ? weaponMul(it) : armorDef(it), was = isW ? weaponMul(eq) : armorDef(eq), diff = val - was;
@@ -315,14 +341,12 @@ export class Menu {
     const S = it.set && SETS[it.set], n = S ? (st.sets?.[it.set] || 0) : 0;
     return `<div class="glv"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Lv ${it.lvl}</span></div>
       <h3 style="color:${col(it.rar)}">${esc(itemName(it, wn))}</h3>
-      <div class="grar">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${worn.has(it.uid) ? ' · equipped' : ''}</div>
+      <div class="grar">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · equipped' : ''}</div>
       <div class="gd-cmp"><span>${isW ? 'Damage' : 'Defence'}</span><span>${eq && eq !== it ? `<span class="was">${fmt(was)}</span> → ` : ''}<span class="now">${fmt(val)}</span> ${cmp}</span></div>
       <div class="gd-sec">Special Effects</div>
       ${it.fx.length ? it.fx.map(([id, v]) => `<div class="gd-fx"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="gd-fx off"><span>None: a Common piece carries no effects.</span></div>'}
       ${S ? `<div class="gd-sec">${esc(S.name)} set · ${n} of 4 worn</div><div class="gd-fx set ${n >= 2 ? '' : 'off'}"><span>Two: ${esc(S.two)}</span></div><div class="gd-fx set ${n >= 4 ? '' : 'off'}"><span>Four: ${esc(S.four)}</span></div>` : ''}
-      ${eq && eq !== it ? `<div class="gd-sec">Worn now: ${esc(itemName(eq, wn))}</div>${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="gd-fx off"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="gd-fx off"><span>No effects</span></div>'}` : ''}
-      ${harness}
-      <div class="gd-note">Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer.${this.atWell() ? '' : ' Reforge or soul-match it at a Moonwell.'}</div>`;
+      ${eq && eq !== it ? `<div class="gd-sec">Worn now: ${esc(itemName(eq, wn))}</div>${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="gd-fx off"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="gd-fx off"><span>No effects</span></div>'}` : ''}`;
   }
 
   render() {
@@ -363,6 +387,7 @@ export class Menu {
           ['resume', 'Return', 'Resume', 'Back to the fight.'],
           ['gear', 'Harness', 'Equipment', 'Weapons, armour and Soul Cores found.'],
           ['arsenal', 'Armoury', 'Arsenal', 'Choose the two weapons you carry, and the ranged one.'],
+          ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
           ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
           ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
           ['journal', 'Chronicle', 'Journal', `${sv.data.letters.length} letters read · ${sv.data.pixies.length} Lost Pixies freed.`],
@@ -373,7 +398,7 @@ export class Menu {
           L.depth && ['leaveAbyss', 'Resurface', 'Leave the Underbriar', 'Climb back up to the Fae Crossroads.'],
           ['quit', 'Withdraw', 'Quit to title', 'Progress is saved each time you rest at a Moonwell or vanquish a warlord.'],
         ])}</div>
-        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Moondew', `${G.player.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`], ['Way', wayName(sv.data.ng)], G.tonight && ['Tonight', G.tonight.phase.name + (G.tonight.omen ? ' · ' + G.tonight.omen.name : '')]])}
+        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Moonpetals', (sv.data.petals || 0).toLocaleString()], ['Moondew', `${G.player.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`], ['Way', wayName(sv.data.ng)], G.tonight && ['Tonight', G.tonight.phase.name + (G.tonight.omen ? ' · ' + G.tonight.omen.name : '')]])}
         ${keybar(G, [['confirm', 'Select'], ['back', 'Back', 'resume']])}`;
     } else if (screen === 'shrine') {
       const sv = G.save, d = sv.data, p = G.player, cost = levelCost(sv.level);
@@ -389,13 +414,15 @@ export class Menu {
           ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
           ['patrons', 'Patronage', 'Patron Spirit', `${PATRONS[d.patron || 'lantern'].name} is pledged to you · ${(d.patrons || ['lantern']).length} of ${PATRON_ORDER.length} freed.`],
           d.charms.length && ['charms', 'Trinkets', 'Charms', `${d.equipped.length} of ${CHARM_SLOTS} worn.`],
+          ['market', 'Pedlar', 'Hidden Market', `${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night.`],
+          ['wardrobe', 'Attire', 'Wardrobe', 'How your harness looks, and its dyes.'],
           ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
           ['journal', 'Chronicle', 'Journal', `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed.`],
           ['deeds', 'Renown', 'Deeds', `${earned} of ${deeds.length * 3} tiers earned.`],
           d.unlocked.length > 1 && ['journey', 'Crossroads', 'Journey elsewhere', 'Walk the Fae Crossroads to another mission.'],
           ['leave', 'Rise', 'Leave', 'Resting mends you, refills your Moondew, and calls every fallen foe back.'],
         ])}</div>
-        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Next level', cost.toLocaleString()], ['Health · Stamina', `${p.maxHp} · ${p.maxKi}`], ['Moondew', sv.elixirMax]])}
+        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Next level', cost.toLocaleString()], ['Moonpetals', (d.petals || 0).toLocaleString()], ['Health · Stamina', `${p.maxHp} · ${p.maxKi}`], ['Moondew', sv.elixirMax]])}
         ${keybar(G, [['confirm', 'Select'], ['back', 'Rise', 'leave']])}`;
     } else if (screen === 'levelup') {
       const sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl), afford = sv.glimmer >= cost, cur = derive(sv.stats);
@@ -513,6 +540,78 @@ export class Menu {
           <div class="gd-fx set"><span>As it begins, a burst that throws back everything within ${P.shift.burst[1]} paces</span></div>
           <div class="gd-note">${esc(P.lore)}</div>`;
       };
+    } else if (screen === 'market') {
+      // The Hidden Market (market.js): tonight's wares by tab, bought with Moonpetals.
+      const d = G.save.data, W = G.market(), T = MARKET_TABS.find(t => t.id === data.tab) || MARKET_TABS[0], sold = d.market.sold, wn = id => G.player.weaponName(id);
+      data.tab = T.id;
+      const price = w => `<span class="gl ${(d.petals || 0) < w.price ? 'short' : ''}">✿ ${w.price}</span>`;
+      const gone = w => (!w.repeat && sold.includes(w.key)) || w.owned || w.off;
+      const tag = w => (w.owned ? '<span class="eq">OWNED</span>' : w.off ? '<span class="eq">FULL</span>' : !w.repeat && sold.includes(w.key) ? '<span class="eq">SOLD</span>' : '');
+      const row = (w, ic, name, color) => `<button class="btn gi ${gone(w) ? 'sold' : ''}" data-act="buy" data-key="${esc(w.key)}"><span class="ic" style="color:${color}">${ic}</span><span style="color:${color}">${esc(name)}${tag(w)}</span>${price(w)}</button>`;
+      const list = T.id === 'gear' ? W.gear.map(w => row(w, w.it.kind === 'weapon' ? '⚔' : SLOT_ICON[w.it.slot], itemName(w.it, wn), col(w.it.rar)))
+        : T.id === 'prov' ? W.prov.map(w => row(w, { vial: '⚱', purse: '◉', core: '◈', lantern: '✧' }[w.kind], w.name, w.kind === 'core' ? '#c89aff' : '#efe3c6'))
+        : W.dyes.map(w => row(w, `<i class="swatch" style="background:${hex(DYES[w.dye].hex)}"></i>`, w.name, '#efe3c6'));
+      cls = 'gear market';
+      h = `${head('Hidden Market', `✿ ${(d.petals || 0).toLocaleString()} Moonpetals · new wares every night at noon`)}
+        <div class="gwrap">
+          <div class="glist">
+            <div class="gcat"><span class="arr" data-act="mTab" data-dir="-1">‹ ${glyph(G, 'mPrev')}</span><span>${esc(T.name)}</span><span class="arr" data-act="mTab" data-dir="1">${glyph(G, 'mNext')} ›</span></div>
+            <div class="gtabs">${MARKET_TABS.map(t => `<i class="${t === T ? 'on' : ''}" title="${esc(t.name)}"></i>`).join('')}</div>
+            <div class="gitems">${list.join('')}</div>
+            <div class="gfoot petals">✿ ${(d.petals || 0).toLocaleString()} Moonpetals</div>
+          </div>
+          <div class="gdetail"></div>
+        </div>
+        ${keybar(G, [[['mPrev', 'mNext'], 'Wares', 'mTab'], ['confirm', 'Buy'], back])}`;
+      this.onFocus = el => {
+        const box = this.el.querySelector('.gdetail'), w = [...W.gear, ...W.prov, ...W.dyes].find(x => x.key === el?.dataset.key);
+        if (!box || !w) return;
+        const foot = `<div class="gd-sec">Price</div><div class="gd-fx"><span>✿ ${w.price} Moonpetals</span><span class="v">${(d.petals || 0) >= w.price ? `${d.petals - w.price} left after` : `${w.price - (d.petals || 0)} short`}</span></div>
+          <div class="gd-note">${gone(w) ? (w.owned ? 'Already yours.' : w.off ? `Your Moondew is already at ${VIAL_MAX}.` : 'Sold. The pedlar has more tomorrow night.') : w.repeat ? 'The pedlar keeps plenty of these.' : 'One of these tonight.'} Moonpetals come from Revenants at their graves, Duels and other side missions, Deeds, and warlords.</div>`;
+        if (w.it) { box.innerHTML = this.itemDetail(w.it) + foot; return; }
+        if (w.kind === 'dye') {
+          const D = DYES[w.dye];
+          box.innerHTML = `<div class="glv"><span>Dye</span><span></span></div><h3>${esc(w.name)}</h3><div class="dyebig" style="background:${hex(D.hex)}"></div><div class="gd-note">For the Wardrobe: dye your plate, cloak, trim, wings or visor with it.</div>${foot}`;
+          return;
+        }
+        const extra = w.kind === 'vial' ? `<div class="gd-fx"><span>Moondew</span><span class="v">${d.elixirMax} → ${Math.min(VIAL_MAX, d.elixirMax + 1)}</span></div>` : w.kind === 'purse' ? `<div class="gd-fx"><span>Glimmer</span><span class="v">${w.glimmer.toLocaleString()}</span></div>`
+          : w.kind === 'core' ? `<div class="gd-fx"><span>Held</span><span class="v">+${Math.max(0, (d.cores[w.core] || 1) - 1)} → +${d.cores[w.core] || 1}</span></div>` : '';
+        box.innerHTML = `<div class="glv"><span>Provisions</span><span></span></div><h3>${esc(w.name)}</h3><div class="gd-note">${esc(w.desc)}</div>${extra}${foot}`;
+      };
+    } else if (screen === 'wardrobe') {
+      // The Wardrobe (wardrobe.js): a look from any set known, and dyes, set part by part.
+      const d = G.save.data, L = d.look ||= {}, looks = (d.looks || ['errant']).filter(k => SETS[k]), dyes = DYE_ORDER.filter(k => (d.dyes || []).includes(k));
+      const rows = LOOK_PARTS.map(P => {
+        const vals = P.k === 'set' ? [null, ...looks] : [null, ...dyes], i = Math.max(0, vals.indexOf(L[P.k] ?? null)), v = vals[i];
+        const name = P.k === 'set' ? (v ? SETS[v].name : 'As worn') : v ? DYES[v].name : 'Undyed';
+        const sw = P.k === 'set' ? (v ? SETS[v].look : null) : v ? { one: DYES[v].hex } : null;
+        const swh = sw ? (sw.one != null ? `<i class="swatch" style="background:${hex(sw.one)}"></i>` : `<i class="swatch" style="background:linear-gradient(90deg,${hex(sw.steel)} 0 33%,${hex(sw.cloth)} 33% 66%,${hex(sw.trim)} 66%)"></i>`) : '';
+        return `<button class="btn opt" data-act="lookOpt" data-opt="${P.k}" data-desc="${esc(P.desc)}"><span class="olab">${esc(P.name)}</span><span class="oval"><em class="arr l" data-dir="-1">‹</em><b>${swh}${esc(name)}</b><span class="meter"><u style="width:${vals.length > 1 ? Math.round(i / (vals.length - 1) * 100) : 0}%"></u></span><em class="arr r" data-dir="1">›</em></span></button>`;
+      }).join('');
+      cls = 'wardrobe nioh';
+      h = `${head('Wardrobe', `${looks.length} looks known · ${dyes.length} of ${DYE_ORDER.length} dyes`)}
+        <div class="wpanel">${rows}<div class="sdesc"></div>
+          <div class="gd-note">A look is learned from any piece of a set you carry. Dyes are sold in the Hidden Market at every Moonwell.</div></div>
+        ${keybar(G, [['mAlt', 'Undo all', 'lookReset'], ['confirm', 'Change'], back])}`;
+      this.onFocus = el => { const q = this.el.querySelector('.sdesc'); if (q) q.textContent = el?.dataset.desc || ''; };
+    } else if (screen === 'grave') {
+      // A Revenant Grave (graves.js): who fell here, how, and what laying them to rest would leave.
+      const K = data.K, P = PATRONS[K.patron], S = SETS[K.set], wn = G.player.weaponName(K.weapon), carries = G.save.data.arms.includes(K.weapon);
+      const petals = gravePetals(K, G.save.data.ng || 0, !!G.tonight?.omen);
+      cls = 'grave nioh';
+      h = `${art}${head('Bloodied Grave', G.level.name)}
+        <div class="gravebox">
+          <div class="gk">Revenant · Level ${K.lvl}</div><h2>${esc(K.name)}</h2><div class="gh">${esc(K.how)}</div>
+          <div class="gr"><span>Weapon</span><b>${esc(wn)}</b></div>
+          <div class="gr"><span>Harness</span><b>${esc(S.name)}</b></div>
+          <div class="gr"><span>Patron Spirit</span><b style="color:${P.css}">${esc(P.name)}, ${esc(P.title)}</b></div>
+          <div class="gr sp"><span>Spoils</span><b>${petals} Moonpetals · a piece of its harness${carries ? ` or its ${esc(wn)}` : ''}, Rare or finer · now and then its Soul Core</b></div>
+        </div>
+        <div class="nlist">${entries([
+          ['graveFight', 'Challenge', 'Summon', 'Raise the Revenant and fight it here, alone.', `data-i="${data.i}"`],
+          ['back', 'Leave it', 'Let it lie', 'Walk on. The grave will wait.'],
+        ])}</div>
+        ${keybar(G, [['confirm', 'Select'], back])}`;
     } else if (screen === 'cleared') {
       const sv = G.save, L = G.level, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
       h = `<div class="panel ending"><div class="kicker">Mission complete</div><h1>${esc(L.name.toUpperCase())}</h1>
@@ -575,7 +674,7 @@ export class Menu {
       const S = SIDES[data.id], g = G.save.data.gear, got = data.spoils.map(uid => g.items.find(it => it.uid === uid)).filter(Boolean);
       h = `<div class="panel ending"><div class="kicker">Side mission complete${data.first ? ' · first time' : ''}</div><h1>${esc(S.name.replace(/^[^:]*: /, '').toUpperCase())}</h1>
         <p>${esc(S.desc)}</p>
-        <div class="lv"><div><small>Spoils</small><b class="gold">${data.gl.toLocaleString()} Glimmer</b></div>${got.map(it => `<div><small>${esc(RARITY[it.rar].name)} · Lv ${it.lvl}</small><b style="color:#${RARITY[it.rar].color.toString(16).padStart(6, '0')}">${esc(itemName(it, w => WEAPONS[w]?.name || w))}</b></div>`).join('')}</div>
+        <div class="lv"><div><small>Spoils</small><b class="gold">${data.gl.toLocaleString()} Glimmer</b></div>${data.pt ? `<div><small>Moonpetals</small><b style="color:#ffb8d8">✿ ${data.pt}</b></div>` : ''}${got.map(it => `<div><small>${esc(RARITY[it.rar].name)} · Lv ${it.lvl}</small><b style="color:#${RARITY[it.rar].color.toString(16).padStart(6, '0')}">${esc(itemName(it, w => WEAPONS[w]?.name || w))}</b></div>`).join('')}</div>
         <div class="btns"><button class="btn" data-act="missions">Onward</button></div></div>
         ${keybar(G, [['confirm', 'Onward']])}`;
     } else if (screen === 'journal') {
