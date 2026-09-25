@@ -7,8 +7,10 @@
 // Guard and perfect-guard Deflect, the Flashcut draw-cut that follows a Deflect or a Thorn Counter, Resonance
 // (tap guard as a strike ends to win back stamina), executions, ambushes, Moondew flasks and the Fae Shift.
 import * as THREE from 'three';
-import { buildKnight, KnightAnimator } from './knight.js';
+import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import './moveanims.js';
+import './armoryanims.js';
+import { ARMORY, ARMORY_MOVES } from './armory.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
@@ -33,6 +35,20 @@ export const WEAPONS = {
   // Fists and feet: the quickest of all; every hit wins back a little stamina and bites posture (Flow).
   fists: { id: 'fists', name: 'Starfists', desc: 'Punches and kicks, quickest of all; every hit wins back stamina and breaks posture (Flow).', speed: 1.2, cost: .9, heavy: { high: 'xHeavyH', mid: 'xHeavyM', low: 'xHeavyL' }, run: 'xRun', dash: 'xDash', switch: 'swFists', color: 0x9fe8ff, airReach: .9, airDmg: 1.15 },
 };
+WEAPONS.glaive.mech = 'Charge'; WEAPONS.glaive.mechDesc = 'hold a heavy to charge it, up to 1.8× as hard';
+WEAPONS.fangs.mech = 'Frenzy'; WEAPONS.fangs.mechDesc = 'every hit stacks speed and damage, up to six';
+WEAPONS.hammer.mech = 'Stalwart'; WEAPONS.hammer.mechDesc = 'mid-swing, ordinary blows can\'t stagger you and land for a fifth less';
+WEAPONS.fists.mech = 'Flow'; WEAPONS.fists.mechDesc = 'every hit wins back stamina and breaks posture 30% harder';
+// The armory's fifteen (armory.js): same shape, fighting with the strikes of their hold. One-handed ones
+// take the sword's two-handed strikes one-handed ('oh:' variants), the off hand free for shield or guard.
+for (const [id, A] of Object.entries(ARMORY)) {
+  WEAPONS[id] = { id, name: A.name, desc: A.desc, speed: A.speed, cost: A.cost, dmg: A.dmg, reach: A.reach, heavy: A.heavy, run: A.run, dash: A.dash, switch: A.switch,
+    color: A.color, airReach: A.airReach, airDmg: A.airDmg, names: A.names, mech: A.mech, mechDesc: A.mechDesc, oneHand: ['aegis', 'rapier', 'ring', 'hexblade', 'katana'].includes(id) };
+  FORMS[id] = A.forms; KIT[id] = { fin: A.fin, slide: A.slide, air: A.air };
+}
+// Mechanics of the armory: Iai's wait, Bleed's burst, Hex charge, the thrown weapons.
+const IAI = { wait: 1.2, mul: 1.6 }, HEX = { per: 2, max: 3, dmg: 48, speed: 18 };
+const GRIND = new Map();   // Grinder's Wheel versions of strikes, made once each
 // Stalwart (Thornhammer): mid-swing, ordinary blows land for a fifth less and can't stagger the knight.
 // Flow (Starfists): every hit returns 3 stamina and deals 30% more posture damage.
 const STALWART = { dmg: .8 }, FLOW = { ki: 3, posture: 1.3 };
@@ -86,7 +102,7 @@ Object.assign(ATK, {
   plunge: { anim: 'plunge', dur: 1.2, hit: [9, 9], dmg: 88, ki: 60, poise: 40, cost: 14, reach: 2.8, arc: 360, move: 0, chain: 9, next: 'air1', heavy: true, plunge: true, aoe: 2.8 },
 });
 // The stance forms' strikes, finishers, slide attacks and each weapon's air strikes.
-Object.assign(ATK, MOVES);
+Object.assign(ATK, MOVES, ARMORY_MOVES);
 for (const [k, n] of Object.entries(NAMES)) if (ATK[k]) ATK[k].name ||= n;
 const AIR = { rise: 10.5, g: 26, hang: 7, plungeG: 80, maxStrikes: 4, dash: { dur: .26, dist: 3.4, iframes: [0, .2] } };
 const CHARGE = { max: .7 };  // seconds a heavy can be held; a full charge hits 1.8× as hard
@@ -107,7 +123,7 @@ export function derive(stats) {
   };
 }
 
-const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0);
 
 // Afterimages: translucent copies of the knight that hold a pose and fade.
 class Ghosts {
@@ -530,13 +546,27 @@ export class Player {
     return key;
   }
 
+  // A weapon's own name for a strike, else the strike's.
+  moveName(key, w = this.weapon) { return WEAPONS[w]?.names?.[key] || ATK[key]?.name || key; }
+
   startAttack(key) {
-    const G = this.G, a = ATK[key], S = this.S;
+    const G = this.G, S = this.S, wid = this.weapon;
+    let a = ATK[key];
+    // Grind (Grinder's Wheel): every strike keeps biting while it lasts, lighter per bite.
+    if (wid === 'saw' && !a.multi && !a.hurl && !a.plunge && !a.launch) a = GRIND.get(key) || GRIND.set(key, { ...a, multi: .11, dmg: a.dmg * .42, ki: a.ki * .55, poise: a.poise * .5 }).get(key);
     const slideV = this.state === 'slide' ? this.slideSpeed() : 0;
+    // Momentum (Warblade) counts the strikes of the chain; a finisher keeps the count it was fed.
+    this.momN = wid === 'great' ? (this.cmb.list ? this.cmb.step : a.fin ? this.momN || 1 : 0) : 0;
+    // Iai (Rimeblade): after a wait the next strike on the ground is a draw-cut.
+    this.iaiMul = wid === 'katana' && this.iaiReady && !a.air ? IAI.mul : 1; this.iaiReady = false;
+    this.hexFire = wid === 'hexblade' && (a.heavy || a.fin) && this.hexN > 0 ? this.hexN : 0;
+    if (this.hexFire) this.hexN = 0;
+    this.hurled = false;
     this.atk = a; this.atkKey = key; this.hitSet = new Set(); this.multiBeat = -1; this.atkT0 = G.time;
     this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1) * (1 + this.frenzy.n * FRENZY.speed) * (a.speed || 1);
     this.setState('attack');
-    this.anim.play(a.anim, this.aspeed, .04);
+    this.anim.play(this.W.oneHand && ACTIONS['oh:' + a.anim] ? 'oh:' + a.anim : a.anim, this.aspeed, .04);
+    if (this.iaiMul > 1) { this.k.tip.getWorldPosition(_b); G.fx.flash(_b, 0xdff4ff, 1.6, .3, true); G.audio.sfx('flashDraw', { vol: .6 }); }
     this.spendKi(a.cost * S.cost * this.W.cost * (a.launch && this.has('skyward') ? .6 : 1));
     this.chargeT = 0; this.chargeDone = false; this.chargeMul = 1;
     this.launchedUp = false;
@@ -562,8 +592,8 @@ export class Player {
     if (a.fin) {
       const n = this.combo.n;
       this.finMul = 1 + Math.min(COMBO.finMax, n * COMBO.fin); this.combo.n = 0;
-      G.hud.toast(n >= 4 ? `${a.name} ×${this.finMul.toFixed(1)}` : a.name, 'anima');
-    } else if (c.kind === 'pause' && c.list?.[0] === key) G.hud.toast(a.name, 'pulse');
+      G.hud.toast(n >= 4 ? `${this.moveName(key)} ×${this.finMul.toFixed(1)}` : this.moveName(key), 'anima');
+    } else if (c.kind === 'pause' && c.list?.[0] === key) G.hud.toast(this.moveName(key), 'pulse');
     return true;
   }
 
@@ -648,7 +678,7 @@ export class Player {
       };
       for (const e of G.enemies) {
         if (!e.alive || W.hit.has(e) || e.state === 'grappled' || e.pos.y > 2.5 || !inPath(e.pos.x, e.pos.z, e.radius)) continue;
-        W.hit.add(e); this.strike(e, W.atk, W.yaw);
+        W.hit.add(e); this.strike(e, W.atk, W.yaw, false);
       }
       for (const b of G.world.breakables) if (!b.broken && !W.hit.has(b) && inPath(b.x, b.z, b.r)) { W.hit.add(b); G.world.hitBreakable(b, 3, W.yaw); }
       if (W.d >= W.len) this.waves.splice(i, 1);
@@ -783,12 +813,13 @@ export class Player {
       return 'countered';
     }
     // Guard and Deflect (Dread attacks can't be guarded).
-    const facing = Math.abs(angleDiff(this.yaw, h.dirYaw)) < 1.4;
+    const facing = this.weapon === 'aegis' || Math.abs(angleDiff(this.yaw, h.dirYaw)) < 1.4;   // Bulwark: a guard from every side
     const recovering = this.state === 'attack' && this.st * this.aspeed >= this.atk.hit[1];
-    const justPressed = G.time - this.guardPressT <= DEFLECT + (this.has('mirrorguard') ? .06 : 0) && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
+    const window = DEFLECT + (this.has('mirrorguard') ? .06 : 0) + (this.weapon === 'tonfas' ? .1 : this.weapon === 'rapier' ? .05 : 0);
+    const justPressed = G.time - this.guardPressT <= window && (['free', 'deflect', 'hurt', 'counter'].includes(this.state) || recovering);
     if ((this.guarding || justPressed) && facing && !h.burst) {
       if (justPressed && !h.aoe) return this.deflect(h);
-      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1);
+      const kiDmg = h.dmg * (h.heavy ? 1.05 : .8) * this.S.guard * (this.has('wardstone') ? .75 : 1) * (this.weapon === 'aegis' ? .6 : this.weapon === 'tonfas' ? .7 : 1);
       if (h.chill) this.addChill(h.chill * .35);   // the cold seeps through a guard
       this.ki -= kiDmg; this.kiSpentT = G.time;
       const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .5, 1.25, this.pos.z + Math.cos(this.yaw) * .5);
@@ -838,7 +869,7 @@ export class Player {
   deflect(h) {
     const G = this.G;
     this.setState('deflect'); this.anim.play('deflect', 1.3, .02);
-    this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8));
+    this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8) + (this.weapon === 'tonfas' ? 10 : 0));
     this.gainAnima(this.has('thornheart') ? 10 : 6);
     const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .6, 1.3, this.pos.z + Math.cos(this.yaw) * .6);
     G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 34, 0xdff8ff, 9);
@@ -910,6 +941,15 @@ export class Player {
     k.mats.blade.emissiveIntensity = this.shifted ? 1.2 : b ? .9 : .12;
   }
 
+  // What the HUD shows beside the weapon: Frenzy, Hex charges, Iai ready, Momentum.
+  weaponNote() {
+    if (this.weapon === 'fangs' && this.frenzy.n) return `Frenzy ${this.frenzy.n}`;
+    if (this.weapon === 'hexblade' && this.hexN) return `Hex ${this.hexN}`;
+    if (this.weapon === 'katana' && this.iaiReady) return 'Iai';
+    if (this.weapon === 'great' && this.state === 'attack' && this.momN > 1) return `Momentum +${Math.round(Math.min(.36, .06 * (this.momN - 1)) * 100)}%`;
+    return '';
+  }
+
   // ------------------------------------------------ Fae Arts
   refillArts() { for (const id of this.arts) this.artUses[id] = ARTS[id].uses; }
   cycleArt() {
@@ -959,7 +999,41 @@ export class Player {
     }
   }
   addShot(s) { s.t = 0; s.hit = new Set(); this.G.scene.add(s.mesh); this.shots.push(s); }
-  dropShot(s) { this.G.scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose(); }
+  dropShot(s) { this.G.scene.remove(s.mesh); s.mesh.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); }); }
+
+  // Hurl, Gale, Ring Throw: spectral copies of the weapon wheel out along the aim and come home to hand.
+  makeThrown(kind) {
+    const mat = () => new THREE.MeshBasicMaterial({ color: this.W.color, transparent: true, opacity: .9, side: THREE.DoubleSide });
+    const g = new THREE.Group(), spin = new THREE.Group(); g.add(spin);   // spin turns: hatchets end over end, fans and rings flat
+    if (kind === 'hatchet') { spin.add(new THREE.Mesh(new THREE.BoxGeometry(.04, .44, .04), mat())); const h = new THREE.Mesh(new THREE.BoxGeometry(.03, .12, .2), mat()); h.position.y = .18; spin.add(h); }
+    else if (kind === 'fan') { const f = new THREE.Mesh(new THREE.CircleGeometry(.36, 12, 0, Math.PI), mat()); f.rotation.x = -Math.PI / 2; spin.add(f); }
+    else { const t = new THREE.Mesh(new THREE.TorusGeometry(.24, .035, 6, 20), mat()); t.rotation.x = Math.PI / 2; spin.add(t); }
+    return g;
+  }
+  hurlWeapon(a) {
+    const G = this.G, H = a.hurl;
+    const t = this.lock?.alive ? this.lock : this.focusTarget(H.range);
+    const yaw = t ? yawTo(this.pos.x, this.pos.z, t.pos.x, t.pos.z) : this.yaw;
+    for (let i = 0; i < H.n; i++) {
+      const o = H.n > 1 ? (i ? 1 : -1) * H.spread : 0;
+      this.addShot({ kind: 'boomer', mesh: this.makeThrown(H.kind), x: this.pos.x, y: this.pos.y + 1.2, z: this.pos.z, yaw: yaw + o, d: 0, out: true, range: H.range, speed: H.speed,
+        spinAxis: H.kind === 'hatchet' ? 'x' : 'y', atk: { ...a, hurl: null, kb: H.kb ?? a.kb } });
+    }
+    G.audio.sfx('throw'); G.audio.sfx('swing', { pitch: .8 });
+  }
+  // Hex Charge: the charges fly as seeking bolts at the foe in front, or whoever is near.
+  fireHex(n) {
+    const G = this.G;
+    this.k.tip.getWorldPosition(_a);
+    const foes = G.enemies.filter(e => e.alive && !e.burrowed && e.distToPlayer() < 16).sort((m, q) => m.distToPlayer() - q.distToPlayer());
+    for (let i = 0; i < n; i++) {
+      const tg = this.lock?.alive ? this.lock : foes[i % Math.max(1, foes.length)];
+      const yaw = this.yaw + (i - (n - 1) / 2) * .4;
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0x9dff7a }));
+      this.addShot({ kind: 'hex', mesh, x: _a.x, y: Math.max(1, _a.y), z: _a.z, vx: Math.sin(yaw) * HEX.speed, vy: 1.5, vz: Math.cos(yaw) * HEX.speed, tg, life: 1.8 });
+    }
+    G.audio.sfx('magic'); G.fx.flash(_a, 0x9dff7a, 1.6, .3, true);
+  }
   updateShots(dt) {
     const G = this.G;
     for (let i = this.shots.length - 1; i >= 0; i--) {
@@ -979,6 +1053,44 @@ export class Player {
         s.mesh.position.set(nx, ny, nz); s.mesh.rotation.set(-Math.atan2(s.vy, Math.hypot(s.vx, s.vz)), s.yaw, 0);
         if (Math.random() < dt * 40) G.fx.motes(s.mesh.position, 0xd8f0a0, 1, .05, 0, .05, .3);
         if (s.t >= s.life) done = true;
+      } else if (s.kind === 'boomer') {
+        // Out along the aim (a wall turns it back), then home to the knight's hand; it cuts on the way both ways.
+        const sx = Math.sin(s.yaw), sz = Math.cos(s.yaw);
+        if (s.out) {
+          const nd = s.d + s.speed * dt, nx = s.x + sx * s.speed * dt, nz = s.z + sz * s.speed * dt;
+          if (nd >= s.range || !G.world.los(s, { x: nx, z: nz }, s.y)) { s.out = false; s.hit.clear(); }
+          else { s.x = nx; s.z = nz; s.d = nd; }
+        } else {
+          const tx = this.pos.x - s.x, ty = this.pos.y + 1.2 - s.y, tz = this.pos.z - s.z, dd = Math.hypot(tx, ty, tz), v = s.speed * 1.15 * dt;
+          if (dd < .8) done = true;
+          else { s.x += tx / dd * v; s.y += ty / dd * v; s.z += tz / dd * v; }
+        }
+        for (const e of G.enemies) {
+          if (done || !e.alive || e.burrowed || s.hit.has(e) || Math.hypot(e.pos.x - s.x, e.pos.z - s.z) > e.radius + .8 || s.y < e.pos.y - .2 || s.y > e.pos.y + e.height + .5) continue;
+          s.hit.add(e); this.strike(e, s.atk, yawTo(s.x, s.z, e.pos.x, e.pos.z), false);
+        }
+        for (const b of G.world.breakables) if (!b.broken && !s.hit.has(b) && Math.hypot(b.x - s.x, b.z - s.z) < b.r + .5) { s.hit.add(b); G.world.hitBreakable(b, 2, s.yaw); }
+        s.mesh.position.set(s.x, s.y, s.z); s.mesh.rotation.y = s.yaw;
+        s.mesh.children[0].rotation[s.spinAxis] += dt * 26;
+        if (Math.random() < dt * 40) G.fx.motes(s.mesh.position, this.W.color, 1, .1, .1, .07, .35);
+        if (s.t > 5) done = true;
+      } else if (s.kind === 'hex') {
+        // Seeking: the heading bends toward the mark.
+        if (s.tg?.alive) {
+          const tx = s.tg.pos.x - s.x, ty = s.tg.pos.y + s.tg.height * .55 - s.y, tz = s.tg.pos.z - s.z, dd = Math.max(.01, Math.hypot(tx, ty, tz));
+          const k = 1 - Math.exp(-5 * dt);
+          s.vx += (tx / dd * HEX.speed - s.vx) * k; s.vy += (ty / dd * HEX.speed - s.vy) * k; s.vz += (tz / dd * HEX.speed - s.vz) * k;
+        }
+        s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+        for (const e of G.enemies) {
+          if (done || !e.alive || e.burrowed || Math.hypot(e.pos.x - s.x, e.pos.z - s.z) > e.radius + .4 || s.y < e.pos.y - .2 || s.y > e.pos.y + e.height + .3) continue;
+          e.takeHit({ dmg: HEX.dmg * this.dmgMul, ki: 30, poise: 20, dir: Math.atan2(s.vx, s.vz) });
+          this.combo.n++; this.combo.t = G.time;
+          G.fx.flash({ x: s.x, y: s.y, z: s.z }, 0x9dff7a, 1.4, .25, true); G.audio.sfx('hit', { x: s.x, z: s.z }); done = true;
+        }
+        s.mesh.position.set(s.x, s.y, s.z);
+        if (Math.random() < dt * 60) G.fx.motes(s.mesh.position, 0x9dff7a, 1, .05, .1, .07, .4);
+        if (s.t > s.life || s.y < 0) done = true;
       } else if (s.kind === 'bomb') {
         const u = Math.min(1, s.t / s.dur);
         s.mesh.position.set(s.x0 + (s.x1 - s.x0) * u, s.y0 * (1 - u) + 3 * 4 * u * (1 - u) * .8, s.z0 + (s.z1 - s.z0) * u);
@@ -1137,6 +1249,8 @@ export class Player {
           if (beat !== this.multiBeat) { this.multiBeat = beat; this.hitSet.clear(); if (a.aoe) this.aoeDone = false; }   // each slam shakes the ground
         }
         if (a.wave && !this.waveDone && t >= (a.wave.at ?? a.hit[0])) { this.waveDone = true; this.spawnWave(a); }
+        if (a.hurl && !this.hurled && t >= (a.hurl.at ?? .22)) { this.hurled = true; this.hurlWeapon(a); }
+        if (this.hexFire && t >= a.hit[0]) { this.fireHex(this.hexFire); this.hexFire = 0; }
         if (t >= a.hit[0] && t <= a.hit[1] + .02) this.detectHits(a);
         if (t >= a.hit[1] && this.pulseAmount) this.openPulse();
         if (t >= a.chain) {
@@ -1275,7 +1389,8 @@ export class Player {
         const T = 1.1 / 1.25;
         e.grappleK = clamp(this.st / T, 0, 1);
         const big = e.boss || e.elite;
-        const total = ATK.heavy.dmg * this.dmgMul * (big ? 2.2 : 3.4) * (this.shifted ? 1.4 : 1) * (this.has('gnawtooth') ? 1.33 : 1);
+        const total = ATK.heavy.dmg * this.dmgMul * (big ? 2.2 : 3.4) * (this.shifted ? 1.4 : 1) * (this.has('gnawtooth') ? 1.33 : 1)
+          * (this.weapon === 'rapier' ? 1.5 : this.weapon === 'daggers' && g.kind === 'ambush' ? 1.33 : 1);
         if (g.hits === 0 && this.st >= .3 / 1.25) { g.hits = 1; this.critHit(e, total * .35, false); }
         if (g.hits === 1 && this.st >= .8 / 1.25) { g.hits = 2; this.critHit(e, total * .65, true); }
         if (this.st >= T) {
@@ -1347,6 +1462,13 @@ export class Player {
       if (this.pos.y <= 0 && this.vy <= 0) this.land();
     }
     this.updateWaves(dt); this.updateShots(dt);
+    // Iai: the Rimeblade glints once it has been held back long enough.
+    if (this.weapon === 'katana') {
+      if (this.state === 'attack') this.iaiT = G.time;
+      else if (!this.iaiReady && this.state === 'free' && G.time - (this.iaiT ?? -9) > IAI.wait) {
+        this.iaiReady = true; this.k.tip.getWorldPosition(_b); G.fx.flash(_b, 0xdff4ff, 1, .35, true); G.audio.sfx('glint', { vol: .6 });
+      }
+    } else this.iaiReady = false;
 
     // Outside free movement the heading follows where the body is actually going (or facing, at rest).
     if (this.state !== 'free') { const sp = Math.hypot(this.vel.x, this.vel.z); this.heading = sp > 1 ? Math.atan2(this.vel.x, this.vel.z) : this.yaw; }
@@ -1390,12 +1512,57 @@ export class Player {
     this.updateVisuals(dt);
   }
 
+  // Weapons that move on their own: the Briar Chain's rope hangs and whips after the swing; the saw-wheel turns;
+  // the Hexblade's orb swells with charge.
+  updateGear(dt) {
+    const G = this.G, k = this.k, W = k.weapons, R = W.chain.rope;
+    if (R.line.parent !== G.scene) G.scene.add(R.line, R.sickle);
+    const on = this.weapon === 'chain';
+    R.line.visible = R.sickle.visible = on;
+    if (!on) R.pts.length = 0;
+    else {
+      k.root.updateMatrixWorld(true);
+      W.chain.node.getWorldPosition(_a); k.tip.getWorldPosition(_b);
+      const P = R.pts, n = R.N, seg = R.len / n;
+      if (!P.length) for (let i = 0; i <= n; i++) {
+        const u = i / n, x = _a.x + (_b.x - _a.x) * u, y = _a.y + (_b.y - _a.y) * u, z = _a.z + (_b.z - _a.z) * u;
+        P.push({ x, y, z, px: x, py: y, pz: z });
+      }
+      const swing = this.state === 'attack' || this.state === 'counter' || this.state === 'flashcut';
+      for (let i = 1; i <= n; i++) {
+        const p = P[i], vx = (p.x - p.px) * .92, vy = (p.y - p.py) * .92, vz = (p.z - p.pz) * .92;
+        p.px = p.x; p.py = p.y; p.pz = p.z;
+        p.x += vx; p.y += vy - 9.8 * dt * dt; p.z += vz;
+      }
+      // The sickle end is drawn toward where the swing would carry it: hard in a strike, loosely at rest.
+      const pull = swing ? .45 : .06, e = P[n];
+      e.x += (_b.x - e.x) * pull; e.y += (_b.y - e.y) * pull; e.z += (_b.z - e.z) * pull;
+      P[0].x = _a.x; P[0].y = _a.y; P[0].z = _a.z;
+      for (let it = 0; it < 4; it++) for (let i = 0; i < n; i++) {
+        const p = P[i], q = P[i + 1], dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z, d = Math.hypot(dx, dy, dz) || 1e-4, f = (d - seg) / d;
+        const wa = i === 0 ? 0 : .5, wb = i === 0 ? 1 : .5;
+        p.x += dx * f * wa; p.y += dy * f * wa; p.z += dz * f * wa; q.x -= dx * f * wb; q.y -= dy * f * wb; q.z -= dz * f * wb;
+      }
+      for (const p of P) if (p.y < .03) p.y = .03;
+      for (let i = 0; i < n; i++) {
+        const p = P[i], q = P[i + 1], m = R.line.children[i];
+        _a.set(q.x - p.x, q.y - p.y, q.z - p.z); const len = _a.length() || 1e-4;
+        m.position.set((p.x + q.x) / 2, (p.y + q.y) / 2, (p.z + q.z) / 2);
+        m.quaternion.setFromUnitVectors(_UP, _a.divideScalar(len)); m.scale.set(1, len, 1);
+      }
+      R.sickle.position.set(e.x, e.y, e.z);
+      R.sickle.lookAt(e.x + (e.x - P[n - 1].x), e.y + (e.y - P[n - 1].y), e.z + (e.z - P[n - 1].z));
+    }
+    if (this.weapon === 'saw') W.saw.disc.rotation.x -= dt * (this.state === 'attack' ? 40 : 7);
+    if (this.weapon === 'hexblade') W.hexblade.orb.scale.setScalar(1 + (this.hexN || 0) * .3 + (this.hexN ? Math.sin(G.time * 8) * .08 : 0));
+  }
+
   flashcutHit(e) {
     const G = this.G;
     if (!e.alive) return;
     const big = e.boss || e.elite;
     if (this.fc.kind === 'riposte') return this.riposteHit(e, big);
-    const dmg = e.boss ? e.maxHp * .1 : e.elite ? Math.max(e.maxHp * .28, 150) : e.hp + 1;
+    const dmg = (e.boss ? e.maxHp * .1 : e.elite ? Math.max(e.maxHp * .28, 150) : e.hp + 1) * (this.weapon === 'rapier' ? 1.5 : 1);
     this.chain = G.time - (this.chainT || -9) < 3 ? this.chain + 1 : 1;
     this.chainT = G.time;
     const res = e.takeHit({ dmg: dmg * (this.shifted ? 1.3 : 1), ki: big ? 140 : 999, poise: 99, dir: this.yaw, heavy: true, crit: true, flash: true });
@@ -1415,7 +1582,7 @@ export class Player {
   // Moonstep Riposte: heavy damage and posture, not an outright kill.
   riposteHit(e, big) {
     const G = this.G;
-    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1);
+    const dmg = (e.boss ? e.maxHp * .045 : big ? Math.max(e.maxHp * .12, 90) : 150) * this.dmgMul * (this.shifted ? 1.3 : 1) * (this.has('moonpetal') ? 1.33 : 1) * (this.weapon === 'rapier' ? 1.5 : 1);
     const res = e.takeHit({ dmg, ki: big ? 90 : 140, poise: 60, dir: this.yaw, heavy: true, crit: true });
     const p = _a.set(e.pos.x, Math.min(1.5, e.height * .55), e.pos.z);
     G.fx.slash(p, this.yaw, 4.5, 0xb8c8ff);
@@ -1465,7 +1632,7 @@ export class Player {
       G.projectiles.cut(pr);
       this.gainAnima(2);
     }
-    const reach = a.reach * (a.air || a.launch ? this.W.airReach : 1) * (this.has('pikeband') ? 1.1 : 1), high = this.pos.y > .6 || a.air;
+    const reach = a.reach * (this.W.reach || 1) * (a.air || a.launch ? this.W.airReach : 1) * (this.has('pikeband') ? 1.1 : 1), high = this.pos.y > .6 || a.air;
     for (const e of G.enemies) {
       if (!e.alive || this.hitSet.has(e) || e.state === 'grappled') continue;
       // In the air, only foes near the knight's height; from the ground, not foes juggled high overhead.
@@ -1486,9 +1653,9 @@ export class Player {
     }
   }
 
-  strike(e, a, dir = this.yaw) {
-    const G = this.G, S = this.S;
-    this.hitSet.add(e);
+  strike(e, a, dir = this.yaw, own = true) {
+    const G = this.G, S = this.S, wid = this.weapon;
+    if (own) this.hitSet.add(e);
     const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.max(.01, Math.hypot(dx, dz));
     const cm = this.chargeMul || 1;
     const charm = (a.heavy && this.has('tusk') ? 1.15 : 1) * (a.air && this.has('skyward') ? 1.25 : 1) * (a.air || a.launch ? this.W.airDmg : 1);
@@ -1498,13 +1665,34 @@ export class Player {
     const last = a.multi && a.last && this.multiBeat >= Math.floor((a.hit[1] - a.hit[0] - 1e-3) / a.multi) ? a.last : 1;
     const cmb = (1 + tier * COMBO.per) * (a.fin ? this.finMul || 1 : 1) * last;
     const forged = 1 + FORGE.per * (this.forge[this.weapon] || 0);
-    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
-    const kb = last > 1 ? Math.max(a.kb ?? 0, 4.5) : a.kb;
-    const flow = (this.weapon === 'fists' ? FLOW.posture : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1);
+    // The weapon's own weight, and its mechanic: Momentum, Backstab, Reap, Iai.
+    let mech = this.W.dmg || 1;
+    if (wid === 'great') mech *= 1 + Math.min(.36, .06 * Math.max(0, (this.momN || 1) - 1));
+    if (wid === 'daggers' && Math.abs(angleDiff(e.yaw, yawTo(e.pos.x, e.pos.z, this.pos.x, this.pos.z))) > 2) mech *= 1.6;
+    if (wid === 'scythe' && e.hp < e.maxHp * .35) mech *= 1.6;
+    if (wid === 'katana') mech *= this.iaiMul || 1;
+    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
+    // Knockback: Snare pulls, Reap's sweeps draw in, Sweep and Gale push.
+    let kb = last > 1 ? Math.max(a.kb ?? 0, 4.5) : a.kb;
+    if (wid === 'chain' && !a.air) kb = a.heavy || a.fin ? -5 : -1.8;
+    if (wid === 'scythe' && kb === undefined && a.arc >= 180) kb = -1.5;
+    if (wid === 'staff') kb = (kb ?? (a.heavy ? 4.5 : 2)) + 2;
+    if (wid === 'fans' && !(kb < 0)) kb = Math.max(kb ?? 0, 4);
+    const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1);
     const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
     this.combo.n++; this.combo.t = G.time;
     if (this.weapon === 'fists' && !this.shifted) { this.ki = Math.min(this.maxKi, this.ki + FLOW.ki); if (this.ki > 0) this.exhaustPending = false; }
+    // Bleed (Wolf Claws), Sweep (Moonstaff: two foes at once wins stamina back), Hex Charge (Hexblade).
+    if (wid === 'claws') e.bleed?.();
+    if (wid === 'staff' && own && this.sweptT !== this.atkT0) {
+      let n = 0; for (const x of this.hitSet) if (x.takeHit) n++;
+      if (n >= 2) { this.sweptT = this.atkT0; this.ki = Math.min(this.maxKi, this.ki + 6); }
+    }
+    if (wid === 'hexblade' && !a.hexBolt) {
+      this.hexHits = (this.hexHits || 0) + 1;
+      if (this.hexHits >= HEX.per) { this.hexHits = 0; if ((this.hexN || 0) < HEX.max) { this.hexN = (this.hexN || 0) + 1; G.audio.sfx('glint', { vol: .5 }); } }
+    }
     // Brands: fire burns, frost slows, storm leaps to a second foe nearby.
     const brand = this.brand?.kind;
     if (brand === 'ember' && res !== 'blocked') e.burn(BRAND.burn);
@@ -1589,6 +1777,8 @@ export class Player {
     // Rime creeps over the armour as chill builds; frostbite glazes it outright.
     const fz = this.frozen > 0 ? .5 + Math.sin(G.time * 5) * .08 : this.chill / 260;
     k.mats.steel.emissive.setRGB(fz * .3, fz * .55, fz * .9);
+
+    this.updateGear(dt);
 
     // Sword trail while swinging.
     const swinging = ['attack', 'counter', 'grapple', 'flashcut', 'deflect', 'land'].includes(this.state) || (this.state === 'thorn' && this.st < .1);

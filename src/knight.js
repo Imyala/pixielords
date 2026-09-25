@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { wingTexture, glowTexture } from './textures.js';
 import { lerp, smooth, clamp } from './util.js';
+import { buildArmory } from './armorymodels.js';
 
 // ---------------------------------------------------------------- pose channels
 const CH = [
@@ -393,8 +394,9 @@ Object.assign(ACTIONS, {
   ] },
 });
 
-const fill = p => p.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v));
-const LOCO = {
+export const fill = p => p.map((v, i) => (Number.isNaN(v) ? P.ready[i] : v));
+// Locomotion holds per weapon: the stance guards, the raised guard and the sprint. armoryanims.js adds the rest.
+export const LOCO = {
   fangs: { mid: P.fangsMid, high: P.fangsHigh, low: P.fangsLow, guard: fill(P.fangsGuard), sprint: fill(P.fangsSprint) },
   sword: { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow), guard: fill(P.guard), sprint: fill(P.sprint) },
   glaive: { mid: P.glaiveMid, high: P.glaiveHigh, low: P.glaiveLow, guard: fill(P.glaiveGuard), sprint: fill(P.glaiveSprint) },
@@ -636,6 +638,8 @@ export function buildKnight() {
       back: (() => { const g = new THREE.Group(); g.add(backMount(fangR.f, V(-.14, -.12, -.2), V(.75, -.6, -.1)), backMount(fangR.f, V(.14, -.12, -.2), V(-.75, -.6, -.1))); chest.add(g); g.visible = false; for (const c of g.children) c.visible = true; return g; })() },
   };
   glaive.visible = false;
+  // The armory's fifteen (armorymodels.js).
+  Object.assign(weapons, buildArmory({ THREE, mats, mesh, node, armR, armL, chest, backMount, V, sword, fangGeo }));
 
   // Elixir vial in the left hand.
   const vial = mesh(new THREE.CapsuleGeometry(.035, .06, 4, 8), mats.vial, armL.hand, 0, -.08, .03);

@@ -40,8 +40,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 ## How it plays
 
 - **Stances.** High hits hardest and breaks posture, Mid is balanced, Low is quick and dashes further.
-- **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: fifteen forms in
-  all, each with its own strikes. Each form has three strings:
+- **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: sixty forms in
+  all across twenty weapons (see [The armory](#the-armory)). Each form has three strings:
   - **Standing**: strike standing still (or circling a locked foe).
   - **Moving**: strike on the move and a different chain comes out.
   - **Pause combo**: two strikes in, let the blade rest a beat. A glint and a chime mark the moment; strike
@@ -147,6 +147,39 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 - **Ice waves.** Some foes send a line of ice spikes racing along the ground. Step off the line, leap it,
   dash through as it reaches you, or take it on your guard. Walls stop them.
 
+## The armory
+
+Twenty weapons, covering every melee archetype of Warframe, Nioh, Nioh 2 and NieR: Automata. Each has its own
+model and hold, its own numbers (speed, stamina, damage, reach), a mechanic, and three stance forms with
+standing, moving and pause strings, finishers, a slide attack and air strikes. You carry two; choose them in
+the Arsenal. The fifteen newest fight with strikes borrowed from the first five, reordered and renamed, and
+with a few of their own; their own attack patterns come next.
+
+| Weapon | Covers | Mechanic | Where |
+|---|---|---|---|
+| Fae Sword | Swords · Nioh sword · NieR small swords | the surest blade for Deflects and Flashcuts | carried from the start |
+| Moonglaive | Polearms · Nioh spear · NieR spears | Charge: heavies can be held | the Gnawing Halls (Grubhold) |
+| Twin Fangs | Dual Swords, Dual Nikanas · Nioh dual swords | Frenzy: hits stack speed and damage | Grubnest (Rotwood) |
+| Thornhammer | Hammers · Nioh axe | Stalwart: swings can't be staggered | the Lower Drift (Gnawed Deep) |
+| Starfists | Fists, Sparring · Nioh 2 fists · NieR combat bracers | Flow: hits win back stamina, break posture | the Starlit Library (Moonspire) |
+| Warblade | Heavy Blade, Two-Handed Nikana · Nioh odachi · NieR large swords | Momentum: each strike of a chain 6% harder, to +36% | Gnawfang, the Grubhold's warlord |
+| Warden's Aegis | Sword and Shield | Bulwark: guard from every side, blocks cost 40% less | the Gatewarden |
+| Thorn Daggers | Daggers, Dual Daggers | Backstab: 60% harder from behind | the Goblin Larder (Grubhold) |
+| Twin Hatchets | Machetes · Nioh 2 hatchets | Hurl: heavies throw both hatchets, which come back | Brakka the Skullsplitter |
+| Briar Chain | Whips, Blade and Whip · Nioh kusarigama | Snare: the longest reach, and every lash pulls | the Tanner's Camp (Rotwood) |
+| Harvest Moon | Scythes, Heavy Scythe · Nioh 2 switchglaive | Reap: 60% harder on foes below a third of their health | Grimtusk, the Rotwood's warlord |
+| Wolf Claws | Claws | Bleed: every fifth wound bursts | the Crystal Gallery (Gnawed Deep) |
+| Grinder's Wheel | Assault Saw | Grind: every strike bites again and again | Grinder the Tunnel-Breaker |
+| Seer's Hexblade | Gunblade | Hex Charge: hits charge seeking bolts that a heavy looses | Mother Skritch |
+| Moonstaff | Staves, Nunchaku · Nioh 2 splitstaff | Sweep: blows knock back; two foes at once wins stamina | the Terrace of Chimes (Moonspire) |
+| Moth Fans | Warfans | Gale: cuts push; heavies throw both fans | the Starlit Library (Moonspire) |
+| Moon Tonfas | Tonfas · Nioh tonfa | Tonfa Guard: wider Deflects, cheaper blocks | Varkh the Moon-Pike |
+| Silkclaw's Rapier | Rapiers | Riposte: Flashcuts, Ripostes and Executions half again as hard | Silkclaw |
+| Rimeblade | Nikanas · Nioh iaido | Iai: held back, the next strike is a 60% harder draw-cut | the Rime Knight |
+| Moonring | Glaives (thrown) | Ring Throw: heavies throw the ring out and home | the Winter Court |
+
+A save that has already felled a gatekeeper or warlord is given its weapon on the next load.
+
 ## Missions
 
 Missions are chosen on **the Fae Crossroads**, an overworld: the whole realm laid out as a small diorama, with
@@ -234,9 +267,12 @@ src/main.js       boot, game loop, missions and level switching, Moonwells, soul
 src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
 src/movesets.js   the fifteen stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
 src/arts.js       the Fae Arts: darts, pixie bombs and the three brands
+src/armory.js     the fifteen armory weapons: which archetypes they cover, their numbers, mechanics, forms and where they are won
+src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the shield on the forearm)
+src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
-src/knight.js     the knight and all five weapons (sword, glaive, fangs, hammer and gauntlets), built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
+src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order

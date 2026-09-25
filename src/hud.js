@@ -132,7 +132,7 @@ export class HUD {
     const el = this.el.querySelector('.weapon'), p = this.G.player;
     el.querySelector('b').textContent = WEAPONS[id]?.name || id;
     el.dataset.w = id;
-    const fz = id === 'fangs' && p.frenzy.n ? `  ·  Frenzy ${p.frenzy.n}` : '';
+    const note = p.weaponNote?.(), fz = note ? `  ·  ${note}` : '';
     el.querySelector('small').textContent = `${p.form?.name || ''}` + (p.arms.length > 1 ? `  ${this.key('swap')} ⇄` : '') + fz;
   }
 
@@ -235,7 +235,7 @@ export class HUD {
     }
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
-    const wk = `${p.weapon}|${p.stance}|${p.arms.length}|${this.key('swap')}|${p.frenzy.n}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
+    const wk = `${p.weapon}|${p.stance}|${p.arms.length}|${this.key('swap')}|${p.weaponNote?.()}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
     // Combo counter: shown from three hits; every tier adds damage, and a finisher spends it.
     const cn = p.combo?.n || 0, on = cn >= 3;
     if (cn !== this.comboShown) {

@@ -1179,6 +1179,22 @@ export class Enemy {
     G.onEnemyKilled(this, hit);
   }
 
+  // Wolf Claws: wounds stack for four seconds; the fifth bursts for a slice of the foe's health.
+  bleed() {
+    if (!this.alive) return;
+    const G = this.G;
+    if (G.time - (this.bleedT ?? -9) > 4) this.bleedN = 0;
+    this.bleedT = G.time; this.bleedN = (this.bleedN || 0) + 1;
+    G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xd02020, 2, .3, .2, .08, .6);
+    if (this.bleedN < 5) return;
+    this.bleedN = 0;
+    const dmg = this.maxHp * (this.boss ? .03 : this.elite ? .07 : .15) + 20;
+    this.hp -= dmg; this.dmgShown += dmg; this.dmgShowT = 2.5; this.barT = 6;
+    G.fx.blood(new THREE.Vector3(this.pos.x, this.height * .6, this.pos.z), { x: 0, z: 0 }, 40, 0x6a0808);
+    G.audio.sfx('hitHeavy', { x: this.pos.x, z: this.pos.z });
+    G.hud?.floatText(this, 'BLEED', 'broken');
+    if (this.hp <= 0) this.die({ dmg, dir: this.yaw + Math.PI });
+  }
   // Brands laid on by the knight's strikes.
   burn(t) { if (this.alive) this.burnT = Math.max(this.burnT || 0, t); }
   rime(t) { if (this.alive) this.slowT = Math.max(this.slowT || 0, t); }

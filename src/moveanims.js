@@ -18,7 +18,7 @@ const FANGS_END = { hiltA: -.6, hiltR: .34, hiltH: -.05, bladeYaw: .3, bladePitc
 const FANGS_HIGH = { hiltA: -.5, hiltR: .28, hiltH: .3, bladeYaw: .2, bladePitch: .9, bladeRoll: 0, lhX: .24, lhY: .22, lhZ: .22, lbYaw: .3, lbPitch: .8, lbRoll: 0, twoHand: 0 };
 
 // Rapid alternating thrusts, main hand then off hand (or the one blade, for the sword).
-function flurry({ n, t0, step, dur, low = 0, fangs = true, finale = null }) {
+export function flurry({ n, t0, step, dur, low = 0, fangs = true, finale = null }) {
   const MO = { hiltA: -.18, hiltR: .6, hiltH: .05 - low, bladeYaw: 0, bladePitch: .02 - low * .6, bladeRoll: 1.57 };
   const MB = { hiltA: -.62, hiltR: .24, hiltH: 0 - low, bladeYaw: .2, bladePitch: .15 - low * .6 };
   const OO = { lhX: .08, lhY: .03 - low, lhZ: .6, lbYaw: 0, lbPitch: .02 - low * .6, lbRoll: 1.57 };

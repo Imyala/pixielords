@@ -5,6 +5,7 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { World, CUT } from './world.js';
 import { LEVELS, ORDER } from './levels/index.js';
+import { ARMORY, ARMORY_ITEMS } from './armory.js';
 import { Player } from './player.js';
 import { buildKnight, KnightAnimator } from './knight.js';
 import { Enemy, Projectiles } from './enemies.js';
@@ -20,6 +21,13 @@ import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
+// The armory's weapons that lie in the missions join each mission's items.
+for (const [m, list] of Object.entries(ARMORY_ITEMS)) for (const w of [].concat(list)) {
+  const L = LEVELS[m];
+  if (L && !L.items.some(i => i.id === 'w-' + w.id)) L.items.push({ id: 'w-' + w.id, x: w.x, z: w.z, kind: 'weapon', weapon: w.id, label: w.label, desc: w.desc, tip: w.tip });
+}
+// Weapons won from a mission's gatekeeper ('gate') or warlord ('boss').
+const armoryFrom = (kind, mission) => Object.keys(ARMORY).filter(id => ARMORY[id].source[kind] === mission);
 window.__pl = G;
 G.touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -390,12 +398,27 @@ function grantCharm(id, quiet = false) {
   if (!quiet) G.after(.6, () => G.hud.toast(`Charm: ${c.name} — ${c.desc}${worn ? '' : ' Wear it at a Moonwell.'}`, 'item'));
   return true;
 }
+// A weapon won from a gatekeeper or warlord: into the Arsenal, and into hand's reach if one is free.
+function grantWeapon(id, quiet = false) {
+  const d = G.save.data, p = G.player, A = ARMORY[id];
+  if (!A || d.arms.includes(id)) return false;
+  d.arms.push(id); p.arms = [...d.arms];
+  if (d.loadout.length < 2) { d.loadout.push(id); p.loadout = [...d.loadout]; p.setWeapon(p.weapon); }
+  if (!quiet) {
+    G.after(.6, () => { G.hud.toast(`Weapon: ${A.name} — ${A.mech}`, 'item'); G.audio.sfx('pickup'); });
+    G.tipAfter(1.4, `${A.name}: ${A.desc}\n${A.mech}: ${A.mechDesc}.\nChoose your two weapons in the Arsenal (pause menu or any Moonwell).`);
+  }
+  return true;
+}
 // Gatekeepers and warlords already felled (older saves, or a mission cleared before charms) still owe theirs.
 function grantTrophies() {
   for (const L of Object.values(LEVELS)) {
     const dead = G.save.mission(L.id).dead;
-    if (L.gate?.charm && dead.includes(L.gate.guardian)) grantCharm(L.gate.charm, true);
-    if (L.bossCharm && bossIds(L).every(id => dead.includes(id))) grantCharm(L.bossCharm, true);
+    const gateDown = L.gate && dead.includes(L.gate.guardian), bossDown = bossIds(L).every(id => dead.includes(id));
+    if (L.gate?.charm && gateDown) grantCharm(L.gate.charm, true);
+    if (L.bossCharm && bossDown) grantCharm(L.bossCharm, true);
+    if (gateDown) for (const w of armoryFrom('gate', L.id)) grantWeapon(w, true);
+    if (bossDown) for (const w of armoryFrom('boss', L.id)) grantWeapon(w, true);
   }
 }
 G.equipCharm = id => {
@@ -412,6 +435,7 @@ function gatekeeperDefeated() {
   const gt = G.level.gate;
   G.save.m.dead.push(gt.guardian);
   if (gt.charm) G.after(3.4, () => { grantCharm(gt.charm); G.save.write(); });
+  for (const w of armoryFrom('gate', G.level.id)) G.after(4.2, () => { grantWeapon(w); G.save.write(); });
   G.save.write();
   G.slowmo = .9;
   G.after(0.9, () => {
@@ -440,6 +464,7 @@ function partnerFell(e, rest) {
 function bossDefeated() {
   for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
+  for (const w of armoryFrom('boss', G.level.id)) G.after(3.8, () => { grantWeapon(w); G.save.write(); });
   G.save.write();
   G.slowmo = 1.6;
   G.audio.music('none');
