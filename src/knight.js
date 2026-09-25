@@ -58,6 +58,19 @@ export const P = {
   fangsGuard: pose({ hiltA: -.3, hiltR: .38, hiltH: .1, bladeYaw: 1.2, bladePitch: .45, bladeRoll: 1.57, lhX: .12, lhY: .1, lhZ: .38, lbYaw: -1.2, lbPitch: .45, twoHand: 0, chestRx: .12 }),
   fangsSprint: pose({ chestRx: .42, hiltA: -1.3, hiltR: .3, hiltH: -.3, bladeYaw: -2.8, bladePitch: .1, lhX: .36, lhY: -.25, lhZ: -.25, lbYaw: 3, lbPitch: .1, twoHand: 0, wings: 1.2 }),
   glaiveSprint: pose({ chestRx: .32, hiltA: -1.2, hiltR: .3, hiltH: -.3, bladeYaw: -2.7, bladePitch: .15, bladeRoll: 0, twoHand: 0, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
+  // The Thornhammer, two hands low on the haft: head up across the body (Mid), over the right shoulder (High),
+  // head down by the right foot (Low).
+  hammerMid: pose({ chestRy: -.45, chestRx: .05, hiltA: -.85, hiltR: .26, hiltH: -.2, bladeYaw: .45, bladePitch: .55, bladeRoll: 0, twoHand: 1, lift: -.04, thLx: -.3, knL: .35, thRx: .3, knR: .4 }, true),
+  hammerHigh: pose({ chestRy: -.3, hiltA: -.6, hiltR: .18, hiltH: .22, bladeYaw: .6, bladePitch: 2.3, bladeRoll: 0, twoHand: 1, chestRx: -.02 }, true),
+  hammerLow: pose({ chestRy: -.5, chestRx: .2, hiltA: -1.0, hiltR: .3, hiltH: -.32, bladeYaw: .3, bladePitch: -.55, bladeRoll: 0, twoHand: 1, lift: -.1, thLx: -.45, knL: .6, thRx: .4, knR: .55 }, true),
+  hammerGuard: pose({ hiltA: -.35, hiltR: .4, hiltH: .1, bladeYaw: 1.35, bladePitch: .3, bladeRoll: 1.57, twoHand: 1, chestRx: .1, chestRy: -.1 }),
+  hammerSprint: pose({ chestRx: .35, hiltA: -1.15, hiltR: .3, hiltH: -.3, bladeYaw: -2.6, bladePitch: -.3, bladeRoll: 0, twoHand: 0, lhX: .3, lhY: -.2, lhZ: .2, wings: 1 }),
+  // The Starfists: a boxer's guard (Mid), up and light for kicking (High), crouched with open hands (Low).
+  fistsMid: pose({ chestRy: -.25, hiltA: -.35, hiltR: .26, hiltH: .12, lhX: .12, lhY: .12, lhZ: .34, twoHand: 0, lift: -.05, chestRx: .08, thLx: -.35, knL: .35, thRx: .3, knR: .35 }, true),
+  fistsHigh: pose({ chestRy: -.4, hiltA: -.4, hiltR: .24, hiltH: .2, lhX: .14, lhY: .2, lhZ: .3, twoHand: 0, chestRx: -.02 }, true),
+  fistsLow: pose({ chestRy: -.2, hiltA: -.5, hiltR: .34, hiltH: -.1, lhX: .2, lhY: -.05, lhZ: .42, twoHand: 0, chestRx: .25, lift: -.16, thLx: -.6, knL: .8, thRx: .45, knR: .7 }, true),
+  fistsGuard: pose({ hiltA: -.12, hiltR: .22, hiltH: .3, lhX: .12, lhY: .3, lhZ: .22, twoHand: 0, chestRx: .12, headRx: .1 }),
+  fistsSprint: pose({ chestRx: .35, hiltA: -.8, hiltR: .25, hiltH: -.15, lhX: .3, lhY: -.1, lhZ: .1, twoHand: 0, wings: 1 }),
 };
 
 // Actions: duration + keyframes [t, partialPose]. Channels not given fall back to the running pose.
@@ -385,6 +398,8 @@ const LOCO = {
   fangs: { mid: P.fangsMid, high: P.fangsHigh, low: P.fangsLow, guard: fill(P.fangsGuard), sprint: fill(P.fangsSprint) },
   sword: { mid: P.ready, high: fill(P.readyHigh), low: fill(P.readyLow), guard: fill(P.guard), sprint: fill(P.sprint) },
   glaive: { mid: P.glaiveMid, high: P.glaiveHigh, low: P.glaiveLow, guard: fill(P.glaiveGuard), sprint: fill(P.glaiveSprint) },
+  hammer: { mid: P.hammerMid, high: P.hammerHigh, low: P.hammerLow, guard: fill(P.hammerGuard), sprint: fill(P.hammerSprint) },
+  fists: { mid: P.fistsMid, high: P.fistsHigh, low: P.fistsLow, guard: fill(P.fistsGuard), sprint: fill(P.fistsSprint) },
 };
 
 function sampleAction(act, t, out) {
@@ -569,6 +584,40 @@ export function buildKnight() {
   };
   const fangR = fang(armR.hand), fangL = fang(armL.hand);
 
+  // The Thornhammer: a long haft and a head of moon-iron set with thorns, a moon-face on one end and a spike
+  // on the other. The right hand grips near the butt, the left a little above it.
+  mats.iron = new THREE.MeshStandardMaterial({ color: 0x5c6272, metalness: .8, roughness: .42 });
+  const hammer = node(armR.hand, 0, -.04, 0);
+  const haft = new THREE.CylinderGeometry(.024, .03, 1.34, 8); haft.rotateX(Math.PI / 2); haft.translate(0, 0, .37);
+  mesh(haft, mats.shaft, hammer);
+  for (const z of [-.22, .1, .86]) { const band = new THREE.CylinderGeometry(.033, .033, .05, 8); band.rotateX(Math.PI / 2); mesh(band, mats.trim, hammer, 0, 0, z); }
+  mesh(new THREE.SphereGeometry(.04, 8, 6), mats.trim, hammer, 0, 0, -.32);
+  const hHead = node(hammer, 0, 0, 1.04);
+  mesh(new THREE.BoxGeometry(.19, .4, .22), mats.iron, hHead);
+  mesh(new THREE.BoxGeometry(.21, .06, .24), mats.trim, hHead, 0, .12, 0);
+  mesh(new THREE.BoxGeometry(.21, .06, .24), mats.trim, hHead, 0, -.12, 0);
+  const face = mesh(new THREE.CylinderGeometry(.1, .1, .03, 14), mats.iron, hHead, 0, .215, 0);
+  mesh(new THREE.TorusGeometry(.07, .012, 6, 16), mats.visor, face, 0, .02, 0).rotation.x = Math.PI / 2;
+  const spike = new THREE.ConeGeometry(.06, .2, 6); spike.rotateX(Math.PI); mesh(spike, mats.trim, hHead, 0, -.3, 0);
+  for (const [x, z] of [[.1, .08], [-.1, .08], [.1, -.08], [-.1, -.08]]) { const th = new THREE.ConeGeometry(.018, .08, 4); th.rotateZ(x > 0 ? -Math.PI / 2 : Math.PI / 2); mesh(th, mats.trim, hHead, x * 1.2, 0, z); }
+  mesh(new THREE.ConeGeometry(.035, .12, 5), mats.trim, hHead, 0, 0, .15).rotation.x = Math.PI / 2;
+  const hTip = node(hammer, 0, 0, 1.18), hBase = node(hammer, 0, 0, .88);
+  hammer.visible = false;
+
+  // The Starfists: plated gauntlets with a knuckle bar and a star gem. The fist lines up with the forearm, so
+  // the knuckles lead where the arm reaches.
+  const gauntlet = hand => {
+    const g = node(hand, 0, 0, 0);
+    mesh(new THREE.BoxGeometry(.105, .11, .12), mats.steel, g, 0, -.06, .01);
+    mesh(new THREE.BoxGeometry(.115, .035, .07), mats.trim, g, 0, -.115, .03);
+    mesh(new THREE.OctahedronGeometry(.024), mats.visor, g, 0, -.06, .075);
+    mesh(new THREE.CylinderGeometry(.066, .058, .13, 8), mats.steel, g, 0, .05, 0);
+    mesh(new THREE.TorusGeometry(.062, .01, 5, 12), mats.trim, g, 0, .115, 0).rotation.x = Math.PI / 2;
+    g.visible = false;
+    return { g, tip: node(g, 0, -.15, .02), base: node(g, 0, .02, 0) };
+  };
+  const gauntR = gauntlet(armR.hand), gauntL = gauntlet(armL.hand);
+
   // Carried weapons that aren't drawn ride across the back.
   const backMount = (src, pos, dir) => {
     const b = src.clone(true); b.position.copy(pos);
@@ -581,6 +630,8 @@ export function buildKnight() {
   const weapons = {
     sword: { node: sword, tip, base, grip: -.11, back: backMount(sword, V(-.16, .42, -.21), V(.38, -.92, -.05)) },
     glaive: { node: glaive, tip: gTip, base: gBase, grip: .24, back: backMount(glaive, V(.05, .12, -.24), V(-.42, .9, -.08)) },
+    hammer: { node: hammer, tip: hTip, base: hBase, grip: .22, back: backMount(hammer, V(.02, .1, -.24), V(-.4, .9, -.1)) },
+    fists: { node: gauntR.g, off: gauntL.g, tip: gauntR.tip, base: gauntR.base, tip2: gauntL.tip, base2: gauntL.base, grip: 0, bare: true, back: (() => { const g = new THREE.Group(); chest.add(g); g.visible = false; return g; })() },
     fangs: { node: fangR.f, off: fangL.f, tip: fangR.tip, base: fangR.base, tip2: fangL.tip, base2: fangL.base, grip: -.11,
       back: (() => { const g = new THREE.Group(); g.add(backMount(fangR.f, V(-.14, -.12, -.2), V(.75, -.6, -.1)), backMount(fangR.f, V(.14, -.12, -.2), V(-.75, -.6, -.1))); chest.add(g); g.visible = false; for (const c of g.children) c.visible = true; return g; })() },
   };
@@ -599,7 +650,7 @@ export function buildKnight() {
   k.setWeapon = (id, owned = [id]) => {
     for (const [w, W] of Object.entries(weapons)) { W.node.visible = w === id; if (W.off) W.off.visible = w === id; W.back.visible = w !== id && owned.includes(w); }
     const W = weapons[id];
-    k.weapon = id; k.tip = W.tip; k.base = W.base; k.grip = W.grip; k.tip2 = W.tip2 || null; k.base2 = W.base2 || null;
+    k.weapon = id; k.tip = W.tip; k.base = W.base; k.grip = W.grip; k.tip2 = W.tip2 || null; k.base2 = W.base2 || null; k.bare = !!W.bare;
   };
   return k;
 }
@@ -616,10 +667,10 @@ function legs(hips, mats, mesh, node) {
     mesh(sg, mats.steel, kn);
     const ft = mesh(new THREE.BoxGeometry(.1, .07, .22), mats.dark, kn, 0, -SH - .01, .05);
     ft.userData.foot = true;
-    return { th, kn };
+    return { th, kn, toe: node(kn, 0, -SH - .02, .17) };
   };
   const L = leg(1), R = leg(-1);
-  return { thL: L.th, knL: L.kn, thR: R.th, knR: R.kn };
+  return { thL: L.th, knL: L.kn, thR: R.th, knR: R.kn, toeL: L.toe, toeR: R.toe };
 }
 
 // ---------------------------------------------------------------- IK
@@ -780,7 +831,8 @@ export class KnightAnimator {
     // The hand holds the grip a little behind the hilt point.
     _grip.copy(_hilt).addScaledVector(_blade, -.02);
     solveArm(k.armR, _grip, POLE_R, k.UP, k.LO + .04);
-    orientHand(k.armR, _blade, _edge);
+    if (k.bare) k.armR.hand.rotation.set(0, 0, 0);   // fists: knuckles along the forearm
+    else orientHand(k.armR, _blade, _edge);
 
     const two = p[I.vial] > .5 ? 0 : clamp(p[I.twoHand], 0, 1);
     _lh.set(p[I.lhX], .24 + p[I.lhY], p[I.lhZ]);

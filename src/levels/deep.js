@@ -112,6 +112,8 @@ export default {
   items: [
     { id: 'glimmer1', x: -14, z: 60, kind: 'glimmer', amount: 1400, label: 'Glimmer Shard', desc: '+1400 Glimmer' },
     { id: 'grace1', x: 12, z: 47, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+    { id: 'hammer', x: 7.5, z: 88.5, kind: 'weapon', weapon: 'hammer', label: 'Thornhammer', desc: 'a miner\'s maul set with moon-iron thorns',
+      tip: 'The Thornhammer is slow and hungry for stamina, but Stalwart: mid-swing, ordinary blows can\'t stagger you and land for less.\nIts slams shake foes off their feet. Hold a heavy to charge it.' },
     { id: 'glimmer2', x: 9.5, z: 91.5, kind: 'glimmer', amount: 1600, label: 'Glimmer Shard', desc: '+1600 Glimmer' },
     { id: 'glimmer3', x: 16, z: 132, kind: 'glimmer', amount: 2000, label: 'Glimmer Shard', desc: '+2000 Glimmer' },
     { id: 'c-echo', x: 6, z: 3.5, kind: 'charm', charm: 'echo', label: 'Charm' },

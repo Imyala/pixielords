@@ -44,7 +44,7 @@
   .stance b{margin-left:4px;font-weight:600;text-transform:uppercase}
   .stance small{margin-left:6px;color:var(--dim);font:10px var(--sans);letter-spacing:0}
   .weapon{font:600 11px var(--serif);letter-spacing:2px;text-transform:uppercase;color:#cfd8e8;margin-top:1px}
-  .weapon[data-w=glaive]{color:#c9b4ff} .weapon[data-w=fangs]{color:#ffb4c8}
+  .weapon[data-w=glaive]{color:#c9b4ff} .weapon[data-w=fangs]{color:#ffb4c8} .weapon[data-w=hammer]{color:#ffcf8a} .weapon[data-w=fists]{color:#9fe8ff}
   .weapon small{margin-left:6px;color:var(--dim);font:10px var(--sans);letter-spacing:0;text-transform:none}
   .status{font:12px var(--sans);color:#a6e070;display:flex;gap:10px;align-items:center;min-height:14px}
   .status .snared{color:#e0c080} .status .burning{color:#ff9a50} .status .frozen{color:#bfe6ff;text-shadow:0 0 8px #6fc8ff}
@@ -54,6 +54,11 @@
   @keyframes blink{from{opacity:.55}to{opacity:1}}
 
   .elixir{position:absolute;left:30px;bottom:30px;display:flex;align-items:flex-end;gap:10px}
+  .artslot{position:absolute;left:130px;bottom:32px;display:flex;align-items:center;gap:8px;text-shadow:0 2px 6px #000}
+  .artslot i{font-style:normal;font-size:22px}
+  .artslot b{display:block;font:600 14px var(--serif);letter-spacing:.05em}
+  .artslot small{font:11px var(--sans);color:var(--dim)}
+  .artslot.empty{opacity:.45}
   .flask{width:30px;height:40px;position:relative}
   .flask:before{content:'';position:absolute;left:10px;top:0;width:10px;height:10px;border:2px solid #d9c8b0;border-bottom:0;border-radius:2px 2px 0 0}
   .flask i{position:absolute;left:1px;right:1px;bottom:0;height:30px;border:2px solid #d9c8b0;border-radius:40% 40% 45% 45%;background:radial-gradient(circle at 50% 70%,#ff8ac4,#a1225e 70%);box-shadow:0 0 14px rgba(255,90,170,.5)}
@@ -171,7 +176,16 @@
   /* ---------------- menus */
   #menu{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(5,6,10,.55),rgba(5,6,10,.92));z-index:5;padding:16px}
   #menu.on{display:flex}
-  #menu.journal,#menu.letter,#menu.moves{background:rgba(5,6,10,.88)}
+  #menu.journal,#menu.letter,#menu.moves,#menu.arsenal{background:rgba(5,6,10,.88)}
+  .arsenal .map{max-height:58vh;overflow-y:auto;padding-right:6px;display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .arsenal .arm{display:flex;gap:12px;align-items:center;border:1px solid rgba(255,255,255,.08);padding:10px 12px;background:rgba(255,255,255,.02)}
+  .arsenal .arm.hand{border-color:var(--gold)}.arsenal .arm.back{border-color:rgba(230,195,106,.35)}
+  .arsenal .ainfo{flex:1;display:flex;flex-direction:column;gap:3px}.arsenal .ainfo b{font:600 17px var(--serif)}
+  .arsenal .ainfo small{font-size:12px;line-height:1.4}.arsenal .rank{color:#ffcf8a}
+  .arsenal .ainfo .mtag{align-self:flex-start;font:600 10px var(--sans);letter-spacing:2px;text-transform:uppercase;color:var(--dim)}.arsenal .ainfo .mtag.cleared{color:var(--gold)}
+  .arsenal .abtns{display:flex;flex-direction:column;gap:6px;min-width:190px}
+  .btn.small{font-size:14px;padding:6px 12px;width:100%}.btn.small small{display:block;font-size:11px;color:var(--dim)}
+  @media (max-width:700px){.arsenal .arm{flex-direction:column;align-items:stretch}}
   .moves .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
   .moves .btn.tab{width:auto;padding:6px 14px;font-size:14px;opacity:.6}.moves .btn.tab.on{opacity:1;border-color:var(--gold)}
   .moves .forms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -263,7 +277,7 @@
   .ending .btn{text-align:center}
   .error{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#300;border:1px solid #a33;padding:10px 16px;font-size:14px;max-width:90vw}
   @media (max-width:700px){
-    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.glimmer{right:16px;bottom:16px}
+    .stats{left:16px;top:16px}.elixir{left:16px;bottom:16px}.artslot{left:104px;bottom:18px}.combo{right:16px}.glimmer{right:16px;bottom:16px}
     #menu.title,#menu.shrine{padding-left:16px;background:rgba(5,6,10,.8)}
   }
 </style>

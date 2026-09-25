@@ -171,6 +171,20 @@ export class FX {
     }
   }
 
+  // A crackling arc of lightning from a to b (Stormbrand's chain).
+  bolt(a, b, color = 0xc8b8ff, dur = .22) {
+    const pts = [], n = 8;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, j = i && i < n ? .28 : 0;
+      pts.push(new THREE.Vector3(a.x + (b.x - a.x) * t + rand(-j, j), a.y + (b.y - a.y) * t + rand(-j, j), a.z + (b.z - a.z) * t + rand(-j, j)));
+    }
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    line.renderOrder = 22;
+    this.scene.add(line);
+    this.items.push({ obj: line, t: 0, dur, update: k => { line.material.opacity = 1 - k; } });
+    this.flash(b, color, 1.3, .2, true);
+  }
+
   explosion(p, r = 2.4) {
     const c = this.col(0xffa040), c2 = this.col(0x302418);
     for (let i = 0; i < 40; i++) {

@@ -1179,6 +1179,17 @@ export class Enemy {
     G.onEnemyKilled(this, hit);
   }
 
+  // Brands laid on by the knight's strikes.
+  burn(t) { if (this.alive) this.burnT = Math.max(this.burnT || 0, t); }
+  rime(t) { if (this.alive) this.slowT = Math.max(this.slowT || 0, t); }
+  tickBurn(dt) {
+    this.burnT -= dt;
+    const dps = this.maxHp * (this.boss ? .006 : this.elite ? .014 : .035) + 4;
+    this.hp -= dps * dt; this.dmgShown += dps * dt; this.dmgShowT = 2.5; this.barT = 6;
+    if (Math.random() < dt * 16) this.G.fx.motes({ x: this.pos.x + rand(-.3, .3), y: rand(.2, this.height * .9), z: this.pos.z + rand(-.3, .3) }, Math.random() < .5 ? 0xff8a30 : 0xffc060, 1, .25, 1.4, .1, .6);
+    if (this.hp <= 0) this.die({ dmg: 0, dir: this.yaw + Math.PI });
+  }
+
   endAttack() {
     if (this.atk) this.G.attackTokens = Math.max(0, (this.G.attackTokens || 0) - 1);
     if (this.step?.blink && this.state !== 'dead') { this.mat.opacity = this.T.shade ? .72 : 1; this.mat.transparent = !!this.T.shade; }
@@ -1423,6 +1434,12 @@ export class Enemy {
   update(dt) {
     if (!this.active) return;
     const G = this.G, p = G.player;
+    // Fae Art brands: Emberbrand's fire eats health; Rimebrand's frost slows everything the foe does.
+    if (this.burnT > 0 && this.alive) this.tickBurn(dt);
+    if (this.slowT > 0) {
+      this.slowT -= dt; dt *= this.boss ? .82 : .62;
+      if (Math.random() < dt * 12) G.fx.motes({ x: this.pos.x + rand(-.3, .3), y: rand(.3, this.height), z: this.pos.z + rand(-.3, .3) }, 0xcfeaff, 1, .2, .2, .08, .8);
+    }
     this.st += dt;
     this.flash = Math.max(0, this.flash - dt * 6);
     this.dmgShowT -= dt; if (this.dmgShowT <= 0) this.dmgShown = 0;

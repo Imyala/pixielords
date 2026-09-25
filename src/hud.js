@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { KEY_LABEL, PAD_LABEL } from './input.js';
 import { CHARMS } from './charms.js';
 import { COMBO } from './movesets.js';
+import { WEAPONS } from './player.js';
+import { ARTS } from './arts.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,6 +24,7 @@ export class HUD {
         <div class="status"><span class="poison" hidden>☠ Poisoned</span><span class="snared" hidden>⛓ Snared</span><span class="burning" hidden>🔥 Burning</span><span class="frozen" hidden>❄ Frostbitten</span><span class="pbuild"><i></i></span><span class="pbuild cbuild"><i></i></span></div>
       </div>
       <div class="elixir"><div class="flask"><i></i></div><b>0</b><small class="key heal"></small></div>
+      <div class="artslot" hidden><i>◆</i><div><b></b><small></small></div></div>
       <div class="glimmer"><span class="gain"></span><div><small>GLIMMER</small><b>0</b></div></div>
       <div class="combo"><b>0</b><small>hits</small></div>
       <div class="lock"></div>
@@ -49,6 +52,7 @@ export class HUD {
       prompt: $('.prompt', el), toasts: $('.toasts', el), banner: $('.banner', el), bannerT: $('.banner span', el),
       big: $('.big', el), bigT: $('.big span', el), bigS: $('.big em', el), flash: $('.flash', el), edge: $('.edge', el),
       combo: $('.combo', el), comboN: $('.combo b', el), comboS: $('.combo small', el),
+      art: $('.artslot', el), artI: $('.artslot i', el), artB: $('.artslot b', el), artS: $('.artslot small', el),
       msg: $('.msg', el), msgP: $('.msg p', el), msgS: $('.msg small', el), msgH: $('.msg h3', el), msgE: $('.msg em', el), fade: $('.fade', el),
     };
     this.bars = new Map();
@@ -126,7 +130,7 @@ export class HUD {
 
   weapon(id) {
     const el = this.el.querySelector('.weapon'), p = this.G.player;
-    el.querySelector('b').textContent = { sword: 'Fae Sword', glaive: 'Moonglaive', fangs: 'Twin Fangs' }[id] || id;
+    el.querySelector('b').textContent = WEAPONS[id]?.name || id;
     el.dataset.w = id;
     const fz = id === 'fangs' && p.frenzy.n ? `  ·  Frenzy ${p.frenzy.n}` : '';
     el.querySelector('small').textContent = `${p.form?.name || ''}` + (p.arms.length > 1 ? `  ${this.key('swap')} ⇄` : '') + fz;
@@ -220,6 +224,15 @@ export class HUD {
     q.flaskN.textContent = p.elixirs;
     q.flask.classList.toggle('empty', p.elixirs <= 0);
     q.flaskKey.textContent = this.key('heal');
+    // The Fae Art at hand: its uses left, the key to use it and, with more than one, the key to change it.
+    const A = ARTS[p.art], ak = A && `${p.art}|${p.artUses?.[p.art]}|${this.key('art')}|${p.arts?.length}|${p.brand?.kind === p.art}`;
+    q.art.hidden = !A;
+    if (A && ak !== this.artShown) {
+      this.artShown = ak;
+      q.artI.style.color = A.color; q.artB.textContent = `${A.name} ×${p.artUses[p.art] ?? 0}`;
+      q.artS.textContent = `${this.key('art')}${p.arts.length > 1 ? `  ·  ${this.key('artNext')} to change` : ''}`;
+      q.art.classList.toggle('empty', !(p.artUses[p.art] > 0));
+    }
     $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
     if (this.stanceShown !== p.stance) this.stance(p.stance);
     const wk = `${p.weapon}|${p.stance}|${p.arms.length}|${this.key('swap')}|${p.frenzy.n}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }

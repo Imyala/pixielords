@@ -90,6 +90,8 @@ export default {
     { id: 'c-thornheart', x: 9.5, z: 103.8, kind: 'charm', charm: 'thornheart', label: 'Charm' },
     { id: 'glimmer-larder', x: -36.2, z: 40, kind: 'glimmer', amount: 500, label: 'Glimmer Shard', desc: '+500 Glimmer', inside: 'lcrate' },
     { id: 'grace-larder', x: -20.4, z: 56.2, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
+    { id: 'art-bomb', x: -24.6, z: 47.6, kind: 'art', art: 'bomb', label: 'Pixie Bombs', desc: 'a Fae Art: pouches of pixie-fire',
+      tip: 'Pixie Bombs burst where they land, knock foes down, and set off powder kegs.\nFae Arts: T (or hold guard and press Moondew) uses the art at hand; Y (Select) changes it. Their uses return at every Moonwell.' },
     { id: 'glaive', x: -8.6, z: 76.4, kind: 'weapon', weapon: 'glaive', label: 'Moonglaive', desc: 'a polearm of moon-silver',
       tip: 'The Moonglaive reaches far and bites deep into posture. V (D-pad ← on a gamepad) switches weapons.\nSwitch as a strike ends for a Switch Strike. Hold a heavy strike to charge it.' },
   ],

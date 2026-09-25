@@ -113,6 +113,8 @@ export default {
     { id: 'glimmer2', x: 12.5, z: 74.5, kind: 'glimmer', amount: 900, label: 'Glimmer Shard', desc: '+900 Glimmer' },
     { id: 'glimmer3', x: 17, z: 110, kind: 'glimmer', amount: 1200, label: 'Glimmer Shard', desc: '+1200 Glimmer' },
     { id: 'c-quickstep', x: 8.5, z: 39, kind: 'charm', charm: 'quickstep', label: 'Charm' },
+    { id: 'art-ember', x: -29.4, z: 80.2, kind: 'art', art: 'ember', label: 'Emberbrand', desc: 'a Fae Art: a coal of the Pyre that never cools',
+      tip: 'Emberbrand sets your weapon burning for thirty seconds: every hit sets foes alight.\nFae Arts: T (or hold guard and press Moondew) uses the art at hand; Y (Select) changes it. Their uses return at every Moonwell.' },
     { id: 'fangs', x: -5.5, z: 69.5, kind: 'weapon', weapon: 'fangs', label: 'Twin Fangs', desc: 'paired moon-steel blades',
       tip: 'The Twin Fangs are the quickest of your arms: light cuts, flurries that hit again and again, and a Viper Dash straight through a foe.\nEvery hit builds Frenzy (up to six), and each stack makes you faster and deadlier. Keep cutting to keep it.' },
     { id: 'c-emberwing', x: -4, z: 87, kind: 'charm', charm: 'emberwing', label: 'Charm' },

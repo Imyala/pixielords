@@ -25,7 +25,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 | Slide (at a sprint) · from a slide: Wingleap | Shift or Z · Space | LB or L3 · B |
 | Glide (while falling) | Hold Space | Hold B |
 | Stance High / Mid / Low | 1 · 2 · 3 (or C / X) | D-pad up / down |
-| Switch weapon (as a strike ends: Switch Strike) | V | D-pad left |
+| Switch between your two weapons (as a strike ends: Switch Strike) | V | D-pad left |
+| Fae Art: use · change | T (or Shift + R) · Y | LB + X · Select |
 | Charge a heavy (Moonglaive) | Hold right click | Hold RT |
 | Launcher | Hold Shift + left click | Hold LB + RB |
 | In the air: strike · Starfall · air dash | Left click · right click · Space | RB · RT · B |
@@ -39,7 +40,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
 ## How it plays
 
 - **Stances.** High hits hardest and breaks posture, Mid is balanced, Low is quick and dashes further.
-- **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: nine forms in
+- **Forms.** Every weapon fights its own way in every stance, like a stance mod in Warframe: fifteen forms in
   all, each with its own strikes. Each form has three strings:
   - **Standing**: strike standing still (or circling a locked foe).
   - **Moving**: strike on the move and a different chain comes out.
@@ -51,6 +52,8 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   | **Fae Sword** | *Falling Star*: two-handed cleaves, a wheel, a hop-and-slam; pause: the Sundering Blow, which throws a crescent of moonlight | *Moonlit Path*: the flowing four-cut chain, a stepping thrust, a rising cut that trips; pause: Triple Moon | *Crescent Tide*: hip draws, backhands, flurries, an ankle sweep; pause: Petal Storm |
   | **Moonglaive** | *Moonreaper*: overhead chops, butt-and-blade, reaping cuts that drag foes in; pause: the Reaping Cyclone | *Tide of the Moon*: thrust, sweep, wheel, vault, a twin thrust, the overhead Moon Helix; pause: Twin Tides | *Tidesweep*: sweeps that trip, low thrusts, a flick that lifts; pause: the Undertow |
   | **Twin Fangs** | *Falcon Dive*: crossing cuts from above, a somersault that throws foes up, a plunging double stab; pause: Skyrend | *Swallow's Dance*: alternating cuts, a twin step, a corkscrew; pause: a Hundred Cuts | *Serpent Coil*: reverse-grip hooks, stab flurries, a darting cut straight through; pause: the Venom Tornado |
+  | **Thornhammer** | *Mountainfall*: crushing blows from over the shoulder, a hooking swing that drags foes in, a leaping slam; pause: the Meteorfall | *Anvil Rhythm*: swings across and back, an overhead slam, a great turn, a haft charge; pause: the Earthshaker, three slams | *Stonewheel*: ankle sweeps, a ram with the head, a dragging rush that lifts; pause: the Spinning Top |
+  | **Starfists** | *Crescent Kick*: snap, axe and spinning hook kicks, a flying side kick; pause: the Tornado Kick | *Moonfist*: jab, cross, hook, roundhouse, a flying knee; pause: Hundred Fists | *Tiger Palm*: body blows, an uppercut, a leg sweep, a twin palm; pause: the Rising Dragon |
 
   Strikes do different things, not just look different: some trip ordinary foes off their feet, some throw
   them up for air combos, reaping cuts pull foes in, wheels knock them back, and a few throw moonlight on.
@@ -66,8 +69,21 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   in Grubnest in the Rotwood, are a curved blade in each hand: the quickest and lightest on stamina, with
   flurries that strike again and again, a Whirlwind (Mid), a Crossfall leap (High) and a Viper Dash that
   slips straight through a foe (Low). Every hit with the Fangs builds **Frenzy**, up to six stacks, each one
-  5% faster and 4% harder while you keep cutting. Switch weapons as a strike ends for a **Switch Strike**, a
-  wheeling cut with the weapon you draw, which also counts as Resonance if the window is open.
+  5% faster and 4% harder while you keep cutting. The **Thornhammer**, found in the Lower Drift of the Gnawed
+  Deep, is slow and hungry for stamina but **Stalwart**: mid-swing, ordinary blows can't stagger you and land
+  for a fifth less, and its slams shake foes off their feet. The **Starfists**, found in the Starlit Library
+  on the Moonspire, fight with punches and kicks, quickest of all, and **Flow**: every hit wins back a little
+  stamina and breaks posture 30% harder. Switch weapons as a strike ends for a **Switch Strike**, a wheeling
+  cut with the weapon you draw, which also counts as Resonance if the window is open.
+- **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
+  Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
+  to +10; each rank is 5% more damage with it.
+- **Fae Arts.** Tools beside the weapon, like Nioh's ninjutsu and magic, with a few uses each that return at
+  every Moonwell. **Thistle Darts** (carried from the start) sting and stagger ordinary foes; **Pixie Bombs**
+  (the Goblin Larder) burst where they land, knock foes down and set off powder kegs. The brands lay an
+  element on your weapon for thirty seconds, one at a time: **Emberbrand** (the Tanner's Camp) sets foes
+  burning, **Stormbrand** (by the Moon Gate) breaks posture harder and arcs lightning to a second foe, and
+  **Rimebrand** (the Frozen Boathouse) slows foes to a crawl.
 - **Movement.** Hold dash to sprint and strike for a running attack. At a sprint, guard (or Z / L3) drops
   into a **slide**; strike from it for the weapon's slide attack, or dash for a **Wingleap**, a long dive up
   and forward that carries its speed into the air. Air strikes, the air dash and the Starfall all work from a
@@ -216,11 +232,12 @@ index.html        the game: canvas, HUD and menu styles
 library.html      the asset library
 src/main.js       boot, game loop, missions and level switching, Moonwells, souls and the Echo, boss fights (single or paired), breakables and keg blasts, letters, Lost Pixies, saving
 src/player.js     the knight's controller: weapons and stances, forms and chains, pause combos, finishers, the combo counter, moonlight waves, charge, Frenzy, Switch Strike, launcher and air combos, dash, slide, Wingleap and glide, Moonstep and Riposte, Deflect and Flashcut, Resonance, Fae Shift, charm effects
-src/movesets.js   the nine stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
+src/movesets.js   the fifteen stance forms (standing, moving and pause strings), every strike's numbers, finishers, slide and air strikes, combo and movement tuning
+src/arts.js       the Fae Arts: darts, pixie bombs and the three brands
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
-src/knight.js     the knight and all three weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, projectiles and hazards
+src/knight.js     the knight and all five weapons (sword, glaive, fangs, hammer and gauntlets), built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
@@ -228,7 +245,7 @@ src/camera.js     third-person camera with lock-on, wall collision and shake
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/menu.js       title, pause, Moonwell, charms, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
+src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout and forging), movesets, the Journal, the map's overlay (labels and mission panel), controls, settings and ending screens
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures
 src/models3d.js   loads the sculpted models into three.js and derives their eleven-bone rigs

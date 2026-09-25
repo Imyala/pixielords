@@ -13,7 +13,7 @@ import { HUD } from './hud.js';
 import { Menu } from './menu.js';
 import { Overworld } from './overworld.js';
 import { CameraRig } from './camera.js';
-import { Save, levelCost, loadSettings, saveSettings } from './save.js';
+import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings } from './save.js';
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
@@ -219,7 +219,9 @@ function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
   p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []);
-  p.arms = [...(G.save.data.arms || ['sword'])]; p.setWeapon(G.save.data.wield || 'sword');
+  const d = G.save.data;
+  p.arms = [...d.arms]; p.loadout = [...d.loadout]; p.forge = d.forge; p.setWeapon(d.wield);
+  p.arts = [...d.arts]; p.art = d.artSel;
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
   p.elixirs = G.save.elixirMax;
   G.cam.snap(p);
@@ -278,7 +280,7 @@ G.startMission = async id => {
 };
 G.newGamePlus = async () => {
   const d = G.save.data;
-  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies };
+  const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.save.write();
@@ -542,6 +544,27 @@ G.leaveShrine = () => {
   G.input.wantLock = true; G.input.requestLock();
 };
 
+// The Arsenal: take a weapon in hand (the one held before goes to the back), or forge one a rank higher.
+G.wieldWeapon = w => {
+  const d = G.save.data, p = G.player;
+  if (!d.arms.includes(w)) return;
+  const back = w === d.wield ? d.loadout.find(x => x !== w) : d.wield;
+  d.loadout = back ? [w, back] : [w]; d.wield = w;
+  p.loadout = [...d.loadout]; p.resetChain(); p.setWeapon(w);
+  G.audio.sfx('stance', { pitch: .9 });
+  G.save.write();
+};
+G.forgeWeapon = w => {
+  const sv = G.save, d = sv.data, rank = d.forge[w] || 0, cost = forgeCost(rank);
+  if (rank >= FORGE.max || sv.glimmer < cost) return false;
+  sv.glimmer -= cost; d.forge[w] = rank + 1;
+  G.hud.glimmerShown = sv.glimmer;
+  G.audio.sfx('levelUp'); G.audio.sfx('shatter', { vol: .4 });
+  const p = G.player; G.fx.motes({ x: p.pos.x, y: .8, z: p.pos.z }, 0xffcf8a, 30, .6, 2, .1, 1);
+  sv.write();
+  return true;
+};
+
 G.levelUp = stat => {
   const sv = G.save, cost = levelCost(sv.level);
   if (sv.glimmer < cost) return;
@@ -605,7 +628,13 @@ function interact(it) {
         if (first) G.tipAfter(.8, 'Charms bend the rules a little. Up to three can be worn at once; change them at any Moonwell.');
       }
       if (item.kind === 'weapon' && !d.arms.includes(item.weapon)) {
-        d.arms.push(item.weapon); p.arms = [...d.arms]; p.setWeapon(p.weapon);
+        d.arms.push(item.weapon); p.arms = [...d.arms];
+        if (d.loadout.length < 2) { d.loadout.push(item.weapon); p.loadout = [...d.loadout]; }
+        p.setWeapon(p.weapon);
+        G.tipAfter(.8, (item.tip || item.desc) + (d.arms.length > 2 ? '\nYou carry two weapons at a time: choose them in the Arsenal (pause menu or any Moonwell), and forge them stronger at a Moonwell.' : ''));
+      }
+      if (item.kind === 'art' && !d.arts.includes(item.art)) {
+        d.arts.push(item.art); p.arts = [...d.arts];
         G.tipAfter(.8, item.tip || item.desc);
       }
       const c = item.kind === 'charm' && CHARMS[item.charm];

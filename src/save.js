@@ -4,6 +4,9 @@ const KEY = 'pixielords-save-v1';
 const SKEY = 'pixielords-settings-v1';
 
 export const levelCost = lvl => Math.round(160 + 70 * (lvl - 1) + 9 * (lvl - 1) ** 2);
+// Forging a weapon a rank higher (to +10): each rank is 5% more damage with it.
+export const FORGE = { max: 10, per: .05 };
+export const forgeCost = rank => Math.round(700 * 1.42 ** rank);
 
 export const freshMission = () => ({ shrine: null, kindled: [], dead: [], items: [], cleared: false });
 
@@ -11,6 +14,7 @@ export function freshSave(ng = 0) {
   return {
     v: 2, stats: { vit: 1, end: 1, str: 1, spi: 1 }, glimmer: 0, elixirMax: 4, deaths: 0, time: 0, ng,
     mission: 'keep', unlocked: ['keep'], missions: {}, grave: null, charms: [], equipped: [], arms: ['sword'], wield: 'sword', letters: [], pixies: [],
+    loadout: ['sword'], forge: {}, arts: ['darts'], artSel: 'darts',
   };
 }
 
@@ -27,10 +31,20 @@ function migrate(d) {
     d.v = 2;
   }
   if (d.v !== 2) return null;
-  // Weapons came later: a save that has cleared the Grubhold already carries the Moonglaive.
+  // Weapons came later: a save that has cleared the Grubhold already carries the Moonglaive, and so on.
   d.arms ||= ['sword']; d.wield ||= 'sword'; d.charms ||= []; d.equipped ||= []; d.letters ||= []; d.pixies ||= [];
-  if (d.missions?.keep?.cleared && !d.arms.includes('glaive')) d.arms.push('glaive');
-  if (d.missions?.rotwood?.cleared && !d.arms.includes('fangs')) d.arms.push('fangs');
+  const owed = { keep: { arm: 'glaive', art: 'bomb' }, rotwood: { arm: 'fangs', art: 'ember' }, deep: { arm: 'hammer' }, moonspire: { arm: 'fists', art: 'storm' }, frostmere: { art: 'rime' } };
+  d.arts ||= ['darts'];
+  for (const [id, o] of Object.entries(owed)) if (d.missions?.[id]?.cleared) {
+    if (o.arm && !d.arms.includes(o.arm)) d.arms.push(o.arm);
+    if (o.art && !d.arts.includes(o.art)) d.arts.push(o.art);
+  }
+  // Two weapons carried at a time (the one in hand and one on the back); forging ranks per weapon.
+  d.forge ||= {};
+  d.loadout = (d.loadout || [d.wield, ...d.arms.filter(w => w !== d.wield)]).filter(w => d.arms.includes(w)).slice(0, 2);
+  if (!d.loadout.length) d.loadout = [d.arms[0]];
+  if (!d.loadout.includes(d.wield)) d.wield = d.loadout[0];
+  if (!d.arts.includes(d.artSel)) d.artSel = d.arts[0];
   return d;
 }
 

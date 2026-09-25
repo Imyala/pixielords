@@ -386,3 +386,295 @@ Object.assign(ACTIONS, {
   fAir2: airVariant(ACTIONS.f_slash2, .36),
   fAir3: airVariant(ACTIONS.f_spin, .6),
 });
+
+// ================================================================ Thornhammer
+// Two hands low on the haft. Overhead blows keep the haft's yaw and swing its pitch past π/2 and down.
+const HAMMER_END = { chestRy: -.45, chestRx: .05, hiltA: -.85, hiltR: .26, hiltH: -.2, bladeYaw: .45, bladePitch: .55, bladeRoll: 0, twoHand: 1 };
+const HAMMER_HIGH = { chestRy: -.3, chestRx: 0, hiltA: -.6, hiltR: .18, hiltH: .22, bladeYaw: .6, bladePitch: 2.3, bladeRoll: 0, twoHand: 1 };
+const HAMMER_LOW = { chestRy: -.5, chestRx: .2, hiltA: -1.0, hiltR: .3, hiltH: -.32, bladeYaw: .3, bladePitch: -.55, bladeRoll: 0, twoHand: 1 };
+const SLAM = { lift: -.32, thLx: -1.1, knL: 1.3, thRx: .75, knR: 1.1 };
+Object.assign(ACTIONS, {
+  // Mid form, Anvil Rhythm: a swing across and back, an overhead slam and a great turn.
+  h_side: { dur: .8, keys: [
+    K(0, { chestRy: -.8, hiltA: -.9, hiltR: .3, hiltH: .05, bladeYaw: -1.9, bladePitch: .25, bladeRoll: -1.57, twoHand: 1, ...LUNGE_R }),
+    K(.2, { chestRy: -1.0, hiltA: -1.05, bladeYaw: -2.3, bladePitch: .3, lift: -.1 }),
+    K(.32, { chestRy: -.1, hiltA: -.1, hiltR: .45, hiltH: .05, bladeYaw: -.2, bladePitch: .08, ...DEEP }),
+    K(.44, { chestRy: .6, hiltA: .6, hiltR: .38, bladeYaw: 1.7, bladePitch: 0 }),
+    K(.8, { ...HAMMER_END, chestRy: .1, ...REC }),
+  ] },
+  h_back: { dur: .8, keys: [
+    K(0, { chestRy: .55, hiltA: .55, hiltR: .36, hiltH: .05, bladeYaw: 1.8, bladePitch: .15, bladeRoll: 1.57, twoHand: 1, ...LUNGE }),
+    K(.2, { chestRy: .75, hiltA: .7, bladeYaw: 2.2, lift: -.1 }),
+    K(.32, { chestRy: 0, hiltA: -.1, hiltR: .45, bladeYaw: .1, bladePitch: .05, ...LUNGE_R, lift: -.2 }),
+    K(.44, { chestRy: -.75, hiltA: -.8, hiltR: .36, bladeYaw: -1.8, bladePitch: 0 }),
+    K(.8, { ...HAMMER_END, chestRy: -.6, ...REC }),
+  ] },
+  h_over: { dur: 1.0, keys: [
+    K(0, { chestRy: -.3, chestRx: 0, hiltA: -.4, hiltR: .22, hiltH: .15, bladeYaw: .2, bladePitch: 1.2, bladeRoll: 0, twoHand: 1 }),
+    K(.26, { chestRx: -.35, hiltA: -.2, hiltR: .1, hiltH: .55, bladePitch: 2.3, lift: .02, thLx: -.1, knL: .15, thRx: .3, knR: .3, wings: 1.4 }),
+    K(.38, { bladePitch: 2.45, chestRx: -.42 }),
+    K(.47, { chestRx: .4, hiltA: -.1, hiltR: .5, hiltH: .05, bladePitch: .1, ...DEEP }),
+    K(.56, { chestRx: .65, hiltH: -.3, bladePitch: -.75, ...SLAM }),
+    K(1.0, { ...HAMMER_END, chestRx: .25, hiltH: -.28, bladePitch: -.3, ...REC }),
+  ] },
+  h_spin: { dur: 1.05, spinY: true, keys: [
+    K(0, { bodyRy: 0, chestRy: -.4, hiltA: -.5, hiltR: .45, hiltH: 0, bladeYaw: -1.5, bladePitch: .08, bladeRoll: -1.57, twoHand: 1, ...LUNGE, lift: -.12 }),
+    K(.2, { bodyRy: -.7, chestRy: -.6, lift: -.18 }),
+    K(.66, { bodyRy: 6.0, chestRy: .1, lift: -.14, wings: 2 }),
+    K(.78, { bodyRy: 6.283, hiltA: .3, bladeYaw: 1.0, chestRy: .35 }),
+    K(1.05, { bodyRy: 6.283, ...HAMMER_END, ...REC }),
+  ] },
+  // Mid, moving: a charge behind the haft, and an underhand swing that lifts.
+  h_charge: { dur: .7, keys: [
+    K(0, { chestRy: -.3, chestRx: .3, hiltA: -.4, hiltR: .34, hiltH: 0, bladeYaw: 1.3, bladePitch: .2, bladeRoll: 1.57, twoHand: 1, lift: -.14, thLx: -.8, knL: .9, thRx: .5, knR: .6, wings: 1.6 }),
+    K(.14, { chestRx: .45, hiltR: .5, lift: -.2, thLx: -1.0, knL: .8, thRx: .8, knR: .4, wings: 2 }),
+    K(.4, { hiltR: .48, chestRx: .4 }),
+    K(.7, { ...HAMMER_END, ...REC }),
+  ] },
+  h_upper: { dur: .82, keys: [
+    K(0, { chestRy: -.5, chestRx: .35, hiltA: -.6, hiltR: .3, hiltH: -.3, bladeYaw: .3, bladePitch: -.85, bladeRoll: 0, twoHand: 1, lift: -.22, thLx: -.9, knL: 1.1, thRx: .5, knR: .9 }),
+    K(.2, { hiltH: -.36, bladePitch: -1.0, lift: -.28 }),
+    K(.32, { chestRx: 0, hiltA: -.3, hiltR: .5, hiltH: .1, bladePitch: .4, ...LUNGE, lift: 0 }),
+    K(.42, { chestRx: -.35, hiltA: -.25, hiltR: .3, hiltH: .55, bladePitch: 1.5, lift: .12, wings: 1.8 }),
+    K(.82, { ...HAMMER_END, hiltH: .1, bladePitch: 1.0, ...REC }),
+  ] },
+  // Mid pause combo: the Earthshaker, three slams, left, right and a great one ahead.
+  h_quake: { dur: 1.4, keys: [
+    K(0, { chestRy: -.2, hiltA: -.3, hiltR: .2, hiltH: .2, bladeYaw: .5, bladePitch: 1.3, bladeRoll: 0, twoHand: 1, lift: -.05 }),
+    K(.2, { hiltH: .5, bladePitch: 2.1, chestRx: -.3, hiltR: .12 }),
+    K(.34, { chestRy: .25, hiltA: .1, hiltR: .5, hiltH: -.25, bladeYaw: .45, bladePitch: -.75, chestRx: .5, ...DEEP }),
+    K(.48, { chestRy: -.1, hiltA: -.3, hiltR: .15, hiltH: .5, bladeYaw: .3, bladePitch: 2.1, chestRx: -.3, lift: -.04 }),
+    K(.62, { chestRy: -.6, hiltA: -.5, hiltR: .5, hiltH: -.25, bladeYaw: .2, bladePitch: -.75, chestRx: .5, ...DEEP }),
+    K(.76, { chestRy: -.2, hiltA: -.2, hiltR: .1, hiltH: .62, bladeYaw: .3, bladePitch: 2.3, chestRx: -.45, lift: .2, thLx: -.8, knL: 1.2, thRx: .3, knR: 1.0, wings: 2 }),
+    K(.9, { chestRy: -.25, hiltA: -.1, hiltR: .52, hiltH: -.32, bladeYaw: .25, bladePitch: -.9, chestRx: .72, ...SLAM, lift: -.36 }),
+    K(1.4, { ...HAMMER_END, chestRx: .2, ...REC }),
+  ] },
+
+  // High form, Mountainfall: from over the shoulder, crushing blows, a hooking swing, a leaping slam.
+  h_hcrush: { dur: .95, keys: [
+    K(0, { ...HAMMER_HIGH, hiltA: -.55, hiltR: .16, hiltH: .28, bladeYaw: .5, bladePitch: 2.25, chestRx: -.1, lift: -.04 }),
+    K(.3, { chestRx: -.38, hiltH: .52, hiltR: .1, hiltA: -.3, bladeYaw: .3, bladePitch: 2.45, lift: .04, wings: 1.6 }),
+    K(.45, { chestRx: .45, chestRy: -.2, hiltA: -.1, hiltR: .5, hiltH: .02, bladeYaw: .25, bladePitch: .05, ...DEEP }),
+    K(.54, { chestRx: .72, hiltH: -.32, bladePitch: -.85, ...SLAM }),
+    K(.95, { ...HAMMER_HIGH, ...REC }),
+  ] },
+  h_hhook: { dur: .9, keys: [
+    K(0, { chestRy: -.5, hiltA: -.7, hiltR: .18, hiltH: .3, bladeYaw: .5, bladePitch: 2.2, bladeRoll: .7, twoHand: 1, ...LUNGE_R }),
+    K(.24, { chestRy: -.7, hiltH: .42, bladePitch: 2.4 }),
+    K(.36, { chestRy: 0, hiltA: -.2, hiltR: .45, hiltH: .2, bladeYaw: .6, bladePitch: .5, chestRx: .2, ...LUNGE }),
+    K(.46, { chestRy: .5, hiltA: .5, hiltR: .38, hiltH: -.25, bladeYaw: 1.7, bladePitch: -.5, chestRx: .45, lift: -.22 }),
+    K(.9, { chestRy: .1, chestRx: .15, hiltA: -.3, hiltR: .3, hiltH: -.15, bladeYaw: .8, bladePitch: .2, twoHand: 1, ...REC }),
+  ] },
+  h_hleap: { dur: 1.15, keys: [
+    K(0, { lift: -.2, chestRx: .3, hiltA: -.5, hiltR: .3, hiltH: -.2, bladeYaw: .3, bladePitch: .3, bladeRoll: 0, twoHand: 1, thLx: -.7, knL: 1.0, thRx: .35, knR: 1.0 }),
+    K(.26, { lift: .6, chestRx: -.4, hiltA: -.15, hiltR: .1, hiltH: .6, bladePitch: 2.4, thLx: -1.0, knL: 1.5, thRx: .4, knR: 1.3, wings: 2.2 }),
+    K(.5, { lift: .66, bladePitch: 2.6, hiltH: .62 }),
+    K(.62, { chestRx: .75, hiltA: -.05, hiltR: .52, hiltH: -.3, bladePitch: -.85, ...SLAM, wings: 1 }),
+    K(1.15, { lift: -.08, chestRx: .2, hiltA: -.5, hiltR: .3, hiltH: -.2, bladeYaw: .3, bladePitch: -.2, twoHand: 1 }),
+  ] },
+  // High pause combo: the Meteorfall, a turning leap high overhead and a crushing fall.
+  h_hmeteor: { dur: 1.5, spinY: true, keys: [
+    K(0, { bodyRy: 0, lift: -.24, chestRx: .3, hiltA: -.5, hiltR: .4, hiltH: 0, bladeYaw: -1.4, bladePitch: .1, bladeRoll: -1.57, twoHand: 1, thLx: -.8, knL: 1.1, thRx: .4, knR: 1.0 }),
+    K(.2, { bodyRy: -.3, lift: -.3 }),
+    K(.6, { bodyRy: 6.283, lift: .85, hiltA: -.2, hiltR: .12, hiltH: .6, bladeYaw: .2, bladePitch: 2.4, bladeRoll: 0, chestRx: -.4, thLx: -1.2, knL: 1.6, thRx: .2, knR: 1.4, wings: 2.4 }),
+    K(.8, { bodyRy: 6.283, lift: .8, bladePitch: 2.6 }),
+    K(.92, { bodyRy: 6.283, chestRx: .8, hiltA: -.05, hiltR: .52, hiltH: -.32, bladePitch: -.9, ...SLAM, lift: -.36, wings: 1 }),
+    K(1.5, { bodyRy: 6.283, ...HAMMER_HIGH, ...REC }),
+  ] },
+
+  // Low form, Stonewheel: sweeps at the ankles, a ram with the head, a dragging rush.
+  h_lsweep: { dur: .75, keys: [
+    K(0, { chestRy: -.9, chestRx: .35, hiltA: -1.0, hiltR: .3, hiltH: -.32, bladeYaw: -1.2, bladePitch: -.4, bladeRoll: -1.57, twoHand: 1, lift: -.2, thLx: -.8, knL: 1.0, thRx: .5, knR: .8 }),
+    K(.16, { chestRy: -1.05, bladeYaw: -1.5, lift: -.26 }),
+    K(.3, { chestRy: -.1, hiltA: -.3, hiltR: .42, bladeYaw: -.1, bladePitch: -.5, lift: -.3, thLz: .25, thRz: -.25 }),
+    K(.42, { chestRy: .5, hiltA: .3, hiltR: .38, bladeYaw: 1.3, bladePitch: -.45 }),
+    K(.75, { ...HAMMER_LOW, thLz: .04, thRz: -.04, ...LOWREC }),
+  ] },
+  h_lpoke: { dur: .6, keys: [
+    K(0, { chestRy: -.5, chestRx: .3, hiltA: -1.1, hiltR: .16, hiltH: -.15, bladeYaw: .5, bladePitch: -.05, bladeRoll: 0, twoHand: 1, ...LUNGE_R, lift: -.16 }),
+    K(.14, { hiltA: -1.2, hiltR: .1 }),
+    K(.22, { chestRy: -.35, hiltA: -.3, hiltR: .5, hiltH: -.1, bladeYaw: .35, bladePitch: -.1, ...DEEP }),
+    K(.3, { hiltR: .48 }),
+    K(.6, { ...HAMMER_LOW, ...LOWREC }),
+  ] },
+  h_lrush: { dur: .8, keys: [
+    K(0, { chestRy: -.6, chestRx: .4, hiltA: -1.2, hiltR: .3, hiltH: -.3, bladeYaw: -2.6, bladePitch: -.35, bladeRoll: 0, twoHand: 0, lhX: .35, lhY: -.2, lhZ: .2, lift: -.18, thLx: -.9, knL: .9, thRx: .6, knR: .6, wings: 1.6 }),
+    K(.3, { chestRy: -.8, hiltA: -1.3, lift: -.22, thLx: -1.1, knL: .8, thRx: .9, knR: .4 }),
+    K(.4, { chestRy: -.1, chestRx: -.1, hiltA: -.3, hiltR: .4, hiltH: .3, bladeYaw: .2, bladePitch: 1.3, twoHand: 1, ...LUNGE, lift: .05 }),
+    K(.8, { ...HAMMER_LOW, ...LOWREC }),
+  ] },
+});
+
+// ================================================================ Starfists
+// Fists follow the arm: the hilt channels place the right fist, lh* the left. Kicks are legs alone.
+const FM = { hiltA: -.35, hiltR: .26, hiltH: .12, lhX: .12, lhY: .12, lhZ: .34, chestRy: -.25, twoHand: 0 };
+const FH = { hiltA: -.4, hiltR: .24, hiltH: .2, lhX: .14, lhY: .2, lhZ: .3, chestRy: -.4, twoHand: 0 };
+const FL = { hiltA: -.5, hiltR: .34, hiltH: -.1, lhX: .2, lhY: -.05, lhZ: .42, chestRy: -.2, chestRx: .25, twoHand: 0 };
+const STANCE_L = { lift: -.05, thLx: -.35, knL: .35, thRx: .3, knR: .35, thRz: -.04, thLz: .04, bodyRy: 0, bodyRx: 0, bodyRz: 0 };
+const LOW_L = { lift: -.16, thLx: -.6, knL: .8, thRx: .45, knR: .7, thRz: -.04, thLz: .04, bodyRy: 0, bodyRx: 0 };
+const RO = { hiltA: -.12, hiltR: .64, hiltH: .06 }, LO = { lhX: .1, lhY: .08, lhZ: .62 };
+// Alternating straight punches, right then left, and a last big right.
+function punches({ n, t0, step, dur }) {
+  const keys = [K(0, { ...FM, ...LUNGE })];
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * step, h = (i % 3 - 1) * .08;
+    keys.push(K(t - step * .5, i % 2 ? { hiltA: -.3, hiltR: .62, lhX: .3, lhY: .1, lhZ: .2, chestRy: .15 } : { hiltA: -.45, hiltR: .22, lhX: .1, lhY: .08, lhZ: .6, chestRy: -.15 }));
+    keys.push(K(t, i % 2 ? { hiltA: -.4, hiltR: .22, lhX: .08, lhY: .08 + h, lhZ: .62, chestRy: -.25 } : { ...RO, hiltH: .06 + h, lhX: .3, lhY: .1, lhZ: .2, chestRy: .25 }));
+  }
+  const tEnd = t0 + n * step;
+  keys.push(K(tEnd + .06, { hiltA: -.55, hiltR: .12, hiltH: .05, chestRy: -.6, lift: -.12 }));
+  keys.push(K(tEnd + .16, { ...RO, hiltR: .66, chestRy: .4, chestRx: .3, ...DEEP, wings: 2 }));
+  keys.push(K(dur, { ...FM, ...STANCE_L }));
+  return { dur, keys };
+}
+Object.assign(ACTIONS, {
+  // Mid form, Moonfist: jab, cross, hook and a roundhouse.
+  x_jab: { dur: .36, keys: [
+    K(0, { ...FM, ...STANCE_L }),
+    K(.1, { ...LO, chestRy: -.45, ...LUNGE }),
+    K(.18, { lhZ: .6 }),
+    K(.36, { ...FM }),
+  ] },
+  x_cross: { dur: .42, keys: [
+    K(0, { ...FM, chestRy: -.4, ...STANCE_L }),
+    K(.05, { hiltA: -.5, hiltR: .2, chestRy: -.5 }),
+    K(.12, { ...RO, chestRy: .35, lhZ: .22, lhY: .15, ...DEEP }),
+    K(.2, { hiltR: .62 }),
+    K(.42, { ...FM }),
+  ] },
+  x_hook: { dur: .46, keys: [
+    K(0, { ...FM, lhX: .45, lhY: .08, lhZ: .12, chestRy: .35, ...STANCE_L, lift: -.08 }),
+    K(.12, { lhX: .12, lhY: .1, lhZ: .5, chestRy: -.2 }),
+    K(.22, { lhX: -.12, lhY: .08, lhZ: .42, chestRy: -.5, ...LUNGE }),
+    K(.46, { ...FM }),
+  ] },
+  x_round: { dur: .7, keys: [
+    K(0, { ...FM, ...STANCE_L }),
+    K(.14, { bodyRy: .4, thRx: -.5, thRz: -.6, knR: 1.6, lift: .02, thLx: .05, knL: .15 }),
+    K(.26, { bodyRy: 1.1, thRx: -.35, thRz: -1.35, knR: .15, bodyRz: .25, hiltA: -.8, hiltH: .25, lhX: .35, lhY: .2, lhZ: .2, wings: 1.6 }),
+    K(.4, { bodyRy: 1.6, thRz: -1.3, knR: .2 }),
+    K(.56, { bodyRy: 1.4, thRx: -.2, thRz: -.3, knR: 1.0, bodyRz: .1 }),
+    K(.7, { ...FM, ...STANCE_L }),
+  ] },
+  // Mid, moving: a lunging straight and a flying knee.
+  x_dashpunch: { dur: .5, keys: [
+    K(0, { ...FM, chestRy: -.5, hiltA: -.55, hiltR: .18, ...LUNGE_R }),
+    K(.14, { ...RO, chestRy: .4, lhZ: .2, lhY: .12, chestRx: .3, ...DEEP, wings: 2 }),
+    K(.26, { hiltR: .62 }),
+    K(.5, { ...FM, ...STANCE_L }),
+  ] },
+  x_knee: { dur: .62, keys: [
+    K(0, { ...FM, lift: -.15, thLx: -.5, knL: .8, thRx: .2, knR: .6 }),
+    K(.12, { lift: .3, thRx: -1.6, knR: 2.1, thLx: .15, knL: .5, hiltA: -.2, hiltR: .35, hiltH: .05, lhX: .15, lhY: .05, lhZ: .36, chestRx: .15, wings: 2 }),
+    K(.3, { lift: .36, thRx: -1.7 }),
+    K(.45, { lift: -.1, thRx: -.3, knR: .6 }),
+    K(.62, { ...FM, ...STANCE_L }),
+  ] },
+  // Mid pause combo: Hundred Fists.
+  x_rush: punches({ n: 12, t0: .12, step: .055, dur: 1.15 }),
+
+  // High form, Crescent Kick: a snap kick, an axe kick, a spinning hook kick.
+  x_front: { dur: .56, keys: [
+    K(0, { ...FH, ...STANCE_L, lift: 0 }),
+    K(.12, { thRx: -1.2, knR: 1.8, bodyRx: -.1, thLx: .05, knL: .2 }),
+    K(.22, { thRx: -1.45, knR: .1, bodyRx: -.2, wings: 1.4 }),
+    K(.32, { thRx: -1.3, knR: .6 }),
+    K(.56, { ...FH, ...STANCE_L, lift: 0 }),
+  ] },
+  x_axe: { dur: .8, keys: [
+    K(0, { ...FH, ...STANCE_L, lift: 0 }),
+    K(.3, { thRx: -2.4, knR: .1, bodyRx: -.3, lift: .05, thLx: .1, knL: .15, hiltH: .3, lhY: .3, wings: 1.6 }),
+    K(.38, { thRx: -2.5 }),
+    K(.48, { thRx: -.4, knR: .2, bodyRx: .2, lift: -.1 }),
+    K(.8, { ...FH, ...STANCE_L, lift: 0 }),
+  ] },
+  x_spinhook: { dur: .8, spinY: true, keys: [
+    K(0, { ...FH, ...STANCE_L, lift: 0 }),
+    K(.14, { bodyRy: -.4, thRx: -.3, thRz: -.5, knR: 1.4 }),
+    K(.26, { bodyRy: 1.8, thRx: -.35, thRz: -1.4, knR: .15, lift: .08, wings: 2 }),
+    K(.56, { bodyRy: 5.8, thRz: -1.35, knR: .2 }),
+    K(.66, { bodyRy: 6.283, thRx: .1, thRz: -.2, knR: .8, lift: 0 }),
+    K(.8, { ...FH, ...STANCE_L, bodyRy: 6.283, lift: 0 }),
+  ] },
+  // High, moving: a flying side kick.
+  x_flykick: { dur: .75, keys: [
+    K(0, { ...FH, lift: -.18, thLx: -.6, knL: .9, thRx: .3, knR: .9 }),
+    K(.16, { lift: .45, bodyRy: .9, thLx: -1.2, knL: 1.6, thRx: -.3, thRz: -.9, knR: 1.6, wings: 2.2 }),
+    K(.26, { lift: .5, bodyRy: 1.4, thRz: -1.45, thRx: -.1, knR: .05, hiltA: -1.2, hiltR: .3, hiltH: .2, lhX: .4, lhY: .25, lhZ: .1 }),
+    K(.44, { lift: .35 }),
+    K(.58, { lift: -.15, bodyRy: .6, thRz: -.3, knR: .7, thLx: -.5, knL: .8 }),
+    K(.75, { ...FH, ...STANCE_L, lift: 0 }),
+  ] },
+  // High pause combo: the Tornado Kick, two turns in the air, leg out.
+  x_cyclone: { dur: 1.2, spinY: true, keys: [
+    K(0, { ...FH, bodyRy: 0, lift: -.2, thLx: -.6, knL: .9, thRx: .3, knR: .9 }),
+    K(.2, { bodyRy: .5, lift: .45, thLx: -1.3, knL: 1.7, thRx: -.3, thRz: -1.3, knR: .2, wings: 2.4 }),
+    K(.85, { bodyRy: 12.566, lift: .55 }),
+    K(1.0, { bodyRy: 12.566, lift: -.2, thRz: -.2, knR: .8, thLx: -.6, knL: .9 }),
+    K(1.2, { ...FH, ...STANCE_L, bodyRy: 12.566, lift: 0 }),
+  ] },
+
+  // Low form, Tiger Palm: body blows, an uppercut, a leg sweep and a double palm.
+  x_body: { dur: .42, keys: [
+    K(0, { ...FL, ...LOW_L }),
+    K(.1, { hiltA: -.1, hiltR: .6, hiltH: -.15, chestRy: .3, chestRx: .35, ...DEEP }),
+    K(.2, { hiltR: .58 }),
+    K(.42, { ...FL, ...LOW_L }),
+  ] },
+  x_uppercut: { dur: .55, keys: [
+    K(0, { ...FL, hiltA: -.4, hiltR: .3, hiltH: -.25, ...LOW_L, lift: -.26 }),
+    K(.08, { hiltH: -.3, lift: -.3, chestRx: .45 }),
+    K(.18, { hiltA: -.1, hiltR: .4, hiltH: .45, chestRx: -.25, chestRy: .2, ...LUNGE, lift: .12, wings: 1.6 }),
+    K(.28, { hiltH: .5 }),
+    K(.55, { ...FL, ...LOW_L }),
+  ] },
+  x_sweep: { dur: .7, spinY: true, keys: [
+    K(0, { ...FL, ...LOW_L, lift: -.3 }),
+    K(.12, { bodyRy: -.3, lift: -.5, thLx: -1.4, knL: 2.0, thRx: .1, thRz: -1.35, knR: .1, hiltA: -.8, hiltR: .3, hiltH: -.35, lhX: .4, lhY: -.35, lhZ: .2, chestRx: .5 }),
+    K(.5, { bodyRy: 6.0, lift: -.5 }),
+    K(.7, { ...FL, ...LOW_L, bodyRy: 6.283 }),
+  ] },
+  x_palm: { dur: .6, keys: [
+    K(0, { ...FL, hiltA: -.5, hiltR: .2, hiltH: 0, lhX: .3, lhY: 0, lhZ: .2, chestRx: .1, ...LOW_L, lift: -.14 }),
+    K(.12, { hiltR: .14, lhZ: .14, chestRx: -.05 }),
+    K(.2, { hiltA: -.12, hiltR: .62, hiltH: 0, lhX: .1, lhY: .02, lhZ: .62, chestRx: .3, ...DEEP, wings: 1.8 }),
+    K(.3, { hiltR: .6, lhZ: .6 }),
+    K(.6, { ...FL, ...LOW_L }),
+  ] },
+  // Low, moving: a sliding kick along the ground.
+  x_slide: (() => {
+    const S = { lift: -.5, bodyRx: -.3, chestRx: .3, headRx: .15, thLx: -.8, thLz: .1, knL: .15, thRx: .6, knR: 1.9, hiltA: -.6, hiltR: .3, hiltH: .05, lhX: .3, lhY: 0, lhZ: .2, wings: 1.8 };
+    return { dur: .6, keys: [K(0, { ...S, knL: 1.3, thLx: -.5 }), K(.12, { ...S, knL: .02, thLx: -1.0 }), K(.4, S), K(.6, { ...FL, ...LOW_L, headRx: 0, thLz: .04 })] };
+  })(),
+  // Low pause combo: the Rising Dragon, a spiralling uppercut leap.
+  x_dragon: { dur: 1.0, spinY: true, keys: [
+    K(0, { ...FL, bodyRy: 0, lift: -.32, hiltA: -.4, hiltR: .3, hiltH: -.3, chestRx: .45, thLx: -.9, knL: 1.2, thRx: .5, knR: 1.0 }),
+    K(.18, { bodyRy: .3, lift: -.1 }),
+    K(.56, { bodyRy: 6.283, lift: .8, hiltA: -.15, hiltR: .3, hiltH: .62, chestRx: -.35, thLx: -.9, knL: 1.3, thRx: .1, knR: .6, wings: 2.4 }),
+    K(.72, { bodyRy: 6.283, lift: .6 }),
+    K(1.0, { ...FL, ...LOW_L, bodyRy: 6.283 }),
+  ] },
+
+  // Fae Arts: a thrown dart or bomb from the off hand, and a brand drawn along the weapon.
+  throw: { dur: .5, keys: [
+    K(0, { lhX: .35, lhY: .32, lhZ: -.15, chestRy: .4, chestRx: -.1, twoHand: 0 }),
+    K(.16, { lhX: .05, lhY: .15, lhZ: .6, chestRy: -.3, chestRx: .15, twoHand: 0, ...LUNGE }),
+    K(.5, {}),
+  ] },
+  brand: { dur: .8, keys: [
+    K(0, { hiltA: -.2, hiltR: .3, hiltH: .15, bladeYaw: 0, bladePitch: 1.3, bladeRoll: 0, lhX: .05, lhY: .05, lhZ: .32, twoHand: 0, wings: 1.2 }),
+    K(.5, { lhX: .02, lhY: .5, lhZ: .32, wings: 2 }),
+    K(.8, {}),
+  ] },
+});
+// Variants of the above.
+Object.assign(ACTIONS, {
+  h_lwheel: vary(ACTIONS.h_spin, { dur: .95, add: { hiltH: -.3, bladePitch: -.25, lift: -.18 }, set: { thLx: -.95, knL: 1.25, thRx: .55, knR: .95, chestRx: .3 } }),
+  h_lflip: vary(ACTIONS.h_upper, { dur: .72, add: { lift: -.06 } }),
+  h_ltop: vary(ACTIONS.g_lundertow, { dur: 1.3 }),
+  hAir1: airVariant(ACTIONS.h_side, .6),
+  hAir2: airVariant(ACTIONS.h_back, .6),
+  hAir3: airVariant(ACTIONS.h_spin, .75),
+  xAir1: airVariant(ACTIONS.x_jab, .3),
+  xAir2: airVariant(ACTIONS.x_cross, .34),
+});

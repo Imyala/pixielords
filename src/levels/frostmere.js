@@ -128,6 +128,8 @@ export default {
     { id: 'glimmer3', x: -7.5, z: 105, kind: 'glimmer', amount: 4000, label: 'Glimmer Shard', desc: '+4000 Glimmer' },
     { id: 'c-iceheart', x: -16, z: 150, kind: 'charm', charm: 'iceheart', label: 'Charm' },
     { id: 'glimmer4', x: 17, z: 127, kind: 'glimmer', amount: 4500, label: 'Glimmer Shard', desc: '+4500 Glimmer' },
+    { id: 'art-rime', x: 25.5, z: 71.5, kind: 'art', art: 'rime', label: 'Rimebrand', desc: 'a Fae Art: frost that never melts, in a fisher\'s tin',
+      tip: 'Rimebrand frosts your weapon over for thirty seconds: every hit slows foes to a crawl.\nFae Arts: T (or hold guard and press Moondew) uses the art at hand; Y (Select) changes it. Their uses return at every Moonwell.' },
     { id: 'glimmer-boathouse', x: 21.6, z: 76.6, kind: 'glimmer', amount: 4200, label: 'Glimmer Shard', desc: '+4200 Glimmer', inside: 'bcrate' },
     { id: 'grace-boathouse', x: 40.2, z: 70.5, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
   ],
