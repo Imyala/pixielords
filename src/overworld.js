@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { buildKnight, KnightAnimator } from './knight.js';
 import { FX } from './fx.js';
-import { glowTexture, skyTexture } from './textures.js';
+import { glowTexture, skyTexture, moonPhase } from './textures.js';
 import { rng, clamp, lerp, smooth, makeNoise, angleDiff, TAU } from './util.js';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV'];
@@ -114,6 +114,7 @@ export class Overworld {
     moon.position.set(-160, 170, 330); moon.scale.setScalar(90); sky.add(moon);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(11, 48), new THREE.MeshBasicMaterial({ color: 0xeef2ff, fog: false }));
     disc.position.copy(moon.position); disc.lookAt(0, 0, 0); sky.add(disc);
+    this.moonDisc = disc; this.moonGlow = moon; this.setPhase();
     // The sea, and cloud drifting over the edges of the world.
     const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), std(0x0b1a33, { roughness: .2, metalness: .55, emissive: 0x040a18, flatShading: false }));
     sea.rotation.x = -Math.PI / 2; sea.position.y = .12; sea.receiveShadow = true; this.scene.add(sea);
@@ -124,6 +125,15 @@ export class Overworld {
       this.scene.add(c);
       const ph = R() * 6; this.anim.push(t => { c.position.x += Math.sin(t * .05 + ph) * .01; });
     }
+  }
+
+  // The map's moon, as it is tonight (moontonight.js).
+  setPhase() {
+    const ph = this.G.tonight?.phase, d = this.moonDisc, key = ph ? Math.round(ph.frac * 24) % 24 : -1;
+    if (!d || this.phaseKey === key) return;
+    this.phaseKey = key;
+    d.material.map = ph ? (this.phaseTex ||= {})[key] ||= moonPhase(key / 24) : null; d.material.transparent = !!ph; d.material.color.setHex(ph ? 0xffffff : 0xeef2ff); d.material.needsUpdate = true;
+    this.moonGlow.scale.setScalar(90 * (ph ? .35 + .65 * ph.lit : 1));
   }
 
   buildTerrain() {
@@ -554,6 +564,7 @@ export class Overworld {
   // Open the map: place the knight at the mission last walked (or the one just cleared) and queue any reveals.
   prepare(focus) {
     if (!this.built) this.build();
+    this.setPhase();
     const d = this.G.save.data;
     d.seen ||= d.unlocked.slice(0, -1);
     if (!d.seen.includes(this.G.ORDER[0])) d.seen.push(this.G.ORDER[0]);

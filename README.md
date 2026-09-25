@@ -152,7 +152,12 @@ size; the mouse or right stick tilts it further up or down.
   (the Goblin Larder) burst where they land, knock foes down and set off powder kegs. The brands lay an
   element on your weapon for thirty seconds, one at a time: **Emberbrand** (the Tanner's Camp) sets foes
   burning, **Stormbrand** (by the Moon Gate) breaks posture harder and arcs lightning to a second foe, and
-  **Rimebrand** (the Frozen Boathouse) slows foes to a crawl.
+  **Rimebrand** (the Frozen Boathouse) slows foes to a crawl. Five more are found further on: **Moon Veil**
+  (the Drowned Abbey; for twenty seconds blows land 40% lighter), **Briar Snare** (the Thornwood Court; a seed
+  that bursts into briars and holds foes near-still for four seconds), **Moonlance** (the Starfall Crater; a
+  lance of moonlight through every foe in a line), **Pixie Haste** (the Waning Court; for twenty seconds strikes
+  and dashes cost a third less stamina and come faster) and **Healing Pollen** (the Silver Shore; mends a third
+  of your health over six seconds).
 - **Movement.** Hold dash to sprint and strike for a running attack. At a sprint, guard (or Z / L3) drops
   into a **slide**; strike from it for the weapon's slide attack, or dash for a **Wingleap**, a long dive up
   and forward that carries its speed into the air. Air strikes, the air dash and the Starfall all work from a
@@ -512,6 +517,48 @@ Foes grow hardier the deeper you go (by the twenty-first depth, as hardy as the 
 seventy-fifth, everything, warlords included, keeps growing), Champions rise more often, and gear drops at
 higher levels and rarer.
 
+### Patron Spirits
+
+As Nioh's Guardian Spirits: every warlord holds a fae spirit captive, and felling it sets the spirit free to
+pledge itself to you. Pledge to one at a Moonwell (**Patronage**). A patron lends a few passive effects and
+changes the **Fae Shift**: how hard strikes in it hit and break posture, how long it lasts, an element on every
+strike, and a burst that throws back everything near as it begins. The Faelight bar and the Shift's glow take
+its colour.
+
+| Patron | Freed from | While pledged | In the Fae Shift |
+|---|---|---|---|
+| The Fae Lantern | yours from the start | +5% Faelight | as it always was |
+| Bramble, the Hedge-Hog | Gnawfang | +10% guard, +30 health | breaks posture twice as hard; blows drain less Faelight |
+| Cinder, the Ember Fox | Grimtusk | 25% less fire harm, +3% damage | strikes burn |
+| Glim, the Cave-Moth | Mother Skritch | +12% Faelight | lasts longer; strikes feed the Faelight back |
+| Hollowmoon, the White Hare | Silkclaw | dashes cost less, +6% from behind | strikes come 30% faster |
+| Rime, the Snow Owl | the Winter Court | chill resistance, stamina regen | strikes frost foes |
+| Tidemother, the Great Carp | the Drowned Saint | Moondew heals more, +40 health | lasts longer; blows drain half as much Faelight |
+| Anvil, the Iron Boar | the Iron Tyrant | heavies hit harder, guard | hits 75% harder, breaks posture harder |
+| Briar, the Thorn Wolf | the Thorned Heir | +12% from behind, bleeding | strikes open bleeding wounds, a little faster |
+| Starling, the Comet-Crow | the Star-Eater | posture damage, Faelight | strikes crackle and leap to a second foe |
+| Crescent, the Moon Stag | the Waning Queen | +8% at full health, +15 stamina | lasts 45% longer |
+| Pearl, the Tide Turtle | Gloam | +60 health, Moondew | every strike mends you |
+| Dusk, the Moth of Dreams | Nyx | Faelight, pause combos | strikes frost; they feed the Faelight back |
+| The Twin Swans | the Hollow King and Queen | Deflects, Executions | every strike lands again as an echo |
+| Umbra, the Shadow Hound | Nightmaw | +12% at low health, from behind | hits 95% harder, faster, but burns out sooner |
+| Solace, the First Light | the Eclipse | +6% damage, Faelight | hits 80% harder, burns, echoes, mends, lasts longer |
+
+Freeing them counts toward a Deed (Patron-Bound), and a new Way keeps them.
+
+### The Moon Tonight
+
+The game's moon follows the real one: its phase is worked out from the date and drawn in every sky (and on the
+map), and each phase lends every mission a small blessing: a new moon's dark makes foes hit 10% harder but
+Soul Cores fall twice as often; a waxing crescent fills Faelight faster; the first quarter quickens stamina;
+a waxing gibbous brings more Glimmer; a **full moon** raises more Champions, drops more gear and more Glimmer;
+a waning gibbous strengthens Moondew; the last quarter strengthens Deflects; a waning crescent drops rarer gear.
+Each night, too, three of the missions you have opened lie under an **omen**, the same three for everyone that
+night, as Nioh's rotating Twilight missions are: a **Harvest Moon** (half again as much Glimmer), a **Blood
+Moon** (twice the Champions, rarer gear) or a **Hunter's Moon** (three times the Soul Cores, more gear). Omens
+are marked ☾ on the Crossroads map. Tonight's phase shows on the title screen and in the pause menu; turn it
+all off in Settings (*Follow the real moon*).
+
 ### Balance
 
 Every mission has a recommended level that its gear drops around: the Grubhold 1, then 10, 18, 26, 34, 42,
@@ -597,6 +644,8 @@ src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and both music tracks, synthesised with WebAudio
 src/hud.js        bars, lock-on reticle, boss bar, prompts, banners, letters and the ? / ! markers over foes
 src/menu.js       title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
+src/patrons.js    Patron Spirits: their passives and what each does to the Fae Shift
+src/moontonight.js the Moon Tonight: the real moon's phase and blessings, and the night's omens
 src/menuui.js     the menus' Nioh-style chrome: header plaque, gold-lit lists, key-hint bar (keys or pad buttons), option rows, the ink-wash ring, the gamepad diagram
 src/save.js       localStorage save and settings
 src/textures.js   procedural stone, brick, moss, forest floor, cave floor, rock, snowfield, lake ice, thatch and sky textures

@@ -105,7 +105,8 @@ export default {
     { id: 'grace1', x: 14, z: 62, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: -4, z: 62, kind: 'glimmer', amount: 10400, label: 'Glimmer Shard', desc: '+10400 Glimmer', inside: 'dcrys' },
     { id: 'glimmer3', x: 16, z: 131, kind: 'glimmer', amount: 11000, label: 'Glimmer Shard', desc: '+11000 Glimmer' },
-    { id: 'glimmer4', x: 14, z: 120, kind: 'glimmer', amount: 9600, label: 'Glimmer Shard', desc: '+9600 Glimmer', inside: 'scrys' },
+    { id: 'art-lance', x: 14, z: 120, kind: 'art', art: 'lance', label: 'Moonlance', desc: 'a Fae Art: a splinter of the fallen moon', inside: 'scrys',
+      tip: 'Moonlance looses a lance of moonlight straight ahead, through every foe in its path.\nChange Fae Arts with Y (the d-pad\'s right on a gamepad); their uses return at every Moonwell.' },
   ],
   letters: [
     { id: 'astronomer', x: 15.5, z: 22.5, title: "An Astronomer's Chart", text: 'The shard fell in the year of two moons. For a hundred years it glowed like a second, smaller moon down here in the glass, and the rats that ate the glass grew clever, and then grew large.\n\nThis year it is dim. Someone has been drinking from it. The rats are hungry, and they have started eating each other.' },

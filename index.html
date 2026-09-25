@@ -372,9 +372,14 @@
   #menu.chrome .panel .gname{font:600 24px var(--serif);margin:0 0 2px}
   .gtabs{display:flex;gap:5px;justify-content:center;padding:6px 0 2px}.gtabs i{width:6px;height:6px;border-radius:50%;background:rgba(233,228,214,.22)}.gtabs i.on{background:var(--gold)}
   .gnone{padding:10px 12px;font-size:14px}
-  #menu.nioh .loading.tl{position:absolute;left:7vw;top:calc(12vh + clamp(90px,10vw,130px));width:min(360px,60vw)}
+  #menu.nioh .loading.tl{position:absolute;left:7vw;top:calc(12vh + clamp(126px,14vw,180px));width:min(360px,60vw)}
   #menu .nfoot{position:absolute;left:7vw;bottom:3vh;font:italic 500 17px var(--script);color:#9a927f}
-  #menu.title .nlist{top:58%}
+  #menu.title .nlist{top:60%}
+  #menu .ntonight{position:absolute;left:6.8vw;top:calc(12vh + clamp(86px,10.4vw,134px));display:flex;align-items:center;gap:10px;font:italic 500 18px var(--script);color:#bfc8e8}
+  .mphase{width:20px;height:20px;border-radius:50%;background:#2a2e40;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(220,230,255,.35);flex:none}
+  .mphase:after{content:'';position:absolute;inset:0;border-radius:50%;background:#eef2ff;transform:translateX(calc(var(--wax) * (1 - var(--lit)) * 100%))}
+  .owl .omen{margin-left:6px;font-size:13px} .owomen{font:italic 500 17px var(--script);margin:2px 0 6px}
+
   /* Level up: the attributes, what each would give, and the cost. */
   .spanel.lvl{width:min(760px,90vw)}
   .lvtop{display:flex;justify-content:space-around;padding:6px 0 12px;border-bottom:1px solid rgba(230,195,106,.25);margin-bottom:6px}

@@ -25,6 +25,7 @@ export const DEEDS = [
   { id: 'wayward', name: 'Walker of Ways', desc: 'Ways walked (New Game+ cycles begun)', tally: 'ways', max: true, tiers: [1, 2, 3], fx: ['dmg', 3] },
   { id: 'moondrinker', name: 'Moondrinker', desc: 'Draughts of Moondew', tally: 'moondew', tiers: [25, 150, 600], fx: ['moondew', 5] },
   { id: 'hoarder', name: 'Glimmer-Hoarder', desc: 'Glimmer taken from fallen foes', tally: 'glimmer', tiers: [100000, 1000000, 10000000], fx: ['glimmer', 3] },
+  { id: 'patronbound', name: 'Patron-Bound', desc: 'Patron Spirits freed', tally: 'patrons', max: true, tiers: [3, 8, 15], fx: ['anima', 4] },
   { id: 'undying', name: 'Undying', desc: 'Falls (and rises)', tally: 'deaths', tiers: [10, 50, 200], fx: ['hp', 10] },
 ];
 export const TIER = ['I', 'II', 'III'];

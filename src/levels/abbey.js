@@ -114,7 +114,8 @@ export default {
     { id: 'grace1', x: -8.5, z: 94, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: 32, z: 84, kind: 'glimmer', amount: 5800, label: 'Glimmer Shard', desc: '+5800 Glimmer', inside: 'wurn' },
     { id: 'glimmer3', x: 12, z: 152, kind: 'glimmer', amount: 6400, label: 'Glimmer Shard', desc: '+6400 Glimmer' },
-    { id: 'glimmer4', x: -24, z: 28, kind: 'glimmer', amount: 5000, label: 'Glimmer Shard', desc: '+5000 Glimmer', inside: 'gcrate' },
+    { id: 'art-veil', x: -24, z: 28, kind: 'art', art: 'veil', label: 'Moon Veil', desc: 'a Fae Art: moonlight folded small, in a nun\'s reliquary', inside: 'gcrate',
+      tip: 'Moon Veil wraps you in moonlight for twenty seconds: blows land 40% lighter.\nChange Fae Arts with Y (the d-pad\'s right on a gamepad); their uses return at every Moonwell.' },
   ],
   letters: [
     { id: 'psalter', x: 26, z: 83, title: 'A Psalter, Salt-Stained', text: 'Light a lantern at the prow, and the sea will not take you.\nLight a lantern at the door, and the dark will not come in.\nLight a lantern in your heart, and when the moon goes, you will still see.\n\n(Underneath, in a newer hand:) The Abbess has ordered every lantern put out.' },

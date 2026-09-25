@@ -28,6 +28,7 @@ export function freshSave(ng = 0) {
     cores: {}, coreSlots: [null, null],   // Soul Cores held (how many of each, fused) and the two set (cores.js)
     sides: {}, side: null,   // side missions done (how often), and the one under way (sides.js)
     abyss: freshAbyss(),   // the Underbriar: the depth you are on, the deepest cleared, lit Moonwells reached (underbriar.js)
+    patrons: ['lantern'], patron: 'lantern',   // Patron Spirits freed, and the one pledged (patrons.js)
   };
 }
 
@@ -94,7 +95,7 @@ export class Save {
   }
 }
 
-export const SETTINGS_DEFAULT = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1, quality: 1, readPause: true, tips: true, lockHeight: 1, camDist: 1 };
+export const SETTINGS_DEFAULT = { sens: 1, invertY: false, master: .8, music: .55, sfx: .9, shake: 1, quality: 1, readPause: true, tips: true, lockHeight: 1, camDist: 1, realMoon: true };
 export function loadSettings() {
   try { return { ...SETTINGS_DEFAULT, ...JSON.parse(localStorage.getItem(SKEY) || '{}') }; } catch { return { ...SETTINGS_DEFAULT }; }
 }

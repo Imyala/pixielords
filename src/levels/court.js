@@ -106,7 +106,8 @@ export default {
     { id: 'grace1', x: -17, z: 68, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: 17, z: 68, kind: 'glimmer', amount: 12800, label: 'Glimmer Shard', desc: '+12800 Glimmer', inside: 'gurn' },
     { id: 'glimmer3', x: 12, z: 134, kind: 'glimmer', amount: 13600, label: 'Glimmer Shard', desc: '+13600 Glimmer' },
-    { id: 'glimmer4', x: 30, z: 88, kind: 'glimmer', amount: 12400, label: 'Glimmer Shard', desc: '+12400 Glimmer', inside: 'ourn' },
+    { id: 'art-haste', x: 30, z: 88, kind: 'art', art: 'haste', label: 'Pixie Haste', desc: 'a Fae Art: a pixie\'s wingbeat, bottled', inside: 'ourn',
+      tip: 'Pixie Haste makes you as quick as a pixie for twenty seconds: strikes and dashes cost a third less stamina, and strikes come 10% faster.\nChange Fae Arts with Y (the d-pad\'s right on a gamepad); their uses return at every Moonwell.' },
   ],
   letters: [
     { id: 'herald', x: -15.5, z: 26.5, title: 'A Herald\'s Proclamation', text: 'Hear the Queen: the moon is ending, as all lights end. She will not let it.\n\nEvery thread of moonlight shall be gathered to the Court and kept, and the moon shall never set again, for it shall live in her.\n\nThat the fae go dark in the gathering is regretted.' },

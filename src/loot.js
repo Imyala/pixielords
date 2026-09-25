@@ -15,7 +15,7 @@ export class Loot {
   dropFrom(e, big = false) {
     const G = this.G, p = G.player, d = G.save.data;
     const boss = big || G.bosses.includes(e) || e === G.gatekeeper;
-    const mul = 1 + (p.gear?.fx.drops || 0) / 100;
+    const T = G.tonight, mul = (1 + p.gf('drops') / 100) * (T?.drops || 1);   // gear, charms and deeds, and the night's moon
     // A champion drops as an elite does, and better for each affix it carried.
     const elite = e.elite || e.champion, champ = e.champion ? e.affixes.length * .35 : 0;
     const n = boss ? 2 + (Math.random() < .5 ? 1 : 0) : elite ? (Math.random() < (.55 + champ * .3) * mul ? 1 : 0) : Math.random() < .085 * mul ? 1 : 0;
@@ -27,7 +27,7 @@ export class Loot {
     if (n) G.audio.sfx('glint', { vol: .6, pitch: .8 });
     // A Soul Core: always from gatekeepers, warlords and Revenants, often from elites, now and then from the rest.
     const core = CORE_OF[e.spawn?.type];
-    if (core && Math.random() < (CORES[core].boss ? 1 : elite ? .25 : .025) * mul) this.place({ core }, e.pos.x - .6, e.pos.z + .4);
+    if (core && Math.random() < (CORES[core].boss ? 1 : elite ? .25 : .025) * mul * (T?.cores || 1)) this.place({ core }, e.pos.x - .6, e.pos.z + .4);
   }
   // A new piece for this mission: kind, level and rarity (at least minRar).
   roll(luck = 0, minRar = 0) {
@@ -35,7 +35,7 @@ export class Loot {
     const S = G.sideDef?.();   // a side mission's harder foes drop better, and higher-level
     const deep = G.level.depth, range = deep ? [Math.max(1, G.level.level), G.level.level + 6] : MG.lvl;   // the Underbriar: by its depth's level
     const lvl = Math.round(range[0] + Math.random() * (range[1] - range[0])) + wayLvl(d.ng) + (S?.lvl || 0);
-    const rar = Math.max(minRar, rollRarity(luck + (S?.luck || 0) + (deep ? Math.min(1.2, deep * .025) : 0), Math.random, divineWeight(d.ng, G.level.depth)));
+    const rar = Math.max(minRar, rollRarity(luck + (S?.luck || 0) + (G.tonight?.luck || 0) + (deep ? Math.min(1.2, deep * .025) : 0), Math.random, divineWeight(d.ng, G.level.depth)));
     d.gear.uid = (d.gear.uid || 1) + 1;
     if (Math.random() < .42) {
       const type = d.arms[Math.floor(Math.random() * d.arms.length)];

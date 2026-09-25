@@ -299,3 +299,21 @@ export function worldFace(seed = 7) {
   g.putImageData(img, 0, 0);
   return toTex(c, false);
 }
+
+// The moon's face at a phase (0 new, .5 full): the lit part bright, the rest faint with earthshine, and clear
+// outside the disc. Waxing, the light is on the right; waning, on the left.
+export function moonPhase(frac) {
+  const n = 128, c = canvas(n), g = c.getContext('2d'), img = g.createImageData(n, n), d = img.data, N = makeNoise(11);
+  const k = Math.cos(frac * Math.PI * 2);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const u = (x + .5) / n * 2 - 1, v = (y + .5) / n * 2 - 1, r = Math.hypot(u, v), i = (y * n + x) * 4;
+    if (r > 1) { d[i + 3] = 0; continue; }
+    const edge = Math.sqrt(1 - v * v), t = edge * k;
+    const lit = frac < .5 ? u > t : u < -t, soft = clamp((frac < .5 ? u - t : -t - u) * 12 + .5, 0, 1);
+    const maria = .82 + (N.fbm(u * 2.4 + 5, v * 2.4 + 3, 4) - .5) * .35;
+    const b = (lit ? 1 : 0) * soft * maria + .09;
+    d[i] = 238 * b; d[i + 1] = 242 * b; d[i + 2] = 255 * b; d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return toTex(c, false);
+}

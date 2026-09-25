@@ -8,6 +8,7 @@ import { ARTS } from './arts.js';
 import { RANGED } from './ranged.js';
 import { CORES } from './cores.js';
 import { AFFIXES } from './champions.js';
+import { PATRONS } from './patrons.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -277,7 +278,13 @@ export class HUD {
       q.ret.classList.toggle('wait', (p.reloadT || 0) > 0 || (!!R?.ammo && !(p.ammo?.[p.rangedSel] > 0)) || p.hot > 0);
       q.ret.classList.toggle('lock', !!p.lock);
     }
-    $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT`;
+    const pk = `${this.key('shift')}|${p.patron}`;
+    if (this.patronShown !== pk) {   // the Faelight bar takes the pledged patron's colour, and its name
+      this.patronShown = pk;
+      const P = PATRONS[p.patron] || PATRONS.lantern, lantern = p.patron === 'lantern';
+      $('.ready', q.animaBar).textContent = `${this.key('shift')} · FAE SHIFT${lantern ? '' : ' · ' + P.name.toUpperCase()}`;
+      q.anima.style.background = lantern ? '' : `linear-gradient(90deg, ${P.css}, #ffffff)`;
+    }
     if (this.stanceShown !== p.stance) this.stance(p.stance);
     const wk = `${p.weapon}|${p.stance}|${p.arms.length}|${this.key('swap')}|${p.weaponNote?.()}`; if (this.weaponShown !== wk) { this.weaponShown = wk; this.weapon(p.weapon); }
     // Combo counter: shown from three hits; every tier adds damage, and a finisher spends it.

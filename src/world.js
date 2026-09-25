@@ -2,7 +2,7 @@
 // lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
 import * as THREE from 'three';
-import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture, worldFace } from './textures.js';
+import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture, worldFace, moonPhase } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
 
 // ---------------------------------------------------------------- geometry helpers
@@ -322,6 +322,13 @@ export class World {
     moon.position.set(...(Mn.at || [-120, 150, 260])); moon.scale.setScalar(Mn.glow || 60);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(Mn.size || 7, 48), new THREE.MeshBasicMaterial({ color: Mn.color ?? 0xeef2ff, fog: false }));
     disc.position.copy(moon.position); disc.lookAt(0, 0, 0);
+    // The moon as it is tonight (moontonight.js), unless this sky holds something else.
+    const ph = this.G.tonight?.phase;
+    if (ph && Mn.color === undefined && !Mn.world) {
+      const b = Math.round(ph.frac * 24) % 24;
+      disc.material.map = tex('phase' + b, () => moonPhase(b / 24)); disc.material.transparent = true; disc.material.color.setHex(0xffffff);
+      moon.scale.multiplyScalar(.35 + .65 * ph.lit);
+    }
     if (!Mn.none) sky.add(moon, disc);
     if (Mn.world) {   // the fae world seen from the moon: sea and land, and a rim of air
       const land = new THREE.Mesh(new THREE.CircleGeometry((Mn.size || 7) * .98, 48, 0), new THREE.MeshBasicMaterial({ map: tex('fworld', () => worldFace(7)), fog: false, transparent: true }));

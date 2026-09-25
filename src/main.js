@@ -18,8 +18,11 @@ import { Save, levelCost, forgeCost, FORGE, loadSettings, saveSettings, freshGea
 import { loadModel } from './models3d.js';
 import { glowTexture } from './textures.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
+import { PATRONS, PATRON_OF } from './patrons.js';
+import { tonight, OMENS } from './moontonight.js';
 import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
+import { ARTS } from './arts.js';
 import { Loot, PACK } from './loot.js';
 import { RARITY, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
@@ -70,6 +73,7 @@ function syncDeeds() {
   t.depth = Math.max(t.depth || 0, d.abyss?.best || 0); t.ways = Math.max(t.ways || 0, d.ng || 0);
   t.missions = Math.max(t.missions || 0, Object.entries(d.missions).filter(([id, m]) => LEVELS[id] && m.cleared).length);
   t.sides = Math.max(t.sides || 0, Object.values(d.sides || {}).reduce((a, b) => a + b, 0));
+  t.patrons = Math.max(t.patrons || 0, (d.patrons?.length || 1) - 1);
   checkDeeds(true);
 }
 G.deedsView = () => DEEDS.map(D => ({ D, n: G.save.data.tally?.[D.tally] || 0, tier: G.save.data.deeds?.[D.id] || 0 }));
@@ -143,6 +147,7 @@ function makeEnv() {
 // ---------------------------------------------------------------- systems
 G.settings = loadSettings();
 G.save = new Save();
+G.tonight = tonight(G.settings, G.save.data.unlocked, G.save.data.mission);   // the sky's moon, as it is tonight
 G.input = new Input(canvas);
 G.audio = new Audio();
 G.fx = new FX(scene);
@@ -160,6 +165,7 @@ for (const m of Object.values(G.player.k.mats)) if (m.isMeshStandardMaterial) { 
 
 G.setSetting = (k, v) => {
   G.settings[k] = v; saveSettings(G.settings); applySettings();
+  if (k === 'realMoon') G.refreshTonight?.(G.level?.id);
 };
 G.resetSettings = () => { G.settings = { ...SETTINGS_DEFAULT }; saveSettings(G.settings); applySettings(); };
 function applySettings() {
@@ -397,7 +403,7 @@ function firstShrine() { return G.level.titleShrine || Object.keys(G.level.shrin
 function placeAtShrine(id) {
   const s = G.level.shrines[id] || G.level.shrines[firstShrine()];
   const p = G.player;
-  p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []); p.applyDeeds();
+  p.stats = { ...G.save.stats }; p.setCharms(G.save.data.equipped || []); p.applyDeeds(); p.setPatron(G.save.data.patron);
   const d = G.save.data;
   p.arms = [...d.arms]; p.loadout = [...d.loadout]; p.forge = d.forge; p.setWeapon(d.wield);
   p.arts = [...d.arts]; p.art = d.artSel;
@@ -414,9 +420,25 @@ function syncUnlocks() {
 }
 syncUnlocks();
 
+// The Moon Tonight (moontonight.js): the real moon's phase, and the night's omens, for the mission at hand.
+G.refreshTonight = (id = G.save.data.mission) => {
+  G.tonight = tonight(G.settings, G.save.data.unlocked, id);
+  G.player?.setMoon(G.tonight?.phase.fx);
+  return G.tonight;
+};
+function announceTonight() {
+  const T = G.tonight, key = `${G.level.id}|${Math.floor(Date.now() / 36e5)}`;
+  if (!T || G.level.depth || G.tonightShown === key) return;
+  G.tonightShown = key;
+  G.after(7.2, () => {
+    G.hud.toast(`Tonight: ${T.phase.name} — ${T.phase.desc}`, 'anima');
+    if (T.omen) G.after(2.4, () => G.hud.toast(`${T.omen.name} over ${G.level.name}: ${T.omen.desc}`, 'item'));
+  });
+}
 async function startRun() {
   G.audio.init();
   syncUnlocks();
+  G.refreshTonight();
   G.traveling = false;
   timers.length = 0;
   if (G.level.id !== G.save.data.mission || !G.enemies.length || (G.level.depth && G.level.depth !== G.save.data.abyss?.depth)) {
@@ -433,6 +455,7 @@ async function startRun() {
   syncDeeds();
   applyWorldState();
   placeAtShrine(m.shrine);
+  announceTonight();
   G.player.anima = 0;
   G.player.setState('rise'); G.player.anim.play('rise');
   G.state = 'play'; G.controlsOn = true;
@@ -451,7 +474,7 @@ G.continueGame = () => startRun();
 // The Fae Crossroads, the overworld map: from the title, a Moonwell, or a cleared mission (focused there, so any
 // newly opened path is revealed from it).
 G.openMap = (from = 'title', focus) => {
-  syncUnlocks();
+  syncUnlocks(); G.refreshTonight();
   G.input.wantLock = false; G.input.releaseLock();
   G.overworld.prepare(focus);
   if (from === 'cleared') G.menu.show('map', { from }); else G.menu.push('map', { from });
@@ -474,7 +497,7 @@ G.startSide = async id => {
 G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
-    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds };
+    mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds, patrons: d.patrons, patron: d.patron };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.tally('ways', d.ng + 1, true);
@@ -511,7 +534,7 @@ function applyWorldStateSafe() { if (G.ready) applyWorldState(); }
 // ---------------------------------------------------------------- events from the systems
 G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
-  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + (G.player.gear?.fx.glimmer || 0) / 100));
+  const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + G.player.gf('glimmer') / 100) * (G.tonight?.glimmer || 1));
   G.loot.dropFrom(e, e === G.sideTarget);
   G.save.glimmer += amt;
   const ty = e.spawn.type || '';
@@ -605,6 +628,21 @@ function grantCharm(id, quiet = false) {
   if (!quiet) G.after(.6, () => G.hud.toast(`Charm: ${c.name} — ${c.desc}${worn ? '' : ' Wear it at a Moonwell.'}`, 'item'));
   return true;
 }
+// A Patron Spirit freed by a warlord: it waits to be pledged to at a Moonwell.
+function grantPatron(id, quiet = false) {
+  const d = G.save.data, P = PATRONS[id];
+  d.patrons ||= ['lantern']; d.patron ||= 'lantern';
+  if (!P || d.patrons.includes(id)) return false;
+  d.patrons.push(id); G.tally('patrons', d.patrons.length - 1, true);
+  if (!quiet) { G.hud.big(`${P.name.toUpperCase()}`, 'gold', 4.5, `${P.title} · a Patron Spirit is freed`); G.audio.sfx('rest'); G.fx.motes({ x: G.player.pos.x, y: 1.5, z: G.player.pos.z }, P.color, 60, 1.4, 3, .16, 1.6); G.after(4.8, () => G.hud.toast(`${P.name} will lend you its strength. Pledge to it at any Moonwell (Patronage).`, 'item')); }
+  return true;
+}
+G.setPatron = id => {
+  const d = G.save.data;
+  if (!d.patrons?.includes(id)) return false;
+  d.patron = id; G.player.setPatron(id); G.audio.sfx('rest'); G.save.write();
+  return true;
+};
 // A weapon won from a gatekeeper or warlord: into the Arsenal, and into hand's reach if one is free.
 function grantWeapon(id, quiet = false) {
   const d = G.save.data, p = G.player, A = ARMORY[id];
@@ -650,6 +688,7 @@ function grantTrophies() {
     if (bossDown) for (const w of armoryFrom('boss', L.id)) grantWeapon(w, true);
     if (gateDown) for (const r of rangedFrom('gate', L.id)) grantRanged(r, true);
     if (bossDown) for (const r of rangedFrom('boss', L.id)) grantRanged(r, true);
+    if (bossDown && PATRON_OF[L.id]) grantPatron(PATRON_OF[L.id], true);
   }
 }
 G.equipCharm = id => {
@@ -696,6 +735,7 @@ function partnerFell(e, rest) {
 function bossDefeated() {
   for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
+  if (PATRON_OF[G.level.id]) G.after(7, () => { grantPatron(PATRON_OF[G.level.id]); G.save.write(); });
   for (const w of armoryFrom('boss', G.level.id)) G.after(3.8, () => { grantWeapon(w); G.save.write(); });
   for (const r of rangedFrom('boss', G.level.id)) G.after(6.2, () => { grantRanged(r); G.save.write(); });
   G.save.write();
@@ -1028,7 +1068,7 @@ function interact(it) {
         G.tipAfter(.8, (item.tip || item.desc) + (d.arms.length > 2 ? '\nYou carry two weapons at a time: choose them in the Arsenal (pause menu or any Moonwell), and forge them stronger at a Moonwell.' : ''));
       }
       if (item.kind === 'art' && !d.arts.includes(item.art)) {
-        d.arts.push(item.art); p.arts = [...d.arts];
+        d.arts.push(item.art); p.arts = [...d.arts]; p.artUses[item.art] = ARTS[item.art]?.uses || 0;   // ready at once
         G.tipAfter(.8, item.tip || item.desc);
       }
       const c = item.kind === 'charm' && CHARMS[item.charm];

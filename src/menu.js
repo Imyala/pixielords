@@ -17,6 +17,8 @@ import { wayName, wayDesc, wayLvl } from './ways.js';
 import { themeOf, depthScale } from './underbriar.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 import { esc, glyph, head, keybar, entries, infoBox, option, inkWash, padDiagram } from './menuui.js';
+import { PATRONS, PATRON_ORDER, shiftText } from './patrons.js';
+import { OMENS, phaseOf } from './moontonight.js';
 import { PAD_LABEL, PS_LABEL } from './input.js';
 
 const STATS = [
@@ -34,6 +36,7 @@ const SETTINGS = [
     { k: 'tips', label: 'Tips', vals: [true, false], names: ['Show', 'Hide'], desc: 'A few words the first time something new is found: a weapon, gear, a Soul Core, a charm.' },
     { k: 'lockHeight', label: 'Lock-on camera height', vals: [0, 1, 2], names: ['Low', 'Normal', 'High'], desc: 'How far above the knight the camera sits while locked on. Tilt it yourself with the mouse or right stick too.' },
     { k: 'camDist', label: 'Camera distance', vals: [0, 1, 2], names: ['Near', 'Normal', 'Far'], desc: 'How far behind the knight the camera follows.' },
+    { k: 'realMoon', label: 'Follow the real moon', vals: [true, false], names: ['On', 'Off'], desc: 'The moon in the game keeps the real moon\'s phase, with a small blessing for each, and three missions lie under an omen every night.' },
   ] },
   { name: 'Camera', rows: [
     { k: 'sens', label: 'Camera sensitivity', min: .2, max: 3, step: .1, fmt: v => v.toFixed(1), desc: 'How fast the mouse and right stick turn the camera.' },
@@ -95,6 +98,8 @@ const TIPS = [
   ['Ways', 'each New Game+ is a Way: foes grow hardier, gear drops higher, and Divine gear appears.'],
   ['The Underbriar', 'from the Crossroads map: an endless maze made anew at every depth, a warlord every fifth.'],
   ['Deeds', 'long goals kept across everything. Each tier pays Glimmer and a small bonus for good.'],
+  ['Patron Spirits', 'every warlord holds a fae spirit captive; fell it and the spirit is freed. Pledge to one at a Moonwell (Patronage): it lends passives and changes your Fae Shift, its element, its strength and how long it lasts.'],
+  ['The Moon Tonight', 'the moon in the game keeps the real moon\'s phase, and each phase lends a small blessing. Each night three missions lie under an omen (Harvest, Blood or Hunter\'s Moon), marked ☾ on the map. It can be turned off in Settings.'],
 ];
 
 const CPAGES = ['Keyboard & Mouse', 'Gamepad', 'Techniques', 'How it plays'];
@@ -222,6 +227,13 @@ export class Menu {
       case 'descend': G.menu.close(); G.enterUnderbriar(+b.dataset.depth); break;
       case 'leaveAbyss': G.leaveUnderbriar(); break;
       case 'charms': this.push('charms'); break;
+      case 'patrons': this.push('patrons'); break;
+      case 'pledge': {
+        const id = b?.dataset.id || this.cur()?.dataset.id;
+        if (b?.dataset.locked || !G.setPatron(id)) { G.audio.sfx('ui'); G.hud.toast(`Fell the warlord of ${G.LEVELS[PATRONS[id]?.from]?.name || 'its mission'} to free this spirit`); }
+        else G.hud.toast(`${PATRONS[id].name} is pledged to you`, 'anima');
+        this.render(); break;
+      }
       case 'journal': this.push('journal'); break;
       case 'deeds': this.push('deeds'); break;
       case 'moves': this.push('moves', { w: G.player.weapon }); break;
@@ -325,7 +337,9 @@ export class Menu {
     if (screen === 'title') {
       const has = G.save.exists, off = !G.ready;
       cls = 'title nioh';
+      const ph = G.settings.realMoon !== false && phaseOf();
       h = `<h1 class="ntitle">PIXIELORDS</h1><div class="ntag">A fae knight · a warren of rot · a lord upon the throne</div>
+        ${ph ? `<div class="ntonight"><i class="mphase" style="--lit:${ph.lit.toFixed(2)};--wax:${ph.frac < .5 ? 1 : -1}"></i>Tonight: ${esc(ph.name)} · ${esc(ph.desc)}</div>` : ''}
         ${G.ready ? '' : `<div class="loading tl"><i style="transform:scaleX(${G.loadProgress || 0})"></i><span>Summoning the warren… ${Math.round((G.loadProgress || 0) * 100)}%</span></div>`}
         <div class="nlist">${entries([
           has && ['continue', 'Continue', 'Resume', G.save.summary(G.LEVELS), '', off],
@@ -359,7 +373,7 @@ export class Menu {
           L.depth && ['leaveAbyss', 'Resurface', 'Leave the Underbriar', 'Climb back up to the Fae Crossroads.'],
           ['quit', 'Withdraw', 'Quit to title', 'Progress is saved each time you rest at a Moonwell or vanquish a warlord.'],
         ])}</div>
-        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Moondew', `${G.player.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`], ['Way', wayName(sv.data.ng)]])}
+        ${infoBox([['Level', sv.level], ['Glimmer', sv.glimmer.toLocaleString()], ['Moondew', `${G.player.elixirs ?? sv.elixirMax} / ${sv.elixirMax}`], ['Way', wayName(sv.data.ng)], G.tonight && ['Tonight', G.tonight.phase.name + (G.tonight.omen ? ' · ' + G.tonight.omen.name : '')]])}
         ${keybar(G, [['confirm', 'Select'], ['back', 'Back', 'resume']])}`;
     } else if (screen === 'shrine') {
       const sv = G.save, d = sv.data, p = G.player, cost = levelCost(sv.level);
@@ -373,6 +387,7 @@ export class Menu {
           ['gear', 'Harness', 'Equipment', 'Weapons, armour and Soul Cores. Reforge and soul-match here.'],
           ['arsenal', 'Armoury', 'Arsenal', 'Choose two weapons, and forge them stronger.'],
           ['skills', 'Mastery', 'Skills', 'Spend what each weapon has taught you.'],
+          ['patrons', 'Patronage', 'Patron Spirit', `${PATRONS[d.patron || 'lantern'].name} is pledged to you · ${(d.patrons || ['lantern']).length} of ${PATRON_ORDER.length} freed.`],
           d.charms.length && ['charms', 'Trinkets', 'Charms', `${d.equipped.length} of ${CHARM_SLOTS} worn.`],
           ['moves', 'Forms', 'Movesets', 'Each weapon\'s stances, combos and finishers.'],
           ['journal', 'Chronicle', 'Journal', `${d.letters.length} letters · ${d.pixies.length} Lost Pixies freed.`],
@@ -475,6 +490,29 @@ export class Menu {
           ? [[['mPrev', 'mNext'], 'Category', 'gCat'], ['confirm', 'Set in slot 1'], ['mAlt', 'Set in slot 2', 'setCore', 'data-slot="1"'], ['mAlt2', 'Take out', 'coreOut'], back]
           : [[['mPrev', 'mNext'], 'Category', 'gCat'], ['confirm', 'Equip'], ['mAlt', 'Dismantle', 'dismantle'], data.forge && ['mAlt2', 'Forge', 'smith'], back])}`;
       this.onFocus = el => { const box = this.el.querySelector('.gdetail'); if (box) box.innerHTML = this.gearDetail(el, C); };
+    } else if (screen === 'patrons') {
+      // Patron Spirits (patrons.js): the one pledged, and the rest, freed or still held by their warlords.
+      const d = G.save.data, have = d.patrons || ['lantern'], cur = d.patron || 'lantern';
+      const list = PATRON_ORDER.map(id => {
+        const P = PATRONS[id];
+        return have.includes(id)
+          ? `<button class="btn gi" data-act="pledge" data-id="${id}"><span class="ic" style="color:${P.css}">✦</span><span style="color:${P.css}">${esc(P.name)}${id === cur ? '<span class="eq">PLEDGED</span>' : ''}</span><span class="gl">${esc(P.title)}</span></button>`
+          : `<button class="btn gi" data-act="pledge" data-id="${id}" data-locked="1"><span class="ic dim">?</span><span class="dim">A spirit held captive</span><span class="gl dim">${roman(G.ORDER.indexOf(P.from) + 1)}</span></button>`;
+      }).join('');
+      cls = 'gear patrons';
+      h = `${head('Patronage', `${have.length} of ${PATRON_ORDER.length} freed · ${PATRONS[cur].name} pledged`)}
+        <div class="gwrap"><div class="glist"><div class="gcat"><span></span><span>Patron Spirits</span><span></span></div><div class="gitems">${list}</div></div><div class="gdetail"></div></div>
+        ${keybar(G, [['confirm', 'Pledge'], back])}`;
+      this.onFocus = el => {
+        const box = this.el.querySelector('.gdetail'), id = el?.dataset.id, P = PATRONS[id];
+        if (!box || !P) return;
+        if (el.dataset.locked) { box.innerHTML = `<div class="glv"><span>Patron Spirit</span><span></span></div><h3 class="dim">A spirit held captive</h3><div class="gd-note">The warlord of ${esc(G.LEVELS[P.from]?.name || '')} holds it. Fell the warlord to set it free.</div>`; return; }
+        box.innerHTML = `<div class="glv"><span>Patron Spirit</span><span>${id === cur ? 'pledged' : ''}</span></div><h3 style="color:${P.css}">${esc(P.name)}</h3><div class="grar">${esc(P.title)}</div>
+          <div class="gd-sec">While pledged</div>${P.fx.map(([k, v]) => `<div class="gd-fx"><span>${esc(fxText(k, v))}</span></div>`).join('')}
+          <div class="gd-sec">In the Fae Shift</div>${shiftText(P).map(t => `<div class="gd-fx set"><span>${esc(t[0].toUpperCase() + t.slice(1))}</span></div>`).join('')}
+          <div class="gd-fx set"><span>As it begins, a burst that throws back everything within ${P.shift.burst[1]} paces</span></div>
+          <div class="gd-note">${esc(P.lore)}</div>`;
+      };
     } else if (screen === 'cleared') {
       const sv = G.save, L = G.level, m = Math.floor(sv.time / 60), s = Math.floor(sv.time % 60);
       h = `<div class="panel ending"><div class="kicker">Mission complete</div><h1>${esc(L.name.toUpperCase())}</h1>
@@ -491,7 +529,8 @@ export class Menu {
       const prev = G.LEVELS[G.ORDER[i - 1]];
       const labels = O.nodes.map(n => {
         const s = O.status(n.id), vis = s !== 'sealed' && d.seen?.includes(n.id);
-        return `<button class="owl ${vis ? s : 'sealed'} ${n.id === id ? 'sel' : ''}" data-act="node" data-id="${n.id}"><span class="n">${roman(n.i + 1)}</span>${vis ? esc(n.L.name) : 'Sealed'}</button>`;
+        const om = vis && OMENS[G.tonight?.omens[n.id]];
+        return `<button class="owl ${vis ? s : 'sealed'} ${n.id === id ? 'sel' : ''}" data-act="node" data-id="${n.id}"><span class="n">${roman(n.i + 1)}</span>${vis ? esc(n.L.name) : 'Sealed'}${om ? `<span class="omen" style="color:${om.css}" title="${esc(om.name)}">☾</span>` : ''}</button>`;
       }).join('');
       const back = data?.from === 'shrine' ? '<button class="btn" data-act="back">Stay</button>' : data?.from === 'title' ? '<button class="btn" data-act="back">Back</button>' : '<button class="btn" data-act="title">Return to title</button>';
       const keys = G.input.usingPad ? 'D-pad or stick to travel · A to set out' + (data?.from === 'cleared' ? '' : ' · B to go back') : 'Arrows or WASD to travel · Enter to set out' + (data?.from === 'cleared' ? '' : ' · Esc to go back') + ' · or click a landmark';
@@ -500,6 +539,7 @@ export class Menu {
           <div class="kicker">The Fae Crossroads · ${roman(i + 1)} · Lv ${L.level + wayLvl(d.ng)}+${d.ng ? ' · ' + esc(wayName(d.ng)) : ''}</div>
           <h2>${shown ? esc(L.name) : 'Sealed'}</h2>
           ${opening ? '<div class="kicker">A new path opens</div>' : ''}
+          ${shown && OMENS[G.tonight?.omens[id]] ? `<div class="owomen" style="color:${OMENS[G.tonight.omens[id]].css}">☾ Tonight, a ${esc(OMENS[G.tonight.omens[id]].name)}: ${esc(OMENS[G.tonight.omens[id]].desc)}</div>` : ''}
           <p>${esc(shown ? L.blurb : prev ? `The path is not yet open. Clear ${prev.name} to find the way.` : 'The path is not yet open.')}</p>
           ${shown ? `<div class="owstats"><span class="mtag ${st}">${{ cleared: 'Cleared', inprogress: 'In progress', new: 'New' }[st]}</span><span>Moonwells ${m.kindled.length} / ${Object.keys(L.shrines).length}</span><span>Charms ${found} / ${charms.length + trophies.length}</span><span>Letters ${(L.letters || []).filter(l => d.letters.includes(id + ':' + l.id)).length} / ${(L.letters || []).length}</span><span>Pixies ${(L.pixies || []).filter(q => d.pixies.includes(id + ':' + q.id)).length} / ${(L.pixies || []).length}</span></div>` : ''}
           ${st === 'cleared' && !opening ? `<div class="owsides">${sidesOf(id).map(S => `<span class="mtag ${d.sides?.[S.id] ? 'cleared' : 'new'}" title="${esc(S.name)}">${esc(S.kindName)}${d.sides?.[S.id] ? ' ✓' : ''}</span>`).join('')}</div>` : ''}

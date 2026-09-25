@@ -18,9 +18,10 @@ import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
 import { CHARMS } from './charms.js';
 import { deedFx } from './deeds.js';
+import { PATRONS } from './patrons.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
-import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
+import { ARTS, ARTS_ORDER, DART, BOMB, BRAND, SELF, SNARE, LANCE } from './arts.js';
 import { Trail } from './fx.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, smooth, rand } from './util.js';
 
@@ -197,7 +198,7 @@ export class Player {
     this.arts = ['darts']; this.art = 'darts'; this.artUses = {}; this.shots = []; this.brand = null;
     this.rangedOwned = ['wisp']; this.rangedSel = 'wisp'; this.ammo = {}; this.aiming = false; this.shotKick = 0;
     this.stats = { vit: 1, end: 1, str: 1, spi: 1 };
-    this.applyStats();
+    this.setPatron('lantern');
     this.spawnAt(0, 0, 0);
   }
 
@@ -214,9 +215,23 @@ export class Player {
     this.maxKi += this.gf('kiMax') + (this.setBonus('errant2') ? 10 : 0);
     this.animaGain *= 1 + this.gf('anima') / 100 + (this.setBonus('pilgrim2') ? .15 : 0);
     if (this.setBonus('pilgrim4')) this.shiftDur += 5;
+    this.shiftDur *= this.pshift?.dur || 1;
   }
   // Gear: what is worn, and the weapon in hand, summed (gear.js). The knight takes on its mail's colours.
-  gf(id) { return (this.gear?.fx[id] || 0) + (this.charmFx?.[id] || 0) + (this.deedFx?.[id] || 0); }
+  gf(id) { return (this.gear?.fx[id] || 0) + (this.charmFx?.[id] || 0) + (this.deedFx?.[id] || 0) + (this.patronFx?.[id] || 0) + (this.moonFx?.[id] || 0); }
+  // The Moon Tonight's blessing (moontonight.js), as gear effects.
+  setMoon(fx) {
+    this.moonFx = {}; for (const [k, v] of fx || []) this.moonFx[k] = (this.moonFx[k] || 0) + v;
+    const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp));
+  }
+  // The Patron Spirit pledged (patrons.js): its passives, and what it does to the Fae Shift.
+  setPatron(id) {
+    const P = PATRONS[id] || PATRONS.lantern;
+    this.patron = PATRONS[id] ? id : 'lantern'; this.pshift = P.shift; this.patronFx = {};
+    for (const [k, v] of P.fx) this.patronFx[k] = (this.patronFx[k] || 0) + v;
+    const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp));
+    if (this.shifted) this.setShiftLook(true);
+  }
   // Deeds earned (deeds.js): their bonuses, for good.
   applyDeeds() { this.deedFx = deedFx(this.G.save?.data.deeds); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
   setBonus(id) { return !!this.gear?.bonus.has(id); }
@@ -246,7 +261,7 @@ export class Player {
     this.cmb = { list: null, kind: null, form: null, i: 0, step: 0, until: -9, pauseAt: 9e9, cued: false };   // the chain in progress
     this.combo = { n: 0, t: -9 };   // the combo counter
     this.carry = null; this.waves = []; this.glideT = 0; this.gliding = false; this.wasSprinting = false; this.pressT = 0;
-    this.brand = null; this.refillArts(); this.endAim?.(); this.refillAmmo?.();
+    this.brand = null; this.veilUntil = this.hasteUntil = 0; this.pollen = null; this.refillArts(); this.endAim?.(); this.refillAmmo?.();
     for (const s of this.shots) this.dropShot(s); this.shots = [];
     this.shifted = false; this.iframes = false; this.iframesT = 0; this.guarding = false;
     this.exhaustPending = false; this.kiSpentT = -9; this.guardPressT = -9;
@@ -297,6 +312,7 @@ export class Player {
   // ------------------------------------------------ resources
   spendKi(cost, pulseable = true) {
     if (this.shifted) cost *= .25;
+    if (this.G.time < (this.hasteUntil || 0)) cost *= SELF.haste;
     this.ki -= cost;
     this.kiSpentT = this.G.time;
     if (this.ki <= 0 && !this.shifted) { this.ki = Math.max(this.ki, -15); this.exhaustPending = true; }
@@ -618,7 +634,7 @@ export class Player {
     if (this.hexFire) this.hexN = 0;
     this.hurled = false;
     this.atk = a; this.atkKey = key; this.hitSet = new Set(); this.multiBeat = -1; this.atkT0 = G.time;
-    this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 : 1) * (1 + this.frenzy.n * FRENZY.speed) * (a.speed || 1);
+    this.aspeed = S.speed * this.W.speed * (this.shifted ? 1.15 * (this.pshift?.speed || 1) : 1) * (G.time < (this.hasteUntil || 0) ? SELF.hasteSpeed : 1) * (1 + this.frenzy.n * FRENZY.speed) * (a.speed || 1);
     this.setState('attack');
     this.anim.play(this.W.oneHand && ACTIONS['oh:' + a.anim] ? 'oh:' + a.anim : a.anim, this.aspeed, .04);
     if (this.iaiMul > 1) { this.k.tip.getWorldPosition(_b); G.fx.flash(_b, 0xdff4ff, 1.6, .3, true); G.audio.sfx('flashDraw', { vol: .6 }); }
@@ -892,13 +908,13 @@ export class Player {
       return 'blocked';
     }
     // Hit: armour and wards take their share.
-    let dmg = h.dmg * (1 - defReduce(this.gear?.def || 0)) * (1 - this.gf('ward') / 100);
+    let dmg = h.dmg * (1 - defReduce(this.gear?.def || 0)) * (1 - this.gf('ward') / 100) * (G.time < (this.veilUntil || 0) ? SELF.veil : 1);
     const stalwart = this.state === 'attack' && this.weapon === 'hammer' && !this.atk.air && this.st * this.aspeed < this.atk.hit[1] + .1;
     if (stalwart) dmg *= this.sk('mech') ? .65 : STALWART.dmg;
     if (this.shifted) {
-      this.anima -= dmg * .5;
+      this.anima -= dmg * (this.pshift?.ward ?? .5);
       dmg = 0;
-      G.fx.spark(_a.set(this.pos.x, 1.2, this.pos.z), { x: 0, z: 0 }, 14, 0xff7ae0, 5);
+      G.fx.spark(_a.set(this.pos.x, 1.2, this.pos.z), { x: 0, z: 0 }, 14, this.shiftCol(), 5);
       if (this.anima <= 0) this.endShift();
     }
     this.hp -= dmg;
@@ -964,37 +980,47 @@ export class Player {
   }
 
   startShift() {
-    const G = this.G;
+    const G = this.G, P = PATRONS[this.patron] || PATRONS.lantern, col = P.color;
     this.shifted = true; this.shiftT = this.shiftDur;
     this.setShiftLook(true);
-    G.fx.ring(this.pos, 0xff7ae0, 5, .6);
-    G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0xff9cf0, 40, 1, 3, .14, 1.2);
-    G.hud.toast('Fae Shift', 'anima');
+    G.fx.ring(this.pos, col, 5, .6);
+    G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, col, 40, 1, 3, .14, 1.2);
+    G.hud.toast(this.patron === 'lantern' ? 'Fae Shift' : `Fae Shift · ${P.name}`, 'anima');
     G.hud.screenFlash('shift');
+    // The patron's burst: everything near is thrown back, and takes its element.
+    const [bd, br] = this.pshift?.burst || [90, 3];
+    for (const e of G.enemies) {
+      if (!e.alive || e.burrowed || Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z) > br + e.radius) continue;
+      e.takeHit({ dmg: bd * this.dmgMul, ki: 40, poise: 40, dir: yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z), heavy: true, kb: 5 });
+      const el = this.pshift?.element;
+      if (el === 'ember') e.burn(BRAND.burn); else if (el === 'rime') e.rime(BRAND.rime); else if (el === 'bleed') e.bleed?.();
+    }
+    G.fx.ring(this.pos, col, br, .5);
   }
+  shiftCol() { return (PATRONS[this.patron] || PATRONS.lantern).color; }
 
   endShift(silent = false) {
     if (!this.shifted) return;
     this.shifted = false; this.anima = 0;
     this.setShiftLook(false);
-    if (!silent) { this.G.fx.ring(this.pos, 0xff7ae0, 3, .5); this.G.audio.sfx('pulse', { vol: .5 }); }
+    if (!silent) { this.G.fx.ring(this.pos, this.shiftCol(), 3, .5); this.G.audio.sfx('pulse', { vol: .5 }); }
   }
 
   setShiftLook(on) {
-    const k = this.k;
-    k.mats.blade.emissive.setHex(on ? 0xff4ad0 : 0x4fd8ff);
+    const k = this.k, c = this.shiftCol();
+    k.mats.blade.emissive.setHex(on ? c : 0x4fd8ff);
     k.mats.blade.emissiveIntensity = on ? 1.2 : .12;
-    k.mats.wing.color.setHex(on ? 0xffb0f0 : 0xffffff);
-    k.mats.visor.emissive.setHex(on ? 0xff6ad5 : 0x7ff0ff);
+    k.mats.wing.color.setHex(on ? new THREE.Color(c).lerp(new THREE.Color(0xffffff), .45).getHex() : 0xffffff);
+    k.mats.visor.emissive.setHex(on ? c : 0x7ff0ff);
     k.fuller.visible = on;
     this.refreshLook();
   }
   // Trail and blade colour: pink in a Fae Shift, the brand's colour while one lasts, else the weapon's own.
   refreshLook() {
     const k = this.k, b = this.brand && ARTS[this.brand.kind];
-    const col = this.shifted ? 0xff6ad5 : b ? b.hex : this.W.color;
+    const col = this.shifted ? this.shiftCol() : b ? b.hex : this.W.color;
     this.trail.mat.uniforms.uColor.value.setHex(col); this.trail2.mat.uniforms.uColor.value.setHex(col);
-    k.mats.blade.emissive.setHex(this.shifted ? 0xff4ad0 : b ? b.hex : 0x4fd8ff);
+    k.mats.blade.emissive.setHex(this.shifted ? this.shiftCol() : b ? b.hex : 0x4fd8ff);
     k.mats.blade.emissiveIntensity = this.shifted ? 1.2 : b ? .9 : .12;
   }
 
@@ -1022,9 +1048,9 @@ export class Player {
     if (!(this.artUses[id] > 0)) { G.hud.toast(`No ${A.name} left — more at a Moonwell`); return false; }
     this.artUses[id]--; G.tally?.('arts');
     this.artKind = id; this.artFired = false; this.pulse = null;
-    this.setState('art'); this.anim.play(A.brand ? 'brand' : 'throw', 1.2, .04);
+    this.setState('art'); this.anim.play(A.brand || A.self ? 'brand' : 'throw', 1.2, .04);
     this.faceTarget(true);
-    G.audio.sfx(A.brand ? 'magic' : 'swing', { pitch: 1.3, vol: .7 });
+    G.audio.sfx(A.brand || A.self ? 'magic' : 'swing', { pitch: 1.3, vol: .7 });
     return true;
   }
   fireArt(id) {
@@ -1034,6 +1060,15 @@ export class Player {
       this.refreshLook();
       G.hud.toast(A.name, 'anima'); G.fx.ring(this.pos, A.hex, 2.2, .4); G.audio.sfx('pulse');
       this.k.tip.getWorldPosition(_b); G.fx.flash(_b, A.hex, 1.6, .4, true);
+      return;
+    }
+    // Laid on yourself: a veil, pollen, a haste.
+    if (A.self) {
+      if (id === 'veil') this.veilUntil = G.time + SELF.dur;
+      if (id === 'haste') this.hasteUntil = G.time + SELF.dur;
+      if (id === 'pollen') this.pollen = { until: G.time + SELF.pollenDur, per: this.maxHp * SELF.pollen / SELF.pollenDur };
+      G.hud.toast(A.name, 'anima'); G.fx.ring(this.pos, A.hex, 2.4, .45); G.audio.sfx('pulse');
+      G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, A.hex, 30, .8, 2.4, .12, 1);
       return;
     }
     // Aim at the locked foe, else the nearest ahead, else straight on.
@@ -1048,11 +1083,24 @@ export class Player {
         this.addShot({ kind: 'dart', mesh, x: _a.x, y: _a.y, z: _a.z, vx: Math.sin(yaw + o) * DART.speed, vz: Math.cos(yaw + o) * DART.speed, vy: (ty - _a.y) / d * DART.speed, life: DART.life, yaw: yaw + o });
       }
       G.audio.sfx('throw');
-    } else if (id === 'bomb') {
+    } else if (id === 'bomb' || id === 'snare') {
       const d = t ? Math.min(BOMB.range, Math.hypot(t.pos.x - this.pos.x, t.pos.z - this.pos.z)) : 8;
-      const mesh = new THREE.Mesh(new THREE.SphereGeometry(.13, 10, 8), new THREE.MeshBasicMaterial({ color: A.hex }));
-      this.addShot({ kind: 'bomb', mesh, x0: _a.x, y0: _a.y, z0: _a.z, x1: this.pos.x + Math.sin(yaw) * d, z1: this.pos.z + Math.cos(yaw) * d, dur: BOMB.flight });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(id === 'snare' ? .1 : .13, 10, 8), new THREE.MeshBasicMaterial({ color: A.hex }));
+      this.addShot({ kind: id, mesh, x0: _a.x, y0: _a.y, z0: _a.z, x1: this.pos.x + Math.sin(yaw) * d, z1: this.pos.z + Math.cos(yaw) * d, dur: id === 'snare' ? SNARE.flight : BOMB.flight });
       G.audio.sfx('throw');
+    } else if (id === 'lance') {
+      // A lance of moonlight: straight through everything in its line.
+      const ex = this.pos.x + Math.sin(yaw) * LANCE.range, ez = this.pos.z + Math.cos(yaw) * LANCE.range;
+      for (const e of G.enemies) {
+        if (!e.alive || e.burrowed) continue;
+        const rx = e.pos.x - this.pos.x, rz = e.pos.z - this.pos.z, along = rx * Math.sin(yaw) + rz * Math.cos(yaw), side = Math.abs(rx * Math.cos(yaw) - rz * Math.sin(yaw));
+        if (along < 0 || along > LANCE.range || side > LANCE.width + e.radius) continue;
+        const res = e.takeHit({ dmg: LANCE.dmg * this.dmgMul * (e.boss ? .7 : 1), ki: LANCE.ki, poise: LANCE.poise, dir: yaw, heavy: true, kb: 3 });
+        if (res) { this.combo.n++; this.combo.t = G.time; }
+      }
+      G.fx.bolt({ x: _a.x, y: _a.y, z: _a.z }, { x: ex, y: 1.1, z: ez }, A.hex);
+      G.fx.flash({ x: ex, y: 1.1, z: ez }, A.hex, 1.6, .3, true);
+      G.audio.sfx('glint', { pitch: .7 }); G.cam.shake(.2);
     }
   }
   addShot(s) { s.t = 0; s.hit = new Set(); this.G.scene.add(s.mesh); this.shots.push(s); }
@@ -1153,13 +1201,25 @@ export class Player {
         done = this.updateCloud(s, dt);
       } else if (s.kind.startsWith('r_')) {
         done = this.updateRangedShot(s, dt);
-      } else if (s.kind === 'bomb') {
+      } else if (s.kind === 'bomb' || s.kind === 'snare') {
         const u = Math.min(1, s.t / s.dur);
         s.mesh.position.set(s.x0 + (s.x1 - s.x0) * u, s.y0 * (1 - u) + 3 * 4 * u * (1 - u) * .8, s.z0 + (s.z1 - s.z0) * u);
-        if (Math.random() < dt * 50) G.fx.motes(s.mesh.position, 0xffb070, 1, .05, .3, .08, .4);
-        if (u >= 1) { done = true; this.bombBurst(s.x1, s.z1, s); }
+        if (Math.random() < dt * 50) G.fx.motes(s.mesh.position, s.kind === 'snare' ? 0x9ac860 : 0xffb070, 1, .05, .3, .08, .4);
+        if (u >= 1) { done = true; if (s.kind === 'snare') this.snareBurst(s.x1, s.z1); else this.bombBurst(s.x1, s.z1, s); }
       }
       if (done) { this.dropShot(s); this.shots.splice(i, 1); }
+    }
+  }
+  // Briar Snare: briars burst up where the seed lands, and hold what they catch near-still.
+  snareBurst(x, z) {
+    const G = this.G, p = { x, y: 0, z };
+    G.fx.ring(p, 0x9ac860, SNARE.radius, .45); G.fx.debris?.(p, 0x4a6a2a, 14);
+    G.fx.motes({ x, y: .4, z }, 0x9ac860, 40, SNARE.radius * .5, 1.2, .1, 1.2);
+    G.audio.sfx('wood', { x, z }); G.audio.sfx('poison', { x, z, vol: .5 });
+    for (const e of G.enemies) {
+      if (!e.alive || e.burrowed || e.pos.y > 2 || Math.hypot(e.pos.x - x, e.pos.z - z) > SNARE.radius + e.radius) continue;
+      const res = e.takeHit({ dmg: SNARE.dmg * this.dmgMul, ki: 20, poise: 30, dir: yawTo(x, z, e.pos.x, e.pos.z) });
+      if (res && res !== 'blocked') e.rime(SNARE.hold * (e.boss ? .5 : 1));
     }
   }
   bombBurst(x, z, s = null) {
@@ -1513,7 +1573,7 @@ export class Player {
         break;
       case 'art': {
         // Throw from the off hand, or draw the brand along the weapon; a slow walk meanwhile.
-        const A = ARTS[this.artKind], at = A.brand ? .35 : .13, end = A.brand ? .66 : .42, s = 2 * mag;
+        const A = ARTS[this.artKind], at = A.brand || A.self ? .35 : .13, end = A.brand || A.self ? .66 : .42, s = 2 * mag;
         if (moveInput()) want = { x: Math.sin(this.inputYaw) * s, z: Math.cos(this.inputYaw) * s };
         if (!this.artFired && this.st >= at) { this.artFired = true; this.fireArt(this.artKind); }
         if (this.artFired) { const c = takeAny(['dodge', 'light', 'heavy']); if (c && this.tryStart(c)) break; }
@@ -1779,7 +1839,7 @@ export class Player {
       * (a.heavy || a.fin ? 1 + this.gf('heavy') / 100 : 1) * (this.isPause ? 1 + this.gf('pause') / 100 : 1)
       * (behind ? 1 + this.gf('back') / 100 + (this.setBonus('stalker2') ? .15 : 0) : 1)
       * (this.setBonus('delver4') && hpK < .5 ? 1.12 : 1) * (this.setBonus('pilgrim4') && this.shifted ? 1.15 : 1);
-    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * (this.shifted ? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
+    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * (this.shifted ? this.pshift?.dmg ?? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
     // Knockback: Snare pulls, Reap's sweeps draw in, Sweep and Gale push.
     let kb = last > 1 ? Math.max(a.kb ?? 0, 4.5) : a.kb;
     if (wid === 'chain' && !a.air) kb = Math.min(a.kb < 0 ? a.kb : 0, a.heavy || a.fin ? -5 : -1.8) * (mm ? 1.5 : 1);
@@ -1787,7 +1847,7 @@ export class Player {
     if (wid === 'staff') kb = (kb ?? (a.heavy ? 4.5 : 2)) + 2;
     if (wid === 'fans' && !(kb < 0)) kb = Math.max(kb ?? 0, 4);
     const flow = (wid === 'fists' ? FLOW.posture : wid === 'hatchets' ? 1.15 : wid === 'saw' ? 1.4 : 1) * (this.brand?.kind === 'storm' ? BRAND.stormKi : 1) * (1 + this.gf('ki') / 100);
-    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
+    const res = e.takeHit({ dmg: a.dmg * mul, ki: a.ki * S.ki * cm * Math.sqrt(cmb) * flow * (this.shifted ? this.pshift?.ki ?? 1.5 : 1) * (this.has('knuckle') ? 1.2 : 1), poise: a.poise * cm * last * (this.stance === 'high' ? 1.3 : 1), dir, heavy: !!a.heavy || last > 1, kb, airY: this.pos.y > .3 ? this.pos.y : undefined });
     if (!res) return;
     this.combo.n++; this.combo.t = G.time;
     this.gainMastery(res === 'kill' ? XP.kill : a.heavy || a.fin ? XP.heavy : XP.hit);
@@ -1812,8 +1872,20 @@ export class Player {
       if (Math.random() * 100 < this.gf('frost') + (this.setBonus('winter4') ? 20 : 0)) e.rime(BRAND.rime);
       if (Math.random() * 100 < this.gf('bleed') || (behind && this.setBonus('stalker4'))) e.bleed?.();
     }
-    // Brands: fire burns, frost slows, storm leaps to a second foe nearby.
-    const brand = this.brand?.kind;
+    // A Patron Spirit's Shift: its element on every strike, and mending, Faelight, an echo of the strike.
+    const ps = this.shifted && this.pshift;
+    if (ps && res !== 'blocked') {
+      if (ps.element === 'bleed') e.bleed?.();
+      if (ps.leech) this.heal(a.dmg * mul * ps.leech);
+      if (ps.feed) this.anima = Math.min(100, this.anima + ps.feed);
+      if (ps.echo && !a.echo && e.alive) G.after(.14, () => {
+        if (!e.alive) return;
+        e.takeHit({ dmg: a.dmg * mul * ps.echo, ki: a.ki * .3, poise: 2, dir, echo: true });
+        G.fx.flash({ x: e.pos.x, y: e.pos.y + e.height * .6, z: e.pos.z }, this.shiftCol(), 1.1, .25, true);
+      });
+    }
+    // Brands (and a patron's element): fire burns, frost slows, storm leaps to a second foe nearby.
+    const brand = this.brand?.kind || (ps && ps.element !== 'bleed' ? ps.element : null);
     if (brand === 'ember' && res !== 'blocked') e.burn(BRAND.burn);
     if (brand === 'rime' && res !== 'blocked') e.rime(BRAND.rime);
     if (brand === 'storm' && G.time > (this.arcT || 0)) {
@@ -1832,7 +1904,7 @@ export class Player {
     const p = _a.set(e.pos.x - dx / d * e.radius * .6, e.pos.y + Math.min(1.3, e.height * .55), e.pos.z - dz / d * e.radius * .6);
     const side = this.atkKey === 'light1' || this.atkKey === 'light4' ? 1 : -1;
     const sdir = { x: Math.cos(dir) * side, z: -Math.sin(dir) * side };
-    G.fx.spark(p, sdir, a.heavy ? 22 : 12, this.shifted ? 0xff9cf0 : 0xffd080, a.heavy ? 8 : 6);
+    G.fx.spark(p, sdir, a.heavy ? 22 : 12, this.shifted ? this.shiftCol() : 0xffd080, a.heavy ? 8 : 6);
     G.fx.blood(p, { x: dx / d, z: dz / d }, a.heavy ? 16 : 8, 0x2a0606);
     G.audio.sfx(a.heavy ? 'hitHeavy' : 'hit', { x: e.pos.x, z: e.pos.z });
     G.hitstop = Math.max(G.hitstop, a.multi ? .02 : a.heavy ? .08 : .045);
@@ -1871,13 +1943,17 @@ export class Player {
     }
     if (this.shifted) {
       this.anima -= 100 / this.shiftDur * dt;
-      if (Math.random() < dt * 30) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, Math.random() < .5 ? 0xff9cf0 : 0x9ff3ff, 1, .5, 1, .1, .8);
+      if (Math.random() < dt * 30) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, Math.random() < .5 ? this.shiftCol() : 0x9ff3ff, 1, .5, 1, .1, .8);
       if (this.anima <= 0) this.endShift();
     }
     if (this.state !== 'attack') this.aoeDone = false;
     if (this.frenzy.n && G.time - this.frenzy.t > FRENZY.keep * (this.has('wildfang') ? 1.8 : 1)) this.frenzy.n = 0;
     if (this.combo.n && G.time - this.combo.t > COMBO.keep + this.gf('comboKeep')) this.combo.n = 0;
     if (this.frenzied() && Math.random() < dt * 24) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, 0xff5a5a, 1, .4, .8, .08, .6);
+    // Self-laid arts: pollen mends as it lasts; a veil and a haste shimmer about you.
+    if (this.pollen) { if (G.time >= this.pollen.until) this.pollen = null; else { this.heal(this.pollen.per * dt); if (Math.random() < dt * 14) G.fx.motes({ x: this.pos.x, y: 1.2, z: this.pos.z }, 0xc8f0a0, 1, .6, .8, .08, .9); } }
+    if (G.time < (this.veilUntil || 0) && Math.random() < dt * 10) G.fx.motes({ x: this.pos.x, y: 1.1, z: this.pos.z }, 0xd8e4ff, 1, .7, .4, .07, .7);
+    if (G.time < (this.hasteUntil || 0) && Math.random() < dt * 10) G.fx.motes({ x: this.pos.x, y: .5, z: this.pos.z }, 0xffc8ec, 1, .4, .6, .06, .5);
     if (this.brand) {
       if (G.time >= this.brand.until) { this.brand = null; this.refreshLook(); }
       else if (Math.random() < dt * 24) { this.k.tip.getWorldPosition(_b); G.fx.motes(_b, ARTS[this.brand.kind].hex, 1, .12, .4, .07, .45); }
@@ -1923,8 +1999,8 @@ export class Player {
     else _a.set(this.pos.x - Math.cos(this.yaw) * .55 - Math.sin(this.yaw) * .45, 2.05 + Math.sin(wt * 2.3) * .1, this.pos.z + Math.sin(this.yaw) * .55 - Math.cos(this.yaw) * .45);
     this.wispPos.lerp(_a, 1 - Math.exp(-dt * (this.wispPos.lengthSq() ? 7 : 1e3)));
     this.wisp.position.copy(this.wispPos);
-    this.wispLight.color.setHex(this.shifted ? 0xffb0f0 : 0xd8ecff);
-    if (Math.random() < dt * 8) G.fx.motes(this.wispPos, this.shifted ? 0xff9cf0 : 0xcff6ff, 1, .05, .1, .05, .6);
+    this.wispLight.color.setHex(this.shifted ? this.shiftCol() : 0xd8ecff);
+    if (Math.random() < dt * 8) G.fx.motes(this.wispPos, this.shifted ? this.shiftCol() : 0xcff6ff, 1, .05, .1, .05, .6);
     // Resonance cue: light gathers while the window is open. Flash window: a white gleam.
     const g = k.glow.material;
     if (this.flash) {
@@ -1936,7 +2012,7 @@ export class Player {
       k.glow.scale.setScalar(perfect ? 1.9 : 1.6);
       if (Math.random() < dt * 40) G.fx.motes({ x: this.pos.x, y: .3, z: this.pos.z }, 0x9ff3ff, 1, .5, 2.5, .08, .4);
     } else if (this.shifted) {
-      g.color.setHex(0xff7ae0); g.opacity = .2 + Math.sin(G.time * 6) * .06; k.glow.scale.setScalar(2);
+      g.color.setHex(this.shiftCol()); g.opacity = .2 + Math.sin(G.time * 6) * .06; k.glow.scale.setScalar(2);
     } else g.opacity = Math.max(0, g.opacity - dt * 4);
     for (const t of k.antTip) t.scale.setScalar(this.pulse ? 1.8 : 1);
   }

@@ -110,7 +110,8 @@ export default {
     { id: 'grace1', x: -16, z: 64, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: 4, z: 64, kind: 'glimmer', amount: 8800, label: 'Glimmer Shard', desc: '+8800 Glimmer', inside: 'gurn' },
     { id: 'glimmer3', x: 6, z: 156, kind: 'glimmer', amount: 9400, label: 'Glimmer Shard', desc: '+9400 Glimmer' },
-    { id: 'glimmer4', x: 28, z: 48, kind: 'glimmer', amount: 8000, label: 'Glimmer Shard', desc: '+8000 Glimmer', inside: 'ourn' },
+    { id: 'art-snare', x: 28, z: 48, kind: 'art', art: 'snare', label: 'Briar Snare', desc: 'a Fae Art: seeds of the Court\'s own briar', inside: 'ourn',
+      tip: 'Briar Snare throws a seed that bursts into briars where it lands, holding foes near-still for four seconds.\nChange Fae Arts with Y (the d-pad\'s right on a gamepad); their uses return at every Moonwell.' },
   ],
   letters: [
     { id: 'gardener', x: -17.5, z: 22.5, title: "The Gardener's Last Instruction", text: 'Cut back the roses every new moon. Every new moon. If you let them grow through a whole month they will not stop.\n\nThere has been no new moon for a year. The moon only wanes now, and never quite goes, and the roses have not stopped.' },

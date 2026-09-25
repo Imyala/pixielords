@@ -32,6 +32,7 @@ export function championOdds(G) {
   if (L?.depth) p = Math.min(.5, .03 + L.depth * .008 + way * .06);
   const deep = L?.depth || 0;
   const max = 1 + (way >= 2 || deep >= 15 || S?.kind === 'twilight' ? 1 : 0) + (way >= 3 || deep >= 35 ? 1 : 0);
+  p *= G.tonight?.champ || 1;   // the night's moon (moontonight.js)
   return { p: Math.min(.55, p), max };
 }
 

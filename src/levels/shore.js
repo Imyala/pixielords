@@ -104,7 +104,8 @@ export default {
     { id: 'grace1', x: 16, z: 66, kind: 'grace', label: 'Moondew Phial', desc: 'One more draught of Moondew, every rest.' },
     { id: 'glimmer2', x: -16, z: 66, kind: 'glimmer', amount: 14800, label: 'Glimmer Shard', desc: '+14800 Glimmer', inside: 'surn' },
     { id: 'glimmer3', x: 12, z: 133, kind: 'glimmer', amount: 15600, label: 'Glimmer Shard', desc: '+15600 Glimmer' },
-    { id: 'glimmer4', x: 30, z: 32, kind: 'glimmer', amount: 14400, label: 'Glimmer Shard', desc: '+14400 Glimmer', inside: 'wcrate' },
+    { id: 'art-pollen', x: 30, z: 32, kind: 'art', art: 'pollen', label: 'Healing Pollen', desc: 'a Fae Art: pollen from the moon\'s first garden', inside: 'wcrate',
+      tip: 'Healing Pollen mends a third of your health over six seconds.\nChange Fae Arts with Y (the d-pad\'s right on a gamepad); their uses return at every Moonwell.' },
   ],
   letters: [
     { id: 'barge', x: 36, z: 46.5, title: 'The Barge-Master\'s Log', text: 'Day nine on the river of light. The Lantern Court sent twelve of us up to see why the moon was waning. The river set us down on silver sand, and the barge broke on it.\n\nThe others went inland to the lighthouse. I stayed with the lamps. I can hear something under the sand, breathing with the tide.' },
