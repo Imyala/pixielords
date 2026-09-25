@@ -12,6 +12,7 @@ import { PACK } from './loot.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES, sidesOf } from './sides.js';
 import { wayName, wayDesc } from './ways.js';
+import { themeOf } from './underbriar.js';
 import { TREE, xpFor, pointsAt, treeCost, canLearn, treeFor, SKILL_KITS, MECH_MASTERY } from './skills.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -321,7 +322,7 @@ export class Menu {
       // The endless maze under the Crossroads: start from the first depth or any lit Moonwell reached.
       const a = G.save.data.abyss || { cps: [1], best: 0 };
       const rows = [...a.cps].sort((x, y) => y - x).map(cp => {
-        const L = G.LEVELS[['keep', 'rotwood', 'deep', 'moonspire', 'frostmere'][Math.floor((cp - 1) / 5) % 5]];
+        const L = G.LEVELS[themeOf(cp)];
         return `<button class="btn side" data-act="descend" data-depth="${cp}"><span class="kicker">Depth ${cp} · Lv ${Math.round(1 + (cp - 1) * 2.3) + G.save.data.ng * 20}+${cp === 1 ? ' · the beginning' : ' · a lit Moonwell'}</span><b>Descend from Depth ${cp}</b><small>Its halls are dressed as ${esc(L.name)}'s.</small></button>`;
       }).join('');
       h = `<div class="panel wide sides"><div class="kicker">Beneath the Fae Crossroads · deepest cleared: ${a.best || 0}</div><h2>The Underbriar</h2>

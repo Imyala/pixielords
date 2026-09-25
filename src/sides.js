@@ -37,6 +37,27 @@ export const SIDES = Object.fromEntries([
   side('frostmere', 'twilight', { name: 'Twilight: The Longest Night', desc: 'Winter\'s court holds its revel under a moon the colour of a wound.', glimmer: 14000, minRar: 3, moonlit: true }),
   side('frostmere', 'hunt', { name: 'Hunt: The Rime Knight Reforged', desc: 'The Rime Knight\'s armour has grown back thicker. So has its temper.', target: 'knight', hp: 1.5, dmg: 1.3, glimmer: 8800, minRar: 3 }),
   side('frostmere', 'duel', { name: 'Duel: The Lanternless Knight', desc: 'The knight who carried the moon\'s last lantern to the Frostmere, and lost it. Its echo will not let you pass.', foe: 'revenant-lanternless', glimmer: 12000, minRar: 3, moonlit: true }),
+
+  // The second act, across the Moonlit Sea.
+  side('abbey', 'twilight', { name: 'Twilight: The Abbey at Spring Tide', desc: 'The sea is at the altar, and every bell in the abbey is ringing at once.', glimmer: 18000, minRar: 3 }),
+  side('abbey', 'hunt', { name: 'Hunt: Tolland Rings Again', desc: 'Brother Tolland has hung a new bell. He will ring it until someone makes him stop.', target: 'tolland', hp: 1.6, dmg: 1.3, glimmer: 11000, minRar: 3 }),
+  side('abbey', 'duel', { name: 'Duel: Sir Wendel Graves', desc: 'A gravedigger-knight who buried the abbey\'s drowned, and was buried with them. His daggers are still sharp.', foe: 'revenant-graves', glimmer: 16000, minRar: 3 }),
+
+  side('forge', 'twilight', { name: 'Twilight: The Forge Unbanked', desc: 'Every furnace in the mountain roars at once, and the iron runs in the halls.', glimmer: 22000, minRar: 3 }),
+  side('forge', 'hunt', { name: 'Hunt: Ghurk\'s Masterwork', desc: 'Forgemaster Ghurk has made himself a new hammer, and wants to try it on someone.', target: 'ghurk', hp: 1.6, dmg: 1.3, glimmer: 13500, minRar: 3 }),
+  side('forge', 'duel', { name: 'Duel: Dame Ashkettle', desc: 'A smith-knight of the Lantern Court who fought the forge from within. Her hatchets still burn.', foe: 'revenant-ashkettle', glimmer: 20000, minRar: 3 }),
+
+  side('thornwood', 'twilight', { name: 'Twilight: The Rose Unpruned', desc: 'A whole month of the waning moon, and no one has cut the roses back.', glimmer: 26000, minRar: 3 }),
+  side('thornwood', 'hunt', { name: 'Hunt: Sir Caddoc\'s Oath', desc: 'Sir Caddoc swore to keep the gate, and an oath does not end with a death.', target: 'caddoc', hp: 1.5, dmg: 1.3, glimmer: 16000, minRar: 3 }),
+  side('thornwood', 'duel', { name: 'Duel: Brother Rook', desc: 'The Court\'s old huntsman, who went into the briar after the Queen\'s son and never came out.', foe: 'revenant-rook', glimmer: 24000, minRar: 3 }),
+
+  side('crater', 'twilight', { name: 'Twilight: The Night of Falling Stars', desc: 'The sky is falling into the crater again, and everything in it is hungry.', glimmer: 30000, minRar: 3 }),
+  side('crater', 'hunt', { name: 'Hunt: The Shardling Regrown', desc: 'The glass has grown back through the Shardling, thicker and sharper.', target: 'shardling', hp: 1.5, dmg: 1.3, glimmer: 19000, minRar: 3 }),
+  side('crater', 'duel', { name: 'Duel: Sister Cinderwing', desc: 'A dancer of the Lantern Court who came to see the fallen star, and stayed to dance on it.', foe: 'revenant-cinderwing', glimmer: 28000, minRar: 3, moonlit: true }),
+
+  side('court', 'twilight', { name: 'Twilight: The Moon\'s Last Quarter', desc: 'The moon hangs at its thinnest over the Court, and the Queen\'s knights are at their fiercest.', glimmer: 36000, minRar: 3, moonlit: true }),
+  side('court', 'hunt', { name: 'Hunt: Maelis Again', desc: 'Maelis keeps coming back to the Vigil. She does not remember why. Neither do the Queen\'s knights beside her.', target: 'maelis', hp: 1.4, dmg: 1.3, glimmer: 23000, minRar: 3, moonlit: true }),
+  side('court', 'duel', { name: 'Duel: The Oathbound', desc: 'The first knight the Lantern Queen ever sent out, sworn to her before she waned. It keeps the oath still.', foe: 'revenant-oathbound', glimmer: 34000, minRar: 3, moonlit: true }),
 ].map(s => [s.id, s]));
 
 // The side missions a mission offers, in order.

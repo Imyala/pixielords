@@ -9,13 +9,14 @@
 import * as THREE from 'three';
 import { rng } from './util.js';
 import { LEVELS } from './levels/index.js';
+import { raiseRooms } from './levels/rooms.js';
 
 export const CHECK_EVERY = 5;
 export const isBossDepth = depth => depth % CHECK_EVERY === 0;
 export const isCheckpoint = depth => (depth - 1) % CHECK_EVERY === 0;
 export const checkpointOf = depth => depth - (depth - 1) % CHECK_EVERY;
 
-const THEMES = ['keep', 'rotwood', 'deep', 'moonspire', 'frostmere'];
+const THEMES = ['keep', 'rotwood', 'deep', 'moonspire', 'frostmere', 'abbey', 'forge', 'thornwood', 'crater', 'court'];
 export const themeOf = depth => THEMES[Math.floor((depth - 1) / CHECK_EVERY) % THEMES.length];
 const LOOK = {
   keep: { floor: 'floor', edge: 'wall', flags: {}, rooms: ['Hall', 'Gallery', 'Cellar', 'Crypt', 'Armoury', 'Chapel'], fire: 0xff8a3a },
@@ -23,6 +24,11 @@ const LOOK = {
   deep: { floor: 'cavefloor', edge: 'cliff', flags: { cave: true }, rooms: ['Drift', 'Grotto', 'Seam', 'Pit', 'Vein', 'Burrow'], fire: 0x7fe8ff },
   moonspire: { floor: 'marble', edge: 'wall', wall: 'whitestone', flags: { spire: true }, rooms: ['Terrace', 'Cloister', 'Sanctum', 'Garden', 'Reliquary', 'Stair'], fire: 0xc9d8ff },
   frostmere: { floor: 'snow', edge: 'cliff', flags: { frost: true }, rooms: ['Mere', 'Vigil', 'Court', 'Drift', 'Barrow', 'Floe'], fire: 0x9fe8ff },
+  abbey: { floor: 'floor', edge: 'wall', flags: { forest: true }, rooms: ['Cloister', 'Chapel', 'Nave', 'Crypt', 'Scriptorium', 'Refectory'], fire: 0x7fffe0 },
+  forge: { floor: 'cavefloor', edge: 'cliff', flags: { cave: true }, rooms: ['Forge', 'Smeltery', 'Foundry', 'Slag Hall', 'Crucible', 'Kiln'], fire: 0xff7a2a },
+  thornwood: { floor: 'earth', edge: 'thorn', flags: { forest: true }, rooms: ['Garden', 'Bower', 'Arbour', 'Hedge Maze', 'Grove', 'Parterre'], fire: 0xff8ab8 },
+  crater: { floor: 'earth', edge: 'cliff', flags: { forest: true }, rooms: ['Glass Field', 'Geode', 'Hollow', 'Rift', 'Shardfall', 'Basin'], fire: 0xb8a0ff },
+  court: { floor: 'marble', edge: 'wall', wall: 'whitestone', flags: { spire: true }, rooms: ['Hall', 'Terrace', 'Gallery', 'Sanctum', 'Night Garden', 'Vigil'], fire: 0xc9d8ff },
 };
 const ADJ = ['Weeping', 'Thorned', 'Hollow', 'Sunken', 'Dreaming', 'Forgotten', 'Moonless', 'Broken', 'Silent', 'Gnawed', 'Pale', 'Drowned', 'Crooked', 'Starless', 'Withered', 'Bleeding', 'Whispering', 'Lantern'];
 
@@ -36,6 +42,12 @@ const BOSSES = [
   { types: ['varkh'], from: 'moonspire' }, { types: ['silkclaw'], from: 'moonspire', adds: true },
   { types: ['rime-knight'], from: 'frostmere' }, { types: ['rat-king', 'frost-hexer'], from: 'frostmere' },
   { types: ['revenant-thornwake'] }, { types: ['revenant-hollowmoon'] }, { types: ['revenant-emberlight'] }, { types: ['revenant-ysolde'] }, { types: ['revenant-lanternless'] },
+  { types: ['bellwarden'], from: 'abbey' }, { types: ['abbess'], from: 'abbey', adds: true },
+  { types: ['forgemaster'], from: 'forge' }, { types: ['tyrant'], from: 'forge' },
+  { types: ['briarwarden'], from: 'thornwood' }, { types: ['hawthorn'], from: 'thornwood', adds: true },
+  { types: ['shardling'], from: 'crater' }, { types: ['stareater'], from: 'crater', adds: true },
+  { types: ['maelis'], from: 'court' }, { types: ['queen'], from: 'court', adds: true },
+  { types: ['revenant-graves'] }, { types: ['revenant-ashkettle'] }, { types: ['revenant-rook'] }, { types: ['revenant-cinderwing'] }, { types: ['revenant-oathbound'] },
 ];
 export const bossOf = depth => BOSSES[(depth / CHECK_EVERY - 1) % BOSSES.length];
 
@@ -43,7 +55,7 @@ export const bossOf = depth => BOSSES[(depth / CHECK_EVERY - 1) % BOSSES.length]
 // (warlords included) once the first round of warlords is behind you.
 export function depthScale(depth) {
   const tier = depth <= 21 ? 1 + (depth - 1) * .07 : 2.4 + (depth - 21) * .05;
-  const mul = 1 + Math.max(0, depth - BOSSES.length * CHECK_EVERY) * .045;
+  const mul = 1 + Math.max(0, depth - 75) * .045;
   return { tier, mul, level: Math.round(1 + (depth - 1) * 2.3) };
 }
 
@@ -128,6 +140,11 @@ export function makeFloor(depth, seed = 1) {
     deep: [['crystal', 2.5], ['stalagmite', 3], ['cart', 1], ['crystalB', 1.5], ['nest', 1], ['boulder', 1]],
     moonspire: [['pillarW', 3], ['moonpool', 1.2], ['urn', 2], ['brazier', 2], ['arch', .8]],
     frostmere: [['snowPine', 3], ['snowBoulder', 2.5], ['brazier', 1.5], ['pile', 1.5], ['drift', 1]],
+    abbey: [['pillar', 3], ['brazier', 2], ['pile', 1.5], ['urn', 2], ['pillarB', 1]],
+    forge: [['stalagmite', 2.5], ['boulder', 2], ['brazier', 2], ['pile', 1.5], ['cart', 1]],
+    thornwood: [['tree', 3], ['deadTree', 1.5], ['brazier', 1.5], ['urn', 1.5], ['boulder', 1]],
+    crater: [['crystal', 3], ['crystalB', 1.5], ['boulder', 2], ['stalagmite', 1.5]],
+    court: [['pillarW', 3], ['moonpool', 1.2], ['urn', 2], ['brazier', 2], ['arch', .8]],
   }[theme];
   const wsum = DECO.reduce((a, [, w]) => a + w, 0);
   const pickDeco = () => { let x = R() * wsum; for (const [k, w] of DECO) { x -= w; if (x <= 0) return k; } return DECO[0][0]; };
@@ -137,10 +154,10 @@ export function makeFloor(depth, seed = 1) {
     for (let i = 0; i < lights; i++) {
       const a = rm.kind === 'arena' ? (i + .5) / lights * Math.PI * 2 : i * Math.PI + R() * .6;
       const x = rm.cx + Math.sin(a) * (rm.w / 2 - 3), z = rm.cz + Math.cos(a) * (rm.d / 2 - 3);
-      if (!nearDoor(rm, x, z) && free(x, z, 1)) { blocked.push({ x, z, r: 1 }); rm.deco.push({ k: theme === 'deep' ? 'crystal' : 'brazier', x, z, s: 1 }); }
+      if (!nearDoor(rm, x, z) && free(x, z, 1)) { blocked.push({ x, z, r: 1 }); rm.deco.push({ k: theme === 'deep' || theme === 'crater' ? 'crystal' : 'brazier', x, z, s: 1 }); }
     }
     if (rm.kind === 'arena') {
-      for (let i = 0; i < 8; i++) { const a = (i + .5) / 8 * Math.PI * 2, x = rm.cx + Math.sin(a) * 10.5, z = rm.cz + Math.cos(a) * 9.5; if (!nearDoor(rm, x, z)) { blocked.push({ x, z, r: 1.2 }); rm.deco.push({ k: theme === 'rotwood' || theme === 'frostmere' ? 'boulder' : 'pillarB', x, z, s: 1, seed: i }); } }
+      for (let i = 0; i < 8; i++) { const a = (i + .5) / 8 * Math.PI * 2, x = rm.cx + Math.sin(a) * 10.5, z = rm.cz + Math.cos(a) * 9.5; if (!nearDoor(rm, x, z)) { blocked.push({ x, z, r: 1.2 }); rm.deco.push({ k: ['rotwood', 'frostmere', 'thornwood', 'crater'].includes(theme) ? 'boulder' : 'pillarB', x, z, s: 1, seed: i }); } }
       continue;
     }
     if (rm.kind === 'start') continue;
@@ -216,27 +233,12 @@ export function makeFloor(depth, seed = 1) {
 
 // Walls with gaps where the passages meet them, passage walls, floors and every piece of decor.
 function buildFloor(w, L, look, rooms, corrs, bounds, arena, theme) {
-  const R = w.R, edge = (x0, z0, x1, z1) => {
-    if (Math.hypot(x1 - x0, z1 - z0) < .6) return;
-    if (look.edge === 'cliff') w.cliff(x0, z0, x1, z1, { h: 7.5 });
-    else w.wall(x0, z0, x1, z1, { h: 7, mat: look.wall || 'wall', crenel: theme === 'keep' });
-  };
+  const R = w.R;
   const [bx0, bz0, bx1, bz1] = bounds;
   w.floor(bx0 - 14, bz0 - 14, bx1 + 14, bz1 + 14, look.floor, 5, -.01);
   if (arena) w.disc(arena.cx, arena.cz, 13.5, 'arena', 4.1);
-  for (const rm of rooms) {
-    const side = (s, a0, a1, fixed, horiz) => {
-      const gaps = rm.doors.filter(d => d.side === s).map(d => [d.at - d.w / 2, d.at + d.w / 2]).sort((a, b) => a[0] - b[0]);
-      let from = a0;
-      for (const [g0, g1] of gaps) { if (horiz) edge(from, fixed, g0, fixed); else edge(fixed, from, fixed, g0); from = g1; }
-      if (horiz) edge(from, fixed, a1, fixed); else edge(fixed, from, fixed, a1);
-    };
-    side('s', rm.x0, rm.x1, rm.z0, true); side('n', rm.x0, rm.x1, rm.z1, true);
-    side('w', rm.z0, rm.z1, rm.x0, false); side('e', rm.z0, rm.z1, rm.x1, false);
-  }
+  raiseRooms(w, rooms, corrs, look.edge === 'wall' ? { edge: 'wall', h: 7, mat: look.wall || 'wall', crenel: theme === 'keep' } : { edge: look.edge, h: 7.5 });
   for (const c of corrs) {
-    if (c.ns) { edge(c.x0, c.z0, c.x0, c.z1); edge(c.x1, c.z0, c.x1, c.z1); }
-    else { edge(c.x0, c.z0, c.x1, c.z0); edge(c.x0, c.z1, c.x1, c.z1); }
     // Briars hang over every passage.
     const n = Math.max(1, Math.round((c.ns ? c.z1 - c.z0 : c.x1 - c.x0) / 3));
     for (let i = 0; i < n; i++) {
@@ -250,7 +252,7 @@ function buildFloor(w, L, look, rooms, corrs, bounds, arena, theme) {
     switch (d.k) {
       case 'brazier': w.brazier(x, z, fire, true, 1); break;
       case 'pillar': w.pillar(x, z, .7, 7.5, false); break;
-      case 'pillarB': w.pillar(x, z, .8, 8, R() < .4, theme === 'moonspire' ? 'whitestone' : 'pillar'); break;
+      case 'pillarB': w.pillar(x, z, .8, 8, R() < .4, theme === 'moonspire' || theme === 'court' ? 'whitestone' : 'pillar'); break;
       case 'pillarW': w.pillar(x, z, .6, 7, R() < .3, 'whitestone'); break;
       case 'pile': w.pile(x, z, [['crate', 0, 0], ['barrel', 1, .2], ['crate', .2, 1.05]].slice(0, 1 + Math.floor(R() * 3)), R() * 3); break;
       case 'urn': w.breakable('urn', x, z); break;

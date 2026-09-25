@@ -53,8 +53,9 @@ export const FX = {
 const POOL = { w: Object.keys(FX).filter(k => FX[k].on === 'w'), a: Object.keys(FX).filter(k => FX[k].on === 'a') };
 export const fxText = (id, v) => FX[id].t.replace('{v}', v);
 
-// Armour sets. two / four: the bonuses (read by player.js by set id); look: how the knight's armour, cloak
-// and trim are coloured while its mail is worn.
+// Armour sets. two / four: the bonuses (read by player.js by set id, or, for the second act's sets, given as
+// gear effects in fx2 / fx4 and simply added in); look: how the knight's armour, cloak and trim are coloured
+// while its mail is worn.
 export const SETS = {
   errant: { name: 'Knight-Errant\'s', two: '+10 stamina', four: '+20 health', look: { steel: 0xb4bccb, cloth: 0x3a2358, trim: 0xd6ac52 },
     desc: 'The fae knight\'s own harness, plain and well kept.' },
@@ -68,6 +69,16 @@ export const SETS = {
     desc: 'The silvered mail of the monks who climbed the Moonspire.' },
   winter: { name: 'Winter Court', two: 'Chill builds half as fast', four: 'One strike in five frosts foes, slowing them', look: { steel: 0xa8d4f0, cloth: 0xe8f4ff, trim: 0x9fe8ff },
     desc: 'Rime-bright plate of the Frostmere\'s court.' },
+  tidemonk: { name: 'Tide-Monk\'s', two: 'Chill builds half as fast', four: 'Moondew heals 30% more, and stamina returns 10% faster', fx2: [['chillRes', 50]], fx4: [['moondew', 30], ['kiRegen', 10]],
+    look: { steel: 0x7a9a94, cloth: 0x1e3a3a, trim: 0x9ac8b8 }, desc: 'The sea-green habit and mail of the Drowned Abbey\'s brothers.' },
+  ironwright: { name: 'Ironwright\'s', two: '40% less harm from fire', four: '+12% damage with heavies and finishers, +15% posture damage', fx2: [['fireRes', 40]], fx4: [['heavy', 12], ['ki', 15]],
+    look: { steel: 0x4a4a52, cloth: 0x3a1a10, trim: 0xd07a2a }, desc: 'Forge-black plate, riveted and scorched, from the Emberforge.' },
+  courtier: { name: 'Thornwood Courtier\'s', two: '+15% damage from behind', four: 'One strike in six opens a bleeding wound', fx2: [['back', 15]], fx4: [['bleed', 16]],
+    look: { steel: 0x6a4a5a, cloth: 0x3a1a2a, trim: 0xf0a0c0 }, desc: 'The rose-worked harness of the Lantern Court\'s own knights.' },
+  starfallen: { name: 'Starfallen', two: '+20% Faelight', four: '+10% damage, and 10% more Glimmer', fx2: [['anima', 20]], fx4: [['dmg', 10], ['glimmer', 10]],
+    look: { steel: 0x7a6aa8, cloth: 0x2a1a4a, trim: 0xd8c8ff }, desc: 'Plate of moon-glass and star-iron from the Starfall Crater.' },
+  waning: { name: 'Waning Guard\'s', two: '+40 health', four: 'Blows land 6% lighter, and strikes at full health hit 10% harder', fx2: [['hp', 40]], fx4: [['ward', 6], ['dmgFull', 10]],
+    look: { steel: 0xe8ecf8, cloth: 0x2a2a5a, trim: 0xf0f0ff }, desc: 'Silver plate of the Waning Queen\'s own guard.' },
 };
 // What each mission drops: its set (most of the time) and the item levels it rolls in.
 export const MISSION_GEAR = {
@@ -76,6 +87,11 @@ export const MISSION_GEAR = {
   deep: { set: 'delver', lvl: [16, 22] },
   moonspire: { set: 'pilgrim', lvl: [24, 30] },
   frostmere: { set: 'winter', lvl: [32, 38] },
+  abbey: { set: 'tidemonk', lvl: [40, 46] },
+  forge: { set: 'ironwright', lvl: [48, 54] },
+  thornwood: { set: 'courtier', lvl: [56, 62] },
+  crater: { set: 'starfallen', lvl: [64, 70] },
+  court: { set: 'waning', lvl: [72, 78] },
 };
 const EPITHET = ['of the Waning Moon', 'of Thornfall', 'the Gnawbane', 'of the Silver Hour', 'of the Last Lantern', 'the Rimecaller', 'of Nine Wings', 'the Briarheart'];
 
@@ -125,7 +141,10 @@ export function gearStats(items, equip, weaponType) {
     out.def += armorDef(it); add(it);
     out.sets[it.set] = (out.sets[it.set] || 0) + 1;
   }
-  for (const [s, n] of Object.entries(out.sets)) { if (n >= 2) out.bonus.add(s + '2'); if (n >= 4) out.bonus.add(s + '4'); }
+  for (const [s, n] of Object.entries(out.sets)) {
+    if (n >= 2) { out.bonus.add(s + '2'); add({ fx: SETS[s].fx2 || [] }); }
+    if (n >= 4) { out.bonus.add(s + '4'); add({ fx: SETS[s].fx4 || [] }); }
+  }
   const w = by.get(equip.weapons?.[weaponType]);
   if (w) { out.weapon = w; add(w); }
   return out;

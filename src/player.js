@@ -16,6 +16,7 @@ import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
 import { gearStats, weaponMul, defReduce, SETS } from './gear.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
+import { CHARMS } from './charms.js';
 import { FORMS, KIT, MOVES, NAMES, SLIDE, LEAP, GLIDE, COMBO, CHAIN } from './movesets.js';
 import { FORGE } from './save.js';
 import { ARTS, ARTS_ORDER, DART, BOMB, BRAND } from './arts.js';
@@ -214,7 +215,7 @@ export class Player {
     if (this.setBonus('pilgrim4')) this.shiftDur += 5;
   }
   // Gear: what is worn, and the weapon in hand, summed (gear.js). The knight takes on its mail's colours.
-  gf(id) { return this.gear?.fx[id] || 0; }
+  gf(id) { return (this.gear?.fx[id] || 0) + (this.charmFx?.[id] || 0); }
   setBonus(id) { return !!this.gear?.bonus.has(id); }
   weaponName(id) { return WEAPONS[id]?.name || id; }
   applyGear() {
@@ -228,7 +229,10 @@ export class Player {
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
-  setCharms(list) { this.charms = new Set(list); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
+  setCharms(list) {
+    this.charms = new Set(list); this.charmFx = {};
+    for (const id of list) for (const [k, v] of CHARMS[id]?.fx || []) this.charmFx[k] = (this.charmFx[k] || 0) + v;
+    const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
 
   spawnAt(x, z, yaw) {
     this.pos.set(x, 0, z); this.yaw = yaw; this.vel.set(0, 0, 0);

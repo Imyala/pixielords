@@ -35,6 +35,26 @@ export const CORES = {
   frosthexer: { name: 'Frost-Hexer\'s Core', boss: true, skill: 'frostnova', skillName: 'Frost Nova', cost: 45, fx: ['chillRes', 30], from: ['frost-hexer'], desc: 'a burst of frost that slows everything near' },
   revenant: { name: 'Revenant\'s Core', boss: true, skill: 'mirror', skillName: 'Revenant\'s Echo', cost: 40, fx: ['deflect', 8], from: ['revenant-thornwake', 'revenant-hollowmoon', 'revenant-emberlight', 'revenant-ysolde', 'revenant-lanternless'], desc: 'a spectral knight\'s wheeling cut' },
 };
+// The second act: its gatekeepers and warlords, its fallen fae knights, and its kin of the first act's foes.
+Object.assign(CORES, {
+  bellwarden: { name: 'Bell-Warden\'s Core', boss: true, skill: 'quake', skillName: 'Toll of the Deep', cost: 45, fx: ['kiMax', 20], from: ['bellwarden'], desc: 'a leaping slam that rings like a bell' },
+  abbess: { name: 'Drowned Saint\'s Core', boss: true, skill: 'frostnova', skillName: 'Drowning Bell', cost: 45, fx: ['moondew', 20], from: ['abbess'], desc: 'a burst of sea-cold that slows everything near' },
+  forgemaster: { name: 'Forgemaster\'s Core', boss: true, skill: 'pyre', skillName: 'Forge Ring', cost: 45, fx: ['fireRes', 35], from: ['forgemaster'], desc: 'a ring of forge-fire that burns everything near' },
+  tyrant: { name: 'Iron Tyrant\'s Core', boss: true, skill: 'crescent', skillName: 'Tyrant\'s Sunder', cost: 45, fx: ['heavy', 15], from: ['tyrant'], desc: 'a sundering blow that throws a crescent of fire-light' },
+  briarwarden: { name: 'Briar Warden\'s Core', boss: true, skill: 'lance', skillName: 'Snapping Vine', cost: 40, fx: ['poisonRes', 35], from: ['briarwarden'], desc: 'a charging thrust and a lance of briar' },
+  hawthorn: { name: 'Thorned Heir\'s Core', boss: true, skill: 'blink', skillName: 'Blooming Step', cost: 35, fx: ['back', 22], from: ['hawthorn'], desc: 'blink behind a foe and cut, and on to the next' },
+  shardling: { name: 'Shardling\'s Core', boss: true, skill: 'icewave3', skillName: 'Shard Lines', cost: 45, fx: ['kiMax', 25], from: ['shardling'], desc: 'three lines of moon-glass fanning out' },
+  stareater: { name: 'Star-Eater\'s Core', boss: true, skill: 'nova', skillName: 'Swallow the Stars', cost: 50, fx: ['anima', 18], from: ['stareater'], desc: 'a burst that throws foes back, and five seeking orbs' },
+  maelis: { name: 'Maelis\'s Core', boss: true, skill: 'mirror', skillName: 'Lantern Echo', cost: 40, fx: ['deflect', 15], from: ['maelis'], desc: 'a spectral knight that strikes beside you' },
+  queen: { name: 'Waning Queen\'s Core', boss: true, skill: 'frenzy', skillName: 'Dark of the Moon', cost: 50, fx: ['dmg', 10], from: ['queen'], desc: 'for twelve seconds, strikes hit a third harder and blows can\'t stagger you' },
+  fallen: { name: 'Fallen Knight\'s Core', skill: 'lunge', skillName: 'Fallen Lance', cost: 25, fx: ['dmgFull', 8], from: ['hollow-squire', 'hollow-lancer', 'iron-sentinel', 'thorn-knight', 'thorn-reaver', 'star-shade', 'waning-knight', 'waning-lancer'], desc: 'a spectral lance driven straight through' },
+});
+for (const [id, list] of Object.entries({
+  pack: ['ratman-drowned', 'ratman-starbitten'], brute: ['ratman-brinebrute', 'ratman-slagbrute', 'ratman-crystalbrute'],
+  shaman: ['goblin-tidecaller', 'goblin-starcaller', 'goblin-briarhexer', 'ratman-shardseer'], spear: ['goblin-forgeguard'], berserker: ['goblin-hammerer'],
+  bomber: ['goblin-smelter'], scout: ['goblin-thornling'], assassin: ['ratman-briarstalker', 'ratman-waneling'], archer: ['goblin-thornbow', 'goblin-moonbow'],
+  revenant: ['revenant-graves', 'revenant-ashkettle', 'revenant-rook', 'revenant-cinderwing', 'revenant-oathbound'],
+})) CORES[id].from.push(...list);
 export const CORE_OF = {};
 for (const [id, C] of Object.entries(CORES)) for (const t of C.from) CORE_OF[t] = id;
 export const CORE_MAX = 5;   // a core fused four times over
@@ -91,7 +111,7 @@ const CASTS = {
   },
   grindwheel(p, pow) { p.spawnWave({ dmg: 95 * pow, ki: 90, poise: 50, arc: 0, heavy: true, wave: { len: 15, speed: 9, w: 1.1, dmg: 1, color: 0xffb060 } }); },
   frenzy(p, pow, C) {
-    const big = C.skillName.startsWith('Grief');
+    const big = !!C.boss;
     p.coreBuff = { until: p.G.time + (big ? 12 : 8), dmg: (big ? .33 : .25) * pow };
     p.G.fx.ring(p.pos, 0xff5a5a, 3, .45); p.G.hud.toast(C.skillName, 'burst');
   },

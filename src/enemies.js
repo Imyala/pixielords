@@ -6,6 +6,7 @@ import { createModel, MODEL_SIZE } from './models3d.js';
 import { buildKnight, KnightAnimator, ACTIONS } from './knight.js';
 import { Trail } from './fx.js';
 import { AFFIXES, rollChampion, championDress, championDispose } from './champions.js';
+import { actTwo } from './foes2.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
 // ---------------------------------------------------------------- definitions
@@ -485,6 +486,9 @@ Object.assign(TYPES, {
     A('Crossfall', 10, [S('leap', .6, .55, 1, 104, { reach: 0, aoe: 2.4, burst: true, hyper: true, shake: .7, kact: 'f_xfall' })], { minRange: 4.5, cd: 7, w: .7 }),
   ], { parry: .4, evasive: .6 }),
 });
+
+// The second act's foes (foes2.js).
+actTwo(TYPES, { S, A, revenant });
 
 export const MODEL_IDS = [...new Set(Object.keys(TYPES))];
 

@@ -318,7 +318,7 @@ async function prepareSide() {
   syncSide();
   if (want && !G.sideFoe) {
     const b = L.spawns.find(s => s.id === bossIds(L)[0]);
-    const e = G.sideFoe = await Enemy.create(G, { id: 'revenant', type: want, x: 0, z: b.z, yaw: b.yaw ?? Math.PI });
+    const e = G.sideFoe = await Enemy.create(G, { id: 'revenant', type: want, x: bossIds(L).length > 1 ? 0 : b.x, z: b.z, yaw: b.yaw ?? Math.PI });
     e.boss = true;   // it waits behind the Briar Seal and wakes when you cross, as a warlord does
     G.enemies.push(e);
   }

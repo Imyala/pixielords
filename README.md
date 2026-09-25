@@ -1,8 +1,11 @@
 # PixieLords
 
 A fast, stance-based action game in the browser, inspired by the Nioh series, Onimusha and the swordplay of
-NieR: Automata. You play a fae knight on a run of missions through goblin and ratman country (a ruined keep,
-a burning forest, a crystal mine, a temple above the clouds, a frozen mere), each ending with a warlord.
+NieR: Automata. You play a fae knight on a run of ten missions in two acts, each ending with a warlord. The
+first act crosses goblin and ratman country (a ruined keep, a burning forest, a crystal mine, a temple above
+the clouds, a frozen mere); the second crosses the Moonlit Sea to the Waning Isles (a drowned abbey, a war-forge
+in a fire mountain, an overgrown palace garden, a crater where the moon's shard fell, and the Waning Queen's
+court in the sky). After that: side missions, New Game+ Ways, and the endless Underbriar.
 
 ## Play
 
@@ -110,7 +113,7 @@ every time you rest at a Moonwell, vanquish a warlord or clear a mission.
   menu or any Moonwell) and dismantle what you won't wear for Glimmer.
 - **Soul Cores.** As in Nioh 2, a fallen foe sometimes leaves the core of what it was: a violet beam where it
   fell. Ordinary foes leave one now and then, elites often, and every gatekeeper, warlord and Revenant always.
-  There are 24, one for each kind of foe (a Scout's, a Brute's, a Shaman's...) and one for each gatekeeper and
+  There are 35, one for each kind of foe (a Scout's, a Brute's, a Shaman's, a Fallen Knight's...) and one for each gatekeeper and
   warlord. Set two under **Gear** (the Soul Cores tab). Each lends a **passive** from the gear pool (Brute: +30
   health; Silkclaw: +20% damage from behind) and a **skill**: hold Fae Shift and strike for the first core's,
   strike hard for the second's. Skills cost Faelight. Among them: a fan of thrown knives, a phantom spear, a
@@ -233,6 +236,11 @@ The armour sets:
 | Deepdelver's | the Gnawed Deep | 40% less harm from fire | below half health: +12% damage, stamina returns 25% faster |
 | Moon Pilgrim's | the Moonspire | +15% Faelight | Fae Shift lasts 5 s longer, strikes in it hit 15% harder |
 | Winter Court | the Frostmere | chill builds half as fast | one strike in five frosts foes, slowing them |
+| Tide-Monk's | the Drowned Abbey | chill builds half as fast | Moondew heals 30% more, stamina returns 10% faster |
+| Ironwright's | the Emberforge | 40% less harm from fire | +12% damage with heavies and finishers, +15% posture damage |
+| Thornwood Courtier's | the Thornwood Court | +15% damage from behind | one strike in six opens a bleeding wound |
+| Starfallen | the Starfall Crater | +20% Faelight | +10% damage and 10% more Glimmer |
+| Waning Guard's | the Waning Court | +40 health | blows land 6% lighter, strikes at full health hit 10% harder |
 
 Item levels run 1–6 in the Grubhold, 8–14 in the Rotwood, 16–22 in the Deep, 24–30 on the Moonspire and
 32–38 on the Frostmere, twenty higher each New Game+ (each Way, below), which keeps your gear, skills and
@@ -310,10 +318,53 @@ warlords and items. Level, Glimmer and Moondew carry over.
    the Mirror of the Mere. East of the hamlet, on the shore: the Frozen Boathouse. New foes, all rimed and
    carrying chill: Goblin Rimecallers (frost shards and ice waves), Ratman Frostfangs (quick pack biters),
    Goblin Hailslingers (hail pots that leave the ground freezing), Goblin Rimebreakers (hammer slams that
-   fan out ice waves), and rimed Rimeguards, Snowdelvers and Rimebrutes. Clear it to unlock New Game+.
+   fan out ice waves), and rimed Rimeguards, Snowdelvers and Rimebrutes. The Winter Court falls, and still
+   the moon does not wax: Maelis is gone from the ice, and her tracks lead east across the frozen sea.
+
+**Act II: the Waning Isles.** Across the Moonlit Sea, reached by a causeway from the Frostmere on the
+Crossroads map. The Lantern Court's own lands, gone over to the Waning Queen. Each mission here is a run of
+halls joined by passages (built with the room kit, `src/levels/rooms.js`), and its foes include fae knights
+gone over to the Queen, who fight with your own weapons and strikes.
+
+6. **The Drowned Abbey** (level 60+): the Sea Stair, the Flooded Cloister round a sea-cold pool (the Sunken
+   Garth off its west walk), the Nave of Bells (the Scriptorium off to the east), the Bell Tower Gate
+   (**Brother Tolland, the Bell-Warden**: a hammer, and a bell whose toll sends rings of the tide racing out),
+   the Undercroft, then the Drowned Choir and **Abbess Morwen, the Drowned Saint** (a staff of the tide, orbs,
+   undertows, a blink and a bell that drowns). New foes: Drowned Ratmen and Brine Brutes whose blows chill,
+   Goblin Tidecallers who mend their kin, and the abbey's Hollow Squires (sword and shield) and Hollow Lancers.
+7. **The Emberforge** (level 72+): a war-forge in a fire mountain, its halls pooled with molten iron. The Ashen
+   Gate, the Bellows Hall (the Slag Pits off to the west), the Foundry Floor, the Great Anvil (**Forgemaster
+   Ghurk**: every slam leaves the ground burning; he throws slag, and rains it in his second wind), the Cooling
+   Halls, then the Iron Throne and **the Iron Tyrant**, a fae knight the forge swallowed (a greatblade, crowns
+   of fire racing out along the floor). New foes: Forgeguards (shields), Hammerers, Smelters (slag pots) and
+   Slag Brutes, and Iron Sentinels, slow knights in forge-iron whose vents send fire along the ground.
+8. **The Thornwood Court** (level 84+): the Lantern Court's palace garden, walled in hedges of briar. The Briar
+   Wicket, the Overgrown Parterre (a garden maze; the Ruined Orangery off to the east), the Gallery of Thorns,
+   the Warden's Court (**Sir Caddoc, the Briar Warden**, whose chain-blade reaches farther than any sword), the
+   Queen's Rose Garden, then the Thorned Throne and **Prince Hawthorn, the Thorned Heir** (a scythe; crescents
+   of thorn, blinks, and a field of thorns in his second phase). New foes: Thorn Knights (rapiers, and they
+   parry), Thorn Reavers (scythes), Thornlings, Briar Stalkers, Briar Hexers and Thornbows.
+9. **The Starfall Crater** (level 96+): glass fields and crystal groves round a fallen shard of the moon. The
+   Crater Rim, the Glass Fields (the Geode off to the west), the Long Descent, the Shard Gate (**the Shardling**,
+   a brute grown through with moon-glass: lines and rings of shards), the Heart of the Crater, then the
+   Moonshard and **Gorgathul, the Star-Eater**, a rat grown vast on the moon's light (orbs, falling moons,
+   star rings and a nova). New foes: Starbitten Ratmen, Shardseers, Crystal Brutes, Goblin Starcallers and
+   Star-Shades (twin daggers; they blink behind you).
+10. **The Waning Court** (level 108+): the Queen's palace hung in the sky. The Last Stair, the Hall of Crescents,
+   the Night Gardens over the clouds (the Observatory off to the east), the Queen's Vigil (**Maelis, the Lost
+   Knight**, the knight who went ahead of you, now the Queen's: your own strikes, and she drops her guard after
+   the fourth cut of a chain), the Antechamber of the Moon, then the Throne of the Waning Moon and **the Waning
+   Queen** (a moon-ring; waning tides, thrown moons, blinks, and the dark of the moon). Clear it to unlock New
+   Game+ (the next Way).
+
+Each second-act mission has its own armour set, a charm to find and a charm from each of its gatekeeper and
+warlord, four letters (the other knight's notes, and the Queen's own), five Lost Pixies, and three side
+missions (Twilight, a Hunt, and a Duel with one of five more Revenants: Sir Wendel Graves's daggers, Dame
+Ashkettle's burning hatchets, Brother Rook's claws, Sister Cinderwing's fans and the Oathbound's hexblade).
 
 Later missions field hardier rank-and-file: in the Rotwood regular foes have 1.25× the health, in the Deep
-1.6×, on the Moonspire 2×, on the Frostmere 2.4×, and they hit harder and drop more Glimmer to match.
+1.6×, on the Moonspire 2×, on the Frostmere 2.4×, and across the sea 2.8× to 4.4×, and they hit harder and
+drop more Glimmer to match.
 
 ### Warlords and gatekeepers
 
@@ -378,8 +429,9 @@ the Frostmere's snow) and peopled by that mission's foes; past the twenty-fifth 
 wander together.
 
 - **Slay every foe** on a depth and the Pixie Gate down opens, with Glimmer for the depth. The HUD counts them.
-- **Every fifth depth** ends in a warlord's arena behind a Briar Seal: the gatekeepers and warlords of the five
-  missions in turn, then the five Revenants, then round again, harder. Each leaves Rare gear or better (Fabled
+- **Every fifth depth** ends in a warlord's arena behind a Briar Seal: the first act's gatekeepers and warlords
+  in turn, the first five Revenants, the second act's gatekeepers and warlords, the last five Revenants, then
+  round again, harder. The depths' looks run through all ten missions. Each leaves Rare gear or better (Fabled
   from the twentieth depth) and its Soul Core.
 - **The depth after each warlord holds a lit Moonwell**, a checkpoint. The other depths' Moonwells are dim.
   Health, Moondew and Faelight carry from depth to depth; only a lit Moonwell refills them.
@@ -441,7 +493,7 @@ src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thun
 src/rangedmodels.js  their models (the bow's string follows the draw hand)
 src/gear.js       gear: rarities, the effect pool, armour sets and their bonuses, item generation, names, damage and defence
 src/loot.js       loot on the ground: what fallen foes drop (gear and Soul Cores), the beams, walking over it to take it
-src/cores.js      Soul Cores: the 24 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
+src/cores.js      Soul Cores: the 35 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
 src/sides.js      side missions: Twilight, Hunts and Duels for each mission, their foes, difficulty, loot and spoils
 src/underbriar.js the Underbriar: a depth made from a seed (rooms, passages, decor in five looks, foes, treasure, warlord arenas), checkpoints and scaling
 src/champions.js  Champions: the ten affixes, how often they rise and with how many, their ring and ward
@@ -453,7 +505,8 @@ src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
-src/levels/       one file per mission (keep.js, rotwood.js, deep.js, moonspire.js, frostmere.js); shape.js has ring and path helpers; index.js sets the unlock order
+src/levels/       one file per mission (keep, rotwood, deep, moonspire, frostmere; abbey, forge, thornwood, crater, court); rooms.js is the room kit (rooms and passages, walls with door gaps, briar hedges); shape.js has ring and path helpers; index.js sets the unlock order
+src/foes2.js      the second act's foes, gatekeepers, warlords and Revenants
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
 src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision and shake
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
