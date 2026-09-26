@@ -659,7 +659,7 @@ export const KNIGHT_ACT = {
 const POSE0 = { pitch: 0, twist: 0, roll: 0, aL: 0, aR: 0, aLz: 0, aRz: 0, sq: 1, hop: 0, fwd: 0, spin: 0, cPi: 0, cTw: 0, hPi: 0, hYaw: 0, eL: 0, eR: 0, sL: 0, sR: 0, kL: 0, kR: 0 };
 
 // ---------------------------------------------------------------- projectiles & hazards
-const _v = new THREE.Vector3();
+const _v = new THREE.Vector3(), _hs = new THREE.Vector3(), _hw = new THREE.Vector3(), _probe = {};
 
 export class Projectiles {
   constructor(G) {
@@ -1002,7 +1002,7 @@ export class Enemy {
     this.yawVel = 0; this.gait = 0; this.speedNow = 0; this.turnRate = 6; this.faceYaw = null; this.planT = 0; this.detour = 0;
     for (const k in this.animVel) this.animVel[k] = 0;
     Object.assign(this.cur, POSE0);
-    this.phase2 = false; this.phase3 = false; this.phase3Roared = false; this.introDur = 0; this.usedOnce = {};
+    this.phase2 = false; this.phase3 = false; this.phase3Roared = false; this.introDur = 0; this.usedOnce = {}; this.deathRoll = this.deathTwist = undefined; this.lastPhase = null;
     this.dmgShown = 0; this.dmgShowT = 0; this.barT = 0;
     this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0; this.tgt = null; this.tgtT = 0;
     this.hitList = null; this.alertT = 0; this.stuck = 0;
@@ -1042,6 +1042,11 @@ export class Enemy {
       if (has('warded')) this.ward = this.wardMax = Math.round(this.maxHp * .3);
       this.stormT = 3 + Math.random() * 3; this.phaseT = 5 + Math.random() * 3; this.trailT = 1;
       this.mat.emissive.setHex(AFFIXES[affixes[0]].color); this.mat.emissiveIntensity = .3;
+    }
+    // A wing's Wanderer (wings.js): a mini-boss of the mission's own kind, far hardier, carrying the vault's key.
+    if (this.spawn.wanderer) {
+      this.maxHp = Math.round(this.maxHp * 1.15); this.hp = this.maxHp; this.maxKi = Math.round(this.maxKi * 1.5); this.ki = this.maxKi;   // about a gatekeeper's health
+      this.dmgMul *= 1.2; this.poise *= 1.4; this.name = `${T.name.split(',')[0]} the Wanderer`;
     }
     if (this.champion || this.champFx) championDress(this);
   }
@@ -1322,6 +1327,18 @@ export class Enemy {
     this.kplay('grapple', 1.1, .03);
     G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * .9, vol: .9 });
     G.cam.shake(.35);
+  }
+  // Where its hands are (between the two), from the rig as it moves; the knight is held here.
+  handPos(out) {
+    this.outer.updateMatrixWorld(true);
+    if (this.kn) { this.kn.k.armR.hand.getWorldPosition(out); this.kn.k.armL.hand.getWorldPosition(_hw); return out.add(_hw).multiplyScalar(.5); }
+    const [aL, aR] = this.arms || [], [fL, fR] = this.fore || [];
+    if (aL && aR && fL && fR) {
+      const hand = (a, f, o) => { a.getWorldPosition(_hs); f.getWorldPosition(o); return o.multiplyScalar(2).sub(_hs); };   // elbow, and as far again
+      hand(aL, fL, out); hand(aR, fR, _hw);
+      return out.add(_hw).multiplyScalar(.5);
+    }
+    return out.set(this.pos.x + Math.sin(this.yaw) * (this.radius + .5), this.height * .7, this.pos.z + Math.cos(this.yaw) * (this.radius + .5));
   }
   release(thrown) {
     const G = this.G, p = this.holding;
@@ -1783,9 +1800,11 @@ export class Enemy {
       case 'holding': {
         const q = this.holding;
         if (!q || q.state !== 'grabbed' || !q.alive) { this.release(false); break; }
-        // The knight hangs at arm's length, shaken now and then.
-        const f = this.radius + .55, shake = Math.sin(this.st * 22) * .06;
-        q.pos.set(this.pos.x + Math.sin(this.yaw) * f + shake, .35 + Math.abs(Math.sin(this.st * 5)) * .15, this.pos.z + Math.cos(this.yaw) * f);
+        // The knight hangs from the foe's hands by the collar: lifted in the first moments, shaken with the arms
+        // that hold it, and raised high before the throw.
+        const hand = this.handPos(_v), lift = smooth(clamp(this.st / .25, 0, 1));
+        const f = this.radius + .55, bx = this.pos.x + Math.sin(this.yaw) * f, bz = this.pos.z + Math.cos(this.yaw) * f;
+        q.pos.set(lerp(bx, hand.x, lift), Math.max(.3 * lift, lerp(0, hand.y - 1.2, lift)), lerp(bz, hand.z, lift));
         q.yaw = this.yaw + Math.PI; q.vel.set(0, 0, 0);
         this.want.set(0, 0, 0);
         if (this.st > this.holdDur) this.release(true);
@@ -2009,7 +2028,12 @@ export class Enemy {
       case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; omega = 12; tg.cPi = -.2; tg.hPi = -.25; tg.eL = tg.eR = -.8; tg.kL = tg.kR = .3; break;
       case 'intro': tg.pitch = -.4 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -1.6; tg.aLz = .7; tg.aRz = -.7; tg.cPi = -.35; tg.hPi = -.45; tg.eL = tg.eR = -.9; tg.kL = tg.kR = .35; tg.sL = -.3; tg.sR = .3; break;
       case 'drop': tg.pitch = .3; tg.sq = .9; tg.aL = tg.aR = -1.9; tg.aLz = .6; tg.aRz = -.6; tg.kL = tg.kR = 1; tg.sL = -.6; tg.sR = .4; tg.cPi = .3; walk = 0; omega = 14; break;
-      case 'holding': tg.pitch = .12 + Math.sin(t * 22) * .03; tg.aL = tg.aR = -1.55; tg.aLz = .25; tg.aRz = -.25; tg.eL = tg.eR = -.35; tg.cPi = .1; tg.hPi = .15; tg.kL = tg.kR = .35; walk = 0; omega = 12; break;
+      case 'holding': {
+        // Hold it out and shake it; in the last moment, heave it up overhead for the throw.
+        const up = smooth(clamp((this.st - (this.holdDur - .35)) / .3, 0, 1)), sh = Math.sin(t * 22) * .16 * (1 - up);
+        tg.pitch = .12 - .35 * up + Math.sin(t * 22) * .03; tg.aL = tg.aR = -1.45 - .75 * up + sh; tg.aLz = .25; tg.aRz = -.25; tg.eL = tg.eR = -.35 + .2 * up;
+        tg.cPi = .1 - .4 * up; tg.hPi = .15 - .3 * up; tg.kL = tg.kR = .35 + .2 * up; tg.twist = Math.sin(t * 11) * .08 * (1 - up); walk = 0; omega = 14; break;
+      }
       case 'hurt': tg.pitch = -.25; tg.twist = .15; omega = 12; walk = 0; tg.cPi = -.35; tg.cTw = .25; tg.hPi = -.35; tg.aL = .3; tg.aR = -.5; tg.eL = -.2; tg.eR = -.9; tg.kL = tg.kR = .45; tg.sL = .15; tg.sR = -.2; break;
       case 'broken': tg.pitch = .45 + Math.sin(t * 3) * .05; tg.sq = .88; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0; omega = 7;
         tg.cPi = .5; tg.hPi = .45 + Math.sin(t * 2.3) * .15; tg.hYaw = Math.sin(t * 1.7) * .4; tg.eL = tg.eR = -.1; tg.kL = tg.kR = .8;
@@ -2023,56 +2047,40 @@ export class Enemy {
         tg.pitch = -1.4 * (this.fallDir || 1) * (1 - up); tg.sq = .9 + up * .1; tg.aL = tg.aR = -.4 * (1 - up); tg.hop = -this.height * .12 * (1 - up); omega = up > 0 ? 12 : 8; walk = 0;
         tg.cPi = -.25 * (1 - up) + .3 * up * (1 - up) * 4; tg.hPi = -.4 * (1 - up); tg.kL = .9 * (1 - up) + .6 * up * (1 - up) * 4; tg.kR = .4; tg.eL = tg.eR = -.6; break;
       }
-      case 'dead': tg.pitch = -1.45 * (this.fallDir || 1); tg.sq = .9; tg.aL = tg.aR = -.4; omega = 5; walk = 0; tg.hop = -this.height * .12; tg.cPi = .2; tg.hPi = -.3; tg.kL = .7; tg.kR = .3; tg.eL = -.4; break;
+      case 'dead': {
+        // A body, not a statue: the knees buckle first, then it topples (away from the killing blow), arms flung out
+        // and then flopping, twisting as it goes, and settles loose with a bounce.
+        const buckle = E(this.st / .2), top = E((this.st - .1) / .45), dr = this.deathRoll ??= (Math.random() - .5) * .7, dt2 = this.deathTwist ??= (Math.random() - .5) * .9;
+        tg.kL = 1.1 * buckle * (1 - top * .5); tg.kR = .9 * buckle * (1 - top * .6); tg.sq = 1 - .1 * buckle;
+        tg.pitch = -1.5 * (this.fallDir || 1) * top; tg.roll = dr * top; tg.twist = dt2 * top;
+        tg.hop = -this.height * (.05 * buckle + .09 * top);
+        tg.aL = lerp(-1.5, -.2 + dr, top); tg.aR = lerp(-1.1, -.5 - dr, top); tg.aLz = .5 * top; tg.aRz = -.6 * top;
+        tg.eL = lerp(-1.2, -.3, top); tg.eR = lerp(-.8, -.1, top); tg.cPi = lerp(-.35, .25, top); tg.hPi = lerp(-.5, -.2, top) + dr * .3;
+        tg.sL = -.2 * top; tg.sR = .3 * top;
+        omega = this.st < .45 ? 9 : 5; walk = 0;
+        break;
+      }
       case 'attack': {
         walk *= .3;
-        const w = this.phase === 'windup' ? E(this.pt / this.stepDur.windup) : 1;
-        const a = this.phase === 'active' ? E(this.pt / this.stepDur.active) : this.phase === 'recover' ? 1 : 0;
-        const r = this.phase === 'recover' ? E(this.pt / this.stepDur.recover) : 0;
-        const mix = (wind, act) => lerp(lerp(0, wind, w), act, a) * (1 - r);
+        // Weight: the windup coils deeper and sinks in its last stretch (anticipation); the blow snaps through and
+        // overshoots (see the snap below); the body holds where the blow left it before it settles, longer for big
+        // foes (the punish window reads in the pose), sagging forward as it recovers.
+        const heavy = this.boss || this.size >= 1.3 ? 1 : 0, wu = this.phase === 'windup' ? this.pt / this.stepDur.windup : 1;
+        const late = this.phase === 'windup' ? smooth(clamp((wu - .55) / .45, 0, 1)) : 0, ant = 1 + .2 * late * (1 + heavy * .5);
+        const hold = .28 + heavy * .14;
+        const w = this.phase === 'windup' ? E(wu) : 1;
+        const a = this.phase === 'active' ? E(this.pt / (this.stepDur.active * .5)) : this.phase === 'recover' ? 1 : 0;   // the blow lands early in its window
+        const r = this.phase === 'recover' ? E((this.pt / this.stepDur.recover - hold) / (1 - hold)) : 0;
+        const mix = (wind, act) => lerp(lerp(0, wind * ant, w), act, a) * (1 - r);
         const mixS = (wind, act) => 1 + mix(wind - 1, act - 1);   // squash is neutral at 1
-        omega = this.phase === 'active' ? 26 : this.phase === 'windup' ? 11 : 8;
-        switch (s.anim) {
-          // Every swing coils the torso and cocks the elbows in the windup, then uncoils and extends through the blow.
-          case 'swing':
-            tg.twist = mix(-.6, .5); tg.pitch = mix(-.15, .3); tg.aL = mix(-1.7, -1.1); tg.aR = mix(-.8, -.5); tg.aLz = mix(-.6, .4); tg.sq = mixS(1.03, .96);
-            tg.cTw = mix(-.8, .75); tg.cPi = mix(-.1, .25); tg.eL = mix(-1.5, -.1); tg.eR = mix(-1.1, -.5); tg.sL = mix(-.25, -.55); tg.sR = mix(.3, .35); tg.kL = mix(.35, .5); tg.kR = mix(.3, .4); break;
-          case 'backswing':
-            tg.twist = mix(.6, -.5); tg.pitch = mix(-.1, .28); tg.aL = mix(-1.5, -1.1); tg.aR = mix(-1.2, -.6); tg.aLz = mix(.5, -.4); tg.sq = mixS(1.03, .96);
-            tg.cTw = mix(.8, -.75); tg.cPi = mix(-.05, .25); tg.eL = mix(-1.4, -.15); tg.eR = mix(-1.2, -.4); tg.sL = mix(-.4, -.5); tg.sR = mix(.35, .3); tg.kL = mix(.4, .5); tg.kR = .35; break;
-          case 'overhead':
-            tg.pitch = mix(-.4, .5); tg.aL = tg.aR = mix(-2.1, -.7); tg.sq = mixS(1.08, .86);
-            tg.cPi = mix(-.45, .6); tg.hPi = mix(-.3, .2); tg.eL = tg.eR = mix(-1.7, -.05); tg.sL = mix(-.2, -.5); tg.sR = mix(.25, .35); tg.kL = mix(.25, .7); tg.kR = mix(.25, .6); break;
-          case 'thrust':
-            tg.pitch = mix(-.1, .3); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.2, -1.6); tg.aR = mix(.1, -1.2); tg.twist = mix(-.3, .1); tg.sq = mixS(.96, 1.03);
-            tg.cTw = mix(-.55, .25); tg.cPi = mix(-.05, .3); tg.eL = mix(-1.6, 0); tg.eR = mix(-1.3, -.1); tg.sL = mix(-.15, -.8); tg.sR = mix(.2, .5); tg.kL = mix(.45, .35); tg.kR = mix(.3, .15); break;
-          case 'spin':
-            tg.twist = mix(.9, .9); tg.sq = mixS(.9, .95); tg.aL = tg.aR = mix(-1.2, -1.5); tg.aLz = mix(-.8, -1.2); tg.aRz = mix(.8, 1.2);
-            tg.cTw = mix(.4, .2); tg.eL = tg.eR = mix(-.8, -.1); tg.kL = tg.kR = mix(.5, .4); tg.sL = -.2; tg.sR = .2;
-            tg.spin = this.phase === 'active' ? -E(this.pt / this.stepDur.active) * TAU : 0; break;
-          case 'leap':
-            tg.sq = this.phase === 'windup' ? lerp(1, .82, w) : this.phase === 'active' ? 1.04 : lerp(.88, 1, r);
-            tg.pitch = this.phase === 'windup' ? .3 * w : this.phase === 'active' ? -.2 + a * .8 : .5 * (1 - r);
-            tg.aL = tg.aR = this.phase === 'active' ? lerp(-2, -.5, a) : mix(.4, -.4);
-            tg.eL = tg.eR = this.phase === 'active' ? lerp(-1.5, -.1, a) : -.6; tg.cPi = this.phase === 'active' ? lerp(-.4, .5, a) : .3 * w;
-            tg.kL = tg.kR = this.phase === 'windup' ? 1.1 * w : this.phase === 'active' ? lerp(1.2, .3, a) : .8 * (1 - r); break;
-          case 'shoot':
-            tg.twist = mix(.35, .3); tg.aL = mix(-1.5, -1.4); tg.aR = mix(-1.3, -.9); tg.pitch = mix(-.05, .05);
-            tg.cTw = mix(.5, .45); tg.eL = mix(-.2, -.05); tg.eR = mix(-1.8, -1.9); tg.sL = -.35; tg.sR = .3; tg.kL = tg.kR = .3; break;
-          case 'throw':
-            tg.aL = mix(-2, -.5); tg.pitch = mix(-.3, .3); tg.twist = mix(-.5, .4);
-            tg.cTw = mix(-.8, .6); tg.cPi = mix(-.3, .35); tg.eL = mix(-1.8, -.05); tg.sL = mix(-.1, -.6); tg.sR = mix(.3, .4); tg.kL = mix(.3, .5); tg.kR = .35; break;
-          case 'cast':
-            tg.aL = tg.aR = mix(-1.7, -1.2); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
-            tg.cPi = mix(-.35, .3); tg.hPi = mix(-.35, .1); tg.eL = tg.eR = mix(-1.2, -.2); tg.kL = tg.kR = mix(.2, .45); tg.sL = -.2; tg.sR = .2;
-            if (this.phase === 'windup') this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0xb060ff, 1, .4, .6, .12, .6);
-            break;
-          case 'roar':
-            tg.pitch = -.35 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.6; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08;
-            tg.cPi = -.5; tg.hPi = -.55; tg.eL = tg.eR = -1.1; tg.kL = tg.kR = .45; tg.sL = -.3; tg.sR = .3; break;
-          case 'burrow':
-            tg.pitch = this.phase === 'recover' ? -.4 * (1 - r) : .6 * w; tg.aL = tg.aR = this.phase === 'recover' ? -1.4 * (1 - r) : -1.2 * w; tg.sq = this.phase === 'recover' ? 1 + .15 * (1 - r) : 1 - .2 * w;
-            tg.kL = tg.kR = this.phase === 'recover' ? .6 * (1 - r) : 1.1 * w; tg.cPi = this.phase === 'recover' ? -.3 * (1 - r) : .5 * w; break;
+        omega = this.phase === 'active' ? 26 : this.phase === 'windup' ? 11 : r > 0 ? 6 : 14;
+        this.attackPose(tg, s, mix, mixS, w, a, r, t, E, false);
+        if (s.anim !== 'burrow' && s.anim !== 'roar') {
+          // The sink before the blow, and the stride into it (a lunge carries the whole body).
+          tg.kL += .28 * late; tg.kR += .22 * late; tg.sq -= .035 * late; tg.hop -= .05 * late * this.height;
+          if (s.anim !== 'thrust' && s.anim !== 'spin' && s.anim !== 'leap') tg.fwd += mix(-.1, .22 + (s.lunge ? .12 : 0)) * this.size;
+          // After the blow: spent, the body sags forward and (for great foes) heaves for breath.
+          if (this.phase === 'recover') { const sag = (1 - r) * (.6 + heavy * .6); tg.pitch += .1 * sag; tg.cPi += .14 * sag + (heavy ? Math.sin(t * 7) * .05 * sag : 0); tg.sq -= .03 * sag; }
         }
         break;
       }
@@ -2094,8 +2102,22 @@ export class Enemy {
     }
     tg.roll += clamp(-this.yawVel * spd * .02, -.2, .2);
 
-    // Critically-damped-ish springs per channel (a little overshoot for follow-through).
-    const zeta = .72, o2 = omega * omega;
+    // The blow snaps through: on the frame the windup gives way to the strike, every channel is kicked toward the
+    // strike's pose, so the springs overshoot it (follow-through). Great foes stamp the ground as they commit.
+    if (this.state === 'attack' && this.phase === 'active' && this.lastPhase === 'windup' && s && s.anim !== 'roar' && s.anim !== 'burrow') {
+      if (s.anim !== 'spin' && s.anim !== 'leap') {
+        const P = _probe; for (const key in tg) P[key] = key === 'sq' ? 1 : 0;
+        this.attackPose(P, s, (wind, act) => act, (wind, act) => act, 1, 1, 0, t, x => x, true);
+        for (const key in P) if (key !== 'spin' && key !== 'sq' && key !== 'hop' && key in c) v[key] += (P[key] - c[key]) * 7;
+      }
+      if ((this.boss || this.size >= 1.3) && s.dmg >= 50 && s.anim !== 'shoot' && s.anim !== 'cast' && s.anim !== 'throw') {
+        this.G.fx.dust(this.pos, Math.round(4 + this.size * 3)); this.G.cam.shake(.06 * this.size, this.pos);
+      }
+    }
+    this.lastPhase = this.state === 'attack' ? this.phase : null;
+    // Critically-damped-ish springs per channel (a little overshoot for follow-through); a body going limp in death
+    // is looser still, so it bounces as it lands.
+    const zeta = this.state === 'dead' ? (this.st > .45 ? .32 : .55) : .72, o2 = omega * omega;
     for (const key in tg) {
       if (key === 'spin') { c.spin = tg.spin; continue; }
       // Implicit spring step: stable at any frame rate.
@@ -2166,6 +2188,53 @@ export class Enemy {
     else { this.mat.emissive.copy(this.emi); this.mat.emissiveIntensity = (this.T.glow ?? this.G.level?.enemyGlow ?? .08) + this.flash * 1.4; }
     if (this.armored) this.shell.material.emissiveIntensity = .6 + Math.sin(t * 3) * .15 + this.flash * .8;
     if (this.crown?.userData.spin) this.crown.rotation.y = t * this.crown.userData.spin;
+  }
+
+  // One attack step's pose at windup progress w, strike progress a and recovery r (mix blends the windup pose into
+  // the strike's). probe: only asking what the strike's pose is (for the snap), so no side effects.
+  attackPose(tg, s, mix, mixS, w, a, r, t, E, probe) {
+    switch (s.anim) {
+      // Every swing coils the torso and cocks the elbows in the windup, then uncoils and extends through the blow.
+      case 'swing':
+        tg.twist = mix(-.6, .5); tg.pitch = mix(-.15, .3); tg.aL = mix(-1.7, -1.1); tg.aR = mix(-.8, -.5); tg.aLz = mix(-.6, .4); tg.sq = mixS(1.03, .96);
+        tg.cTw = mix(-.8, .75); tg.cPi = mix(-.1, .25); tg.eL = mix(-1.5, -.1); tg.eR = mix(-1.1, -.5); tg.sL = mix(-.25, -.55); tg.sR = mix(.3, .35); tg.kL = mix(.35, .5); tg.kR = mix(.3, .4); break;
+      case 'backswing':
+        tg.twist = mix(.6, -.5); tg.pitch = mix(-.1, .28); tg.aL = mix(-1.5, -1.1); tg.aR = mix(-1.2, -.6); tg.aLz = mix(.5, -.4); tg.sq = mixS(1.03, .96);
+        tg.cTw = mix(.8, -.75); tg.cPi = mix(-.05, .25); tg.eL = mix(-1.4, -.15); tg.eR = mix(-1.2, -.4); tg.sL = mix(-.4, -.5); tg.sR = mix(.35, .3); tg.kL = mix(.4, .5); tg.kR = .35; break;
+      case 'overhead':
+        tg.pitch = mix(-.4, .5); tg.aL = tg.aR = mix(-2.1, -.7); tg.sq = mixS(1.08, .86);
+        tg.cPi = mix(-.45, .6); tg.hPi = mix(-.3, .2); tg.eL = tg.eR = mix(-1.7, -.05); tg.sL = mix(-.2, -.5); tg.sR = mix(.25, .35); tg.kL = mix(.25, .7); tg.kR = mix(.25, .6); break;
+      case 'thrust':
+        tg.pitch = mix(-.1, .3); tg.fwd = mix(-.25, .35) * this.size; tg.aL = mix(.2, -1.6); tg.aR = mix(.1, -1.2); tg.twist = mix(-.3, .1); tg.sq = mixS(.96, 1.03);
+        tg.cTw = mix(-.55, .25); tg.cPi = mix(-.05, .3); tg.eL = mix(-1.6, 0); tg.eR = mix(-1.3, -.1); tg.sL = mix(-.15, -.8); tg.sR = mix(.2, .5); tg.kL = mix(.45, .35); tg.kR = mix(.3, .15); break;
+      case 'spin':
+        tg.twist = mix(.9, .9); tg.sq = mixS(.9, .95); tg.aL = tg.aR = mix(-1.2, -1.5); tg.aLz = mix(-.8, -1.2); tg.aRz = mix(.8, 1.2);
+        tg.cTw = mix(.4, .2); tg.eL = tg.eR = mix(-.8, -.1); tg.kL = tg.kR = mix(.5, .4); tg.sL = -.2; tg.sR = .2;
+        tg.spin = this.phase === 'active' ? -E(this.pt / this.stepDur.active) * TAU : 0; break;
+      case 'leap':
+        tg.sq = this.phase === 'windup' ? lerp(1, .82, w) : this.phase === 'active' ? 1.04 : lerp(.88, 1, r);
+        tg.pitch = this.phase === 'windup' ? .3 * w : this.phase === 'active' ? -.2 + a * .8 : .5 * (1 - r);
+        tg.aL = tg.aR = this.phase === 'active' ? lerp(-2, -.5, a) : mix(.4, -.4);
+        tg.eL = tg.eR = this.phase === 'active' ? lerp(-1.5, -.1, a) : -.6; tg.cPi = this.phase === 'active' ? lerp(-.4, .5, a) : .3 * w;
+        tg.kL = tg.kR = this.phase === 'windup' ? 1.1 * w : this.phase === 'active' ? lerp(1.2, .3, a) : .8 * (1 - r); break;
+      case 'shoot':
+        tg.twist = mix(.35, .3); tg.aL = mix(-1.5, -1.4); tg.aR = mix(-1.3, -.9); tg.pitch = mix(-.05, .05);
+        tg.cTw = mix(.5, .45); tg.eL = mix(-.2, -.05); tg.eR = mix(-1.8, -1.9); tg.sL = -.35; tg.sR = .3; tg.kL = tg.kR = .3; break;
+      case 'throw':
+        tg.aL = mix(-2, -.5); tg.pitch = mix(-.3, .3); tg.twist = mix(-.5, .4);
+        tg.cTw = mix(-.8, .6); tg.cPi = mix(-.3, .35); tg.eL = mix(-1.8, -.05); tg.sL = mix(-.1, -.6); tg.sR = mix(.3, .4); tg.kL = mix(.3, .5); tg.kR = .35; break;
+      case 'cast':
+        tg.aL = tg.aR = mix(-1.7, -1.2); tg.aLz = mix(-.5, -.2); tg.aRz = mix(.5, .2); tg.pitch = mix(-.3, .25); tg.sq = mixS(1.05, .95);
+        tg.cPi = mix(-.35, .3); tg.hPi = mix(-.35, .1); tg.eL = tg.eR = mix(-1.2, -.2); tg.kL = tg.kR = mix(.2, .45); tg.sL = -.2; tg.sR = .2;
+        if (this.phase === 'windup' && !probe) this.G.fx.motes({ x: this.pos.x, y: this.height * .9, z: this.pos.z }, 0xb060ff, 1, .4, .6, .12, .6);
+        break;
+      case 'roar':
+        tg.pitch = -.35 + Math.sin(t * 24) * .05; tg.aL = tg.aR = -1.6; tg.aLz = .8; tg.aRz = -.8; tg.sq = 1.08;
+        tg.cPi = -.5; tg.hPi = -.55; tg.eL = tg.eR = -1.1; tg.kL = tg.kR = .45; tg.sL = -.3; tg.sR = .3; break;
+      case 'burrow':
+        tg.pitch = this.phase === 'recover' ? -.4 * (1 - r) : .6 * w; tg.aL = tg.aR = this.phase === 'recover' ? -1.4 * (1 - r) : -1.2 * w; tg.sq = this.phase === 'recover' ? 1 + .15 * (1 - r) : 1 - .2 * w;
+        tg.kL = tg.kR = this.phase === 'recover' ? .6 * (1 - r) : 1.1 * w; tg.cPi = this.phase === 'recover' ? -.3 * (1 - r) : .5 * w; break;
+    }
   }
 
   // The knight's animator runs the legs, arms and blade; enemy logic only picks which action plays.

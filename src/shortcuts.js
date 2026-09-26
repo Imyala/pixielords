@@ -68,15 +68,23 @@ export function planShortcut(L) {
   return null;
 }
 
-// The way (its walls, as the level asks: L.shortcutEdge, or old masonry), and its gate: posts, a lintel, iron
-// bars that lift, and the bar across them on the far side.
+// The way (its walls, as the level asks: L.shortcutEdge, or old masonry), and its gate.
 export function buildShortcutGate(w, sc) {
   const cuts = w.cuts, keep = w.keepOut; w.cuts = w.keepOut = null;   // the way's own walls stand where the cuts are
   if (sc.room) raiseRooms(w, [sc.room], sc.corrs, w.level.shortcutEdge || { edge: 'wall', h: 6, mat: 'wall', crenel: false });
   w.cuts = cuts; w.keepOut = keep;
+  // Floors under the way (a hair above any the level laid, so they never fight).
+  for (const r of sc.floor || []) w.floor(r.x0, r.z0, r.x1, r.z1, 'floor', 4, .015);
+  return buildGate(w, sc);
+}
+
+// A gate: posts, a lintel, iron bars that lift, and a bar across them on one side (sc.openSign). Its prompts:
+// kinds.open on the barred side (lift it), kinds.shut on the other (it won't give). A shortcut's by default; the
+// wings (wings.js) make a wicket of it, and a vault door.
+export function buildGate(w, sc, kinds = { open: 'shortcut', shut: 'barred', openPrompt: 'Lift the bar', shutPrompt: 'Try the gate' }) {
   const g = new THREE.Group(), iron = w.mats.iron, wood = w.mats.wood;
   const along = sc.ns;   // a gate across a north-south passage spans x; across an east-west one, z
-  const span = W + .2, H = 4.2;
+  const span = (sc.w || W) + .2, H = 4.2;
   const post = new THREE.BoxGeometry(.5, H + .6, .5);
   for (const k of [-1, 1]) { const m = new THREE.Mesh(post, wood); m.position.set(along ? k * span / 2 : 0, (H + .6) / 2, along ? 0 : k * span / 2); m.castShadow = true; g.add(m); }
   const lintel = new THREE.Mesh(new THREE.BoxGeometry(along ? span + .6 : .6, .5, along ? .6 : span + .6), wood); lintel.position.y = H + .6; g.add(lintel);
@@ -87,12 +95,13 @@ export function buildShortcutGate(w, sc) {
   // The bar itself, across the gate on its far side: lifted, it is gone.
   const beam = new THREE.Mesh(new THREE.BoxGeometry(along ? span + .4 : .28, .28, along ? .28 : span + .4), wood);
   beam.position.set(along ? 0 : sc.openSign * .35, 1.6, along ? sc.openSign * .35 : 0);
+  if (sc.lock) {   // a vault's: a padlock on the bar
+    const lock = new THREE.Mesh(new THREE.BoxGeometry(.34, .4, .34), w.mats.gold || iron); lock.position.set(along ? 0 : sc.openSign * .2, -.1, along ? sc.openSign * .2 : 0); beam.add(lock);
+  }
   g.add(bars, beam);
   g.position.set(sc.gx, 0, sc.gz);
   w.group.add(g);
   const col = w.addBox(sc.gx, sc.gz, along ? span / 2 : .3, along ? .3 : span / 2, 0, 5);
-  // Floors under the way (a hair above any the level laid, so they never fight).
-  for (const r of sc.floor || []) w.floor(r.x0, r.z0, r.x1, r.z1, 'floor', 4, .015);
   const gate = { sc, g, bars, beam, col, open: false, t: 0 };
   let last = null;
   w.anim.push(t => {
@@ -101,10 +110,9 @@ export function buildShortcutGate(w, sc) {
     gate.t = Math.min(1, gate.t + dt * .8);
     bars.position.y = gate.t * (H - .3);
   });
-  // A prompt on each side: lift the bar from the far side; from this side it won't give.
   const off = 1.5 * sc.openSign;
-  w.interactables.push({ kind: 'shortcut', gate, x: along ? sc.gx : sc.gx + off, z: along ? sc.gz + off : sc.gz, r: 2, prompt: 'Lift the bar' });
-  w.interactables.push({ kind: 'barred', gate, x: along ? sc.gx : sc.gx - off, z: along ? sc.gz - off : sc.gz, r: 2, prompt: 'Try the gate' });
+  w.interactables.push({ kind: kinds.open, gate, x: along ? sc.gx : sc.gx + off, z: along ? sc.gz + off : sc.gz, r: 2, prompt: kinds.openPrompt });
+  if (kinds.shut) w.interactables.push({ kind: kinds.shut, gate, x: along ? sc.gx : sc.gx - off, z: along ? sc.gz - off : sc.gz, r: 2, prompt: kinds.shutPrompt });
   return gate;
 }
 // Open (for good) or shut again (a new run).

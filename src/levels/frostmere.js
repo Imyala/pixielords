@@ -51,6 +51,8 @@ export default {
   titleShrine: 'pass',
   // The shortcut (shortcuts.js): out of the Frozen Court's west wall, down past the hamlet, into the Shivering Pass.
   shortcutWay: { side: 'w', X: -33, zA: 0, zB: 134, xA: -11, xB: -19.5 }, shortcutName: "The Smugglers' Way",
+  wingWay: { side: 'e', hx: 45, hz: 68, back: { x: 20, z: 138 } },   // the Ice-Cutters' Yard, off the boathouse (wings.js)
+  wingEdge: { edge: 'cliff', h: 7 },   // how the optional wing is walled (wings.js)
 
   areas: [
     { id: 'pass', name: 'The Shivering Pass', x0: -13, x1: 13, z0: -13, z1: 10.6 },

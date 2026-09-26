@@ -227,6 +227,14 @@ size; the mouse or right stick tilts it further up or down.
   **floors** it: thrown back along the blow, down a moment (blows land harder on the floored), then up. Foes
   fall away from the killing blow, thrown further by a heavy one; the last foe of a fight, or an elite or
   warlord, falls with a moment of slowed time.
+- **Weight.** Foes' blows are keyed with weight: the windup coils deeper and sinks in its last moment, the
+  blow snaps through and past its mark, and the body holds where the blow left it (longer for great foes, so
+  the opening shows in the pose) before it sags and recovers; warlords and great brutes stamp dust from the
+  floor as they commit. The dead fall like bodies: knees buckle, then they topple away from the killing blow,
+  arms flung and then flopping, and settle with a bounce. The knight's cape and wings carry weight too: a
+  start throws the cape back and sweeps the wings, a stop swings it forward, a turn flings it out, a fall
+  lifts it. Seized, the knight hangs from the foe's own hands, shaken with them and heaved up for the throw.
+  Feet plant: every stride swings just far enough that a foot on the ground doesn't skate.
 - **Floored.** A crushing blow (a warlord's slam, a charge, anything that would take a fifth of your health)
   knocks the knight flat. Nothing touches you on the ground: dash to roll out at once, or get up (any move or
   strike after a moment, or on your own a second later).
@@ -404,6 +412,32 @@ first two Moonwells.
 **Ambushes.** In every mission one or two ordinary foes wait out of sight above the path, away from the
 Moonwells and the first area; they can't be seen or struck until the knight passes close beneath, then they
 drop, and fight.
+
+**Wings.** Every mission has an optional wing, as Nioh's missions have their side paths: a passage off one of
+its early rooms, out to a court of its own and the rooms beyond it (the Grubhold's Old Barracks, the Rotwood's
+Charcoal Burners' Clearing, the Deep's Flooded Stope, the Moonspire's Orrery, the Frostmere's Ice-Cutters' Yard,
+the Drowned Abbey's Chapter House, the Forge's Slag Pits, the Thornwood's Briar Maze, the Crater's Shard Field,
+the Waning Court's Hall of Mirrors, the Silver Shore's Tidepools, the Hollows' Echo Chambers, the Necropolis's
+Ossuary, the Umbra's Penumbra and the Heart's Chained Vault), walled in the mission's own stone, cliff,
+palisade or briar.
+
+- **Traps.** The passage in is trapped: a pressure plate in its floor clicks and, a moment later, looses
+  poisoned darts across it (dash on), and further along a blade swings across it from a beam overhead,
+  flooring whoever it catches (time it). In the court, fire vents glow and then gout flame, in turn.
+- **The Wanderer.** A champion of the mission's own hardiest kind walks the court's rounds (Stoneskin and
+  Wrathful, about as tough as the mission's gatekeeper, with its own bar), with four guards and one more
+  on the far passage. Felled, it leaves **the Wanderer's Key**.
+- **The vault.** Beyond the court, a vault door with a padlock: the key opens it, and the Wanderer's Hoard
+  inside holds a Moonlit piece, 4 Moonsteel and 5 Moonpetals.
+- **A forgotten room.** One wall of the court is no wall at all. Strike it and it falls away (for good) on a
+  forgotten room with a cache: a Fabled piece and 2 Moonsteel.
+- **The wicket.** From the court's far corner a passage runs on to a later room of the mission (past the
+  gatekeeper), ending at a door bolted from that room's side: draw the bolt from there and it is a second
+  shortcut, back into the wing.
+
+The first act's missions have their wings placed by hand on their eastern sides; the rest are planned from
+their rooms, on whichever side the shortcut doesn't take. Wing foes are never ambushers or an Umbral Realm's
+host, and no Revenant Grave lies in a wing.
 
 1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
    portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Off the yard,
@@ -828,8 +862,8 @@ src/armorymodels.js  their models (the chain's links, the turning saw-wheel, the
 src/armoryanims.js   their holds, one-handed variants of the sword's strikes, the shield bash and rush, the throws
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
-src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves, grabs), AI (sight, hearing, idle wandering, alerts, packs: taking turns, flanking, striking from behind, covering fire, ambushes), procedural animation on the rigs, knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
+src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl), two-bone IK for both arms and blades, planted strides, and a cape and wings on springs
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves, grabs), AI (sight, hearing, idle wandering, alerts, packs: taking turns, flanking, striking from behind, covering fire, ambushes), procedural animation on the rigs (anticipation, a blow's snap and hold, falling like a body), knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep, rotwood, deep, moonspire, frostmere; abbey, forge, thornwood, crater, court; shore, hollows, necropolis, umbra, heart); rooms.js is the room kit (rooms and passages, walls with door gaps, briar hedges); shape.js has ring and path helpers; index.js sets the unlock order
 src/foes2.js      the second act's foes, gatekeepers, warlords and Revenants
@@ -838,7 +872,8 @@ src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, ro
 src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision, shake, a blow's jolt and lens punch, and a flagship's entrance
 src/impact.js     how a blow lands: each weapon's weight and material, a strike's heft, and from them hit-stop, the camera's jolt, the sound, knockdowns and a killing blow's weight
 src/flagship.js   the flagship warlords (Gnawfang, the Waning Queen, the Eclipse): their entrance, third phase and its blows, the Warren's ratmen, Moonfall's pillars, Totality's pools of light, and their music
-src/shortcuts.js  shortcuts: planning each mission's hidden way (by hand or from the room kit), cutting walls for it, and its barred gate
+src/shortcuts.js  shortcuts: planning each mission's hidden way (by hand or from the room kit), cutting walls for it, and the gates (barred, bolted, locked)
+src/wings.js      the optional wings: planning each (by hand or from the room kit), their rooms, the Wanderer and its guards, the vault and its hoard, the illusory wall and cache, the wicket, and the traps (dart plate, swinging blade, fire vents)
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
 src/audio.js      every sound and the music (the flagships' themes among it), synthesised with WebAudio
 src/hud.js        the HUD: stance crest, bars, the quick-slot cross, lock-on mark, boss bar (with its phase notches), prompts, banners, letters, the ? / ! markers over foes, and the letterbox of an entrance

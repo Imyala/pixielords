@@ -44,6 +44,8 @@ export default {
   titleShrine: 'mouth',
   // The shortcut (shortcuts.js): out of the Brood Warren's west wall, round the Glimmer Grotto, into the Mine Mouth.
   shortcutWay: { side: 'w', X: -58, zA: 0, zB: 130, xA: -10.5, xB: -17.5 }, shortcutName: "The Old Adit",
+  wingWay: { side: 'e', hx: 18, hz: 58, back: { x: 18, z: 132 } },   // the Flooded Stope, off the gallery (wings.js)
+  wingEdge: { edge: 'cliff', h: 7.5 },   // how the optional wing is walled (wings.js)
 
   areas: [
     { id: 'mouth', name: 'The Mine Mouth', x0: -12, x1: 12, z0: -12, z1: 10.5 },

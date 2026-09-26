@@ -792,8 +792,11 @@ export class KnightAnimator {
     const fwd = m.forward ?? 1, side = m.side ?? 0;
     const dirSign = fwd < -.3 ? -1 : 1;
     const breathe = Math.sin(this.time * 2.2) * .015 * (1 - amt);
-    L[IDX.thLx] = BASE.thLx * (1 - amt) + sw * .6 * amt * dirSign;
-    L[IDX.thRx] = BASE.thRx * (1 - amt) + sw2 * .6 * amt * dirSign;
+    // Planted feet: the thighs swing just far enough that a foot on the ground travels one step (the distance
+    // covered in half a stride at this cadence), so it doesn't skate (legs are about .9 long).
+    const stepLen = spd > .1 ? spd * Math.PI / (5.5 + spd * 1.45) : 0, amp = Math.asin(clamp(stepLen / 1.8, 0, .8));
+    L[IDX.thLx] = BASE.thLx * (1 - amt) + sw * amp * dirSign;
+    L[IDX.thRx] = BASE.thRx * (1 - amt) + sw2 * amp * dirSign;
     L[IDX.knL] = BASE.knL * (1 - amt) + Math.max(0, Math.sin(g - 1.2)) * 1.1 * amt + .15 * amt;
     L[IDX.knR] = BASE.knR * (1 - amt) + Math.max(0, Math.sin(g - 1.2 + Math.PI)) * 1.1 * amt + .15 * amt;
     L[IDX.thLz] = BASE.thLz + side * .25 * amt; L[IDX.thRz] = BASE.thRz + side * .25 * amt;
@@ -854,7 +857,27 @@ export class KnightAnimator {
     const wrap = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     if (!A?.spinX) cur[IDX.bodyRx] = wrap(cur[IDX.bodyRx]);
     if (!A?.spinY) cur[IDX.bodyRy] = wrap(cur[IDX.bodyRy]);
+    this.secondary(dt);
     this.apply(cur, dt);
+  }
+
+  // Secondary motion: the cape and the wings have weight. Springs driven by how the knight moves: a start throws
+  // the cape back and sweeps the wings, a stop swings the cape forward and flares them, a turn flings the cape
+  // outward, a fall lifts it, a leap beats the wings.
+  secondary(dt) {
+    const R = this.k.root.position, yaw = this.k.root.rotation.y;
+    const S = this.sec ||= { px: R.x, py: R.y, pz: R.z, vx: 0, vy: 0, vz: 0, cx: .12, cxv: 0, cz: 0, czv: 0, ws: 0, wsv: 0 };
+    if (dt < 1e-4) return;
+    let vx = (R.x - S.px) / dt, vy = (R.y - S.py) / dt, vz = (R.z - S.pz) / dt;
+    S.px = R.x; S.py = R.y; S.pz = R.z;
+    if (Math.hypot(vx, vy, vz) > 40) vx = vy = vz = 0;   // a blink or a respawn: no whip
+    const ax = (vx - S.vx) / dt, az = (vz - S.vz) / dt; S.vx = vx; S.vy = vy; S.vz = vz;
+    const fx = Math.sin(yaw), fz = Math.cos(yaw), fwdA = ax * fx + az * fz, sideA = ax * fz - az * fx;
+    const spring = (x, v, target, om, ze) => { const f = 1 + 2 * dt * ze * om, h = dt * om * om, inv = 1 / (f + dt * h); return [(f * x + dt * v + dt * h * target) * inv, (v + h * (target - x)) * inv]; };
+    const capeT = clamp(.12 + (this.capeLag || 0) + clamp(-vy * .06, -.25, .6) + clamp(fwdA * .01, -.35, .45), -.35, 1.35);
+    [S.cx, S.cxv] = spring(S.cx, S.cxv, capeT, 8, .38);
+    [S.cz, S.czv] = spring(S.cz, S.czv, clamp(-sideA * .008, -.45, .45), 8, .4);
+    [S.ws, S.wsv] = spring(S.ws, S.wsv, clamp(-fwdA * .007, -.4, .4) + clamp(vy * .04, -.25, .35), 10, .35);
   }
 
   apply(p, dt) {
@@ -900,11 +923,14 @@ export class KnightAnimator {
 
     // Cape trails with motion; wings flutter.
     const t = this.time, wsp = p[I.wings];
-    k.capeNode.rotation.x = .12 + clamp(this.capeLag || 0, 0, 1.1) + Math.sin(t * 3) * .03;
+    const S = this.sec;
+    k.capeNode.rotation.x = (S ? clamp(S.cx, -.4, 1.4) : .12 + clamp(this.capeLag || 0, 0, 1.1)) + Math.sin(t * 3) * .03;
+    k.capeNode.rotation.z = S ? clamp(S.cz, -.5, .5) : 0;
+    const sweep = S ? S.ws : 0;
     for (const w of k.wings) {
       const { s, tilt } = w.userData;
       const flap = Math.sin(t * (wsp > 1.5 ? 28 : 9) + (tilt > 0 ? 0 : .8)) * (.18 + wsp * .12);
-      w.rotation.set(0, s * (-.55 + wsp * .35 + flap), tilt * s);
+      w.rotation.set(sweep * .5 * s, s * (-.55 + wsp * .35 + flap + sweep), tilt * s);
       w.scale.setScalar(wsp > 1.5 ? 1.6 : 1);
     }
   }

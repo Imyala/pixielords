@@ -14,8 +14,9 @@ export const REALM = { r: 14, ki: .6, dmg: 1.15, anima: 1.5, hp: 2.3, hostDmg: 1
 // Moonwells, one of the three hardiest (the same one every time).
 export function realmHost(L, TYPES) {
   if (L.depth || L.noRealm || !L.spawns?.length) return null;
-  const zs = L.spawns.map(s => s.z), z0 = Math.min(...zs), z1 = Math.max(...zs), bosses = [].concat(L.boss);
-  const cand = L.spawns.filter(s => {
+  const main = L.spawns.filter(s => !s.wing);   // a wing's foes (wings.js) keep to their wing
+  const zs = main.map(s => s.z), z0 = Math.min(...zs), z1 = Math.max(...zs), bosses = [].concat(L.boss);
+  const cand = main.filter(s => {
     const T = TYPES[s.type];
     return T && !T.boss && !T.elite && !s.elite && !s.add && !bosses.includes(s.id) && s.id !== L.gate?.guardian
       && s.z > z0 + (z1 - z0) * .25 && s.z < z0 + (z1 - z0) * .75

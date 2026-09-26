@@ -39,6 +39,7 @@ export function championOdds(G) {
 // The affixes a foe rises with ([] for none). Warlords, gatekeepers, a warlord's summons and shades never do.
 export function rollChampion(G, e) {
   const s = e.spawn, T = e.T;
+  if (s.affixes) return [...s.affixes];   // a wing's Wanderer (wings.js) always rises with its own
   if (!G.save || e.boss || s.add || s.elite || s.noChamp || T.shade || T.boss) return [];
   const L = G.level || {}, d = G.save.data;
   const R = rng(hash(`${L.id}:${L.depth || 0}:${e.id}:${d.ng || 0}:${d.side || ''}`));

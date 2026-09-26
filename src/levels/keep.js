@@ -20,6 +20,7 @@ export default {
   titleShrine: 'grove',
   // The shortcut (shortcuts.js): out of the Gnawing Halls' west wall, south past the Larder, into the grove.
   shortcutWay: { side: 'w', X: -57, zA: 0, zB: 86.5, xA: -11, xB: -12 }, shortcutName: 'The Postern Way',
+  wingWay: { side: 'e', hx: 28, hz: 43, back: { x: 12, z: 90 } },   // the Old Barracks, off the yard's east nook (wings.js)
 
   areas: [
     { id: 'grove', name: 'The Fallen Grove', x0: -11, x1: 11, z0: -12, z1: 10 },

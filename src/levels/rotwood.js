@@ -41,6 +41,8 @@ export default {
   titleShrine: 'edge',
   // The shortcut (shortcuts.js): out of the Rotting Glade's west side, round the Tanner's Camp, into the Hollow's Edge.
   shortcutWay: { side: 'w', X: -61, zA: 0, zB: 115, xA: -11.5, xB: -20 }, shortcutName: "The Poacher's Path",
+  wingWay: { side: 'e', hx: 19, hz: 81, back: { x: 20, z: 122 } },   // the Charcoal Burners' Clearing, off the village (wings.js)
+  wingEdge: { edge: 'palisade', h: 4.6 },   // how the optional wing is walled (wings.js)
 
   areas: [
     { id: 'edge', name: "The Hollow's Edge", x0: -14, x1: 14, z0: -14, z1: 11 },

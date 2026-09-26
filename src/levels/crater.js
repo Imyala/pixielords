@@ -46,6 +46,7 @@ export default {
   titleShrine: 'rim',
   areas: roomAreas(ROOMS),
   rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
+  wingEdge: { edge: 'cliff', h: 8 },   // how the optional wing is walled (wings.js)
 
   shrines: {
     rim: { id: 'rim', name: 'Moonwell of the Crater Rim', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

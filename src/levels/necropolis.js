@@ -51,6 +51,7 @@ export default {
   titleShrine: 'mgate',
   areas: roomAreas(ROOMS),
   rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
+  wingEdge: { edge: 'wall', h: 7, mat: 'whitestone', crenel: false },   // how the optional wing is walled (wings.js)
 
   shrines: {
     mgate: { id: 'mgate', name: 'Moonwell of the Mourning Gate', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

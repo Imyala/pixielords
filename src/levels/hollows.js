@@ -45,6 +45,7 @@ export default {
   titleShrine: 'mouth',
   areas: roomAreas(ROOMS),
   rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
+  wingEdge: { edge: 'cliff', h: 9 },   // how the optional wing is walled (wings.js)
 
   shrines: {
     mouth: { id: 'mouth', name: 'Moonwell of the Crystal Mouth', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

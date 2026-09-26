@@ -37,6 +37,8 @@ export default {
   titleShrine: 'landing',
   // The shortcut (shortcuts.js): out of the Garden of Still Water, round the Starlit Library, onto the Landing.
   shortcutWay: { side: 'w', X: -59, zA: 0, zB: 142, xA: -10, xB: -18 }, shortcutName: "The Cloud Walk",
+  wingWay: { side: 'e', hx: 16, hz: 57, back: { x: 18, z: 143 } },   // the Orrery, off the terrace (wings.js)
+  wingEdge: { edge: 'wall', h: 7, mat: 'whitestone', crenel: false },   // how the optional wing is walled (wings.js)
 
   areas: [
     { id: 'landing', name: 'The Moonstair Landing', x0: -12, x1: 12, z0: -12, z1: 9.7 },

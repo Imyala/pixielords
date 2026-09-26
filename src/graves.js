@@ -85,7 +85,9 @@ export function graveSpots(W, L) {
   const si = Math.round((sx - x0) / st), sj = Math.round((sz - z0) / st);
   if (si >= 0 && sj >= 0 && si < nx && sj < nz) { dist[sj * nx + si] = 0; q.push(sj * nx + si); }
   const seal = L.seal ? (x, z) => W.sealSide(x, z) : () => -99;
-  const inWay = (x, z) => !!L._sc?.floor.some(r => x > r.x0 - 1 && x < r.x1 + 1 && z > r.z0 - 1 && z < r.z1 + 1);   // the shortcut's hidden way holds no grave
+  const inRect = r => (x, z) => x > r.x0 - 1 && x < r.x1 + 1 && z > r.z0 - 1 && z < r.z1 + 1;
+  // The shortcut's hidden way and the optional wing (wings.js) hold no grave.
+  const inWay = (x, z) => !!L._sc?.floor.some(r => inRect(r)(x, z)) || !!L._wing?.rects.some(r => inRect(r)(x, z));
   for (let h = 0; h < q.length; h++) {
     const c = q[h], i = c % nx, j = (c - i) / nx;
     for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

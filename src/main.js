@@ -252,7 +252,7 @@ function markAmbushes(L) {
   const shrines = Object.values(L.shrines || {}), first = L.areas?.[0], R = (() => { let x = (L.seed || 1) * 9301 + 49297; return () => (x = (x * 16807) % 2147483647) / 2147483647; })();
   const bosses = [].concat(L.boss), ok = s => {
     const T = TYPES[s.type];
-    if (!T || T.boss || T.elite || T.style === 'ranged' || s.elite || s.add || s.patrol || bosses.includes(s.id) || s.id === L.gate?.guardian) return false;
+    if (!T || T.boss || T.elite || T.style === 'ranged' || s.elite || s.add || s.patrol || s.wing || bosses.includes(s.id) || s.id === L.gate?.guardian) return false;
     if (shrines.some(h => Math.hypot(h.x - s.x, h.z - s.z) < 16) || (L.gate && Math.hypot(L.gate.x - s.x, L.gate.z - s.z) < 9)) return false;
     return !(first && s.x >= first.x0 && s.x <= first.x1 && s.z >= first.z0 && s.z <= first.z1);
   };
@@ -277,6 +277,7 @@ async function loadEnemies() {
   G.bosses = bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
   G.boss = G.bosses[0];
   G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
+  G.wanderer = G.enemies.find(e => e.spawn.wanderer) || null;
   if (L.depth) for (const b of G.bosses) b.boss = true;   // a depth's warlord waits behind its seal, whatever it was
   // The mission's Umbral Realm (umbral.js), about its host.
   for (const r of G.realms || []) r.dispose();
@@ -356,6 +357,13 @@ function applyWorldState() {
   G.world.resetBreakables();
   // A shortcut opened on this run stays open (shortcuts.js).
   if (G.world.shortcut) setShortcut(G.world.shortcut, !!m.shortcuts?.includes(G.world.shortcut.sc.id), true);
+  // The wing (wings.js): its wicket, its vault and its illusory wall as this run left them.
+  const wg = G.world.wing;
+  if (wg) {
+    if (wg.wicket) setShortcut(wg.wicket, !!m.shortcuts?.includes('wicket'), true);
+    setShortcut(wg.vault, !!m.vault, true);
+    if (m.wingSecret && !wg.secret.broken) { wg.secret.broken = true; wg.secret.grp.visible = false; wg.secret.col.on = false; }
+  }
   // A side run finds the mission's items already taken (they were, the first time through).
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, !!S || m.items.includes(it.id));
   for (const l of G.world.letters) G.world.setLetterRead(l.id, d.letters.includes(L.id + ':' + l.id));
@@ -466,6 +474,7 @@ function syncSide() {
   G.bosses = G.sideFoe ? [G.sideFoe] : bossIds(L).map(id => G.enemies.find(e => e.id === id)).filter(Boolean);
   G.boss = G.bosses[0];
   G.gatekeeper = L.gate ? G.enemies.find(e => e.id === L.gate.guardian) : null;
+  G.wanderer = G.enemies.find(e => e.spawn.wanderer) || null;
   G.sideTarget = S?.kind === 'hunt' ? G.gatekeeper : S?.kind === 'duel' ? G.sideFoe : null;
 }
 // A side run's start: twilight from the first Moonwell with every foe; a hunt from the second, with only the
@@ -797,6 +806,7 @@ G.onEnemyKilled = (e, hit = {}) => {
   if (e.umbral) realmDispelled(e);
   if (G.bosses.includes(e)) { const rest = G.bosses.filter(b => b.alive); if (rest.length) partnerFell(e, rest); else if (S) sideComplete(S); else if (abyss()) abyssWarlordFell(); else bossDefeated(); }
   else if (e === G.gatekeeper) { if (S?.kind === 'hunt') sideComplete(S); else gatekeeperDefeated(); }
+  if (e.spawn.wanderer) wandererFell(e);
   if (abyss() && !e.spawn.add && !G.bosses.includes(e)) { if (!G.level.isBoss && !abyssLeft()) depthCleared(); else abyssObjective(); }
 };
 
@@ -805,6 +815,11 @@ G.onEnemyKilled = (e, hit = {}) => {
 // whatever was shut inside. A powder keg goes up a moment later.
 G.onBreak = b => {
   const L = G.level, p = G.player, mult = (L.tier || 1) * (1 + (L.level || 1) / 11) * G.ngMul;
+  if (b.secret) {   // an illusory wall (wings.js): it stays gone
+    G.save.m.wingSecret = true; G.tally('secrets'); G.save.write();
+    G.audio.sfx('rest', { vol: .6 }); G.hud.toast('An illusory wall! A forgotten room lies beyond', 'item');
+    return;
+  }
   const at = { x: b.x, y: b.h * .5 + .3, z: b.z }, to = () => ({ x: p.pos.x, y: 1.1, z: p.pos.z });
   if (b.glim[1]) {
     const amt = Math.round(rand(b.glim[0], b.glim[1]) * mult);
@@ -941,6 +956,17 @@ G.equipCharm = id => {
   G.save.write();
   return true;
 };
+
+// A wing's Wanderer felled: it leaves the key to its vault (wings.js).
+function wandererFell(e) {
+  const m = G.save.m;
+  if (G.hud.bossE === e) G.after(1.2, () => { if (G.hud.bossE === e) G.hud.setBoss(null); });
+  if (m.wingKey) return;
+  m.wingKey = true; G.tally('wanderers');
+  G.fx.flash(new THREE.Vector3(e.pos.x, 1.2, e.pos.z), 0xffd36a, 2.4, .5, true);
+  G.after(1, () => { G.hud.toast('The Wanderer\'s Key: it opens a vault beyond the court', 'item'); G.audio.sfx('pickup'); });
+  G.save.write();
+}
 
 function gatekeeperDefeated() {
   const gt = G.level.gate;
@@ -1351,7 +1377,7 @@ function findInteractable() {
     if (it.kind === 'item' && (it.taken || it.hidden)) continue;   // an item still shut in a crate can't be picked up through it
     if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.bosses.some(b => b.alive))) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
-    if ((it.kind === 'shortcut' || it.kind === 'barred') && it.gate.open) continue;
+    if ((it.kind === 'shortcut' || it.kind === 'barred' || it.kind === 'vault') && it.gate.open) continue;
     if (it.kind === 'grave' && (!it.grave.on || !it.grave.lit || G.graveFoe || G.bossFight)) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
@@ -1366,17 +1392,24 @@ function interact(it) {
       if (it.shrine.dim) { G.hud.toast('This Moonwell is dim: only those past a warlord burn', 'warn'); G.audio.sfx('ui'); break; }
       rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
-    case 'shortcut': {   // lift the bar: the way back to the first Moonwell is open for good
+    case 'shortcut': {   // lift the bar: the way back to the first Moonwell (or, a wing's wicket, into the wing) is open for good
       (m.shortcuts ||= []).push(it.gate.sc.id);
       setShortcut(it.gate, true);
       p.setState('pickup'); p.anim.play('pickup');
       G.audio.sfx('gate'); G.cam.shake(.25);
-      G.after(.6, () => G.hud.toast('A shortcut opens: the way back to the first Moonwell', 'item'));
+      G.after(.6, () => G.hud.toast(it.gate.sc.id === 'wicket' ? `A shortcut opens: the way into ${G.level._wing?.name || 'the wing'}` : 'A shortcut opens: the way back to the first Moonwell', 'item'));
       G.tally('shortcuts');
       G.save.write();
       break;
     }
-    case 'barred': G.hud.toast('Barred from the other side', 'warn'); G.audio.sfx('block', { vol: .5 }); break;
+    case 'barred': G.hud.toast(it.gate.sc.id === 'wicket' ? 'Bolted from the other side' : 'Barred from the other side', 'warn'); G.audio.sfx('block', { vol: .5 }); break;
+    case 'vault':   // a wing's vault: the Wanderer's key opens it
+      if (!m.wingKey) { G.hud.toast('Locked. Whoever walks the court carries the key', 'warn'); G.audio.sfx('block', { vol: .5 }); break; }
+      m.vault = true; setShortcut(it.gate, true);
+      p.setState('pickup'); p.anim.play('pickup');
+      G.audio.sfx('gate'); G.cam.shake(.2); G.after(.5, () => G.hud.toast('The vault opens', 'item'));
+      G.save.write();
+      break;
     case 'trials':   // the Thornyard's Trial Stone (trials.js)
       G.controlsOn = false; G.input.wantLock = false; G.input.releaseLock();
       G.menu.show('trials', {}); G.audio.sfx('page');
@@ -1397,6 +1430,14 @@ function interact(it) {
       if (item.kind === 'grace') { if (d.elixirMax < 8) { d.elixirMax++; p.elixirs++; } else { G.save.glimmer += 400; G.hud.addGlimmer(400); } }
       if (item.kind === 'glimmer') { G.save.glimmer += item.amount; G.hud.addGlimmer(item.amount); }
       if (item.kind === 'dew') p.elixirs = Math.min(d.elixirMax, p.elixirs + 1);
+      // A wing's finds (wings.js): the vault's hoard and the forgotten room's cache.
+      if (item.kind === 'hoard' || item.kind === 'cache') {
+        const hoard = item.kind === 'hoard', steel = hoard ? 4 : 2;
+        d.moonsteel = (d.moonsteel || 0) + steel;
+        const gear = G.loot.roll(hoard ? 2.5 : 1.5, hoard ? 4 : 3);
+        G.after(.9, () => { if (!G.takeGear(gear)) { G.save.glimmer += dismantleValue(gear); G.hud.addGlimmer(dismantleValue(gear)); } G.hud.toast(`+${steel} Moonsteel`, 'item'); });
+        if (hoard) G.after(1.6, () => G.addPetals(5));
+      }
       if (item.kind === 'charm') {
         const first = !d.charms.length;
         grantCharm(item.charm, true);
@@ -1532,6 +1573,14 @@ function step(dt, rdt) {
     if (engaged && G.hud.bossE !== w) G.hud.setBoss(w);
     if (!engaged && G.hud.bossE === w) G.hud.setBoss(null);
   }
+  // A wing's Wanderer (wings.js) shows its bar while it fights you.
+  const wd = G.wanderer;
+  if (wd && !G.bossFight) {
+    const engaged = wd.alive && wd.aware && wd.state !== 'return' && wd.distToPlayer() < 20;
+    if (engaged && G.hud.bossE !== wd && !(w?.alive && G.hud.bossE === w)) G.hud.setBoss(wd);
+    if (!engaged && G.hud.bossE === wd) G.hud.setBoss(null);
+  }
+  if (dt > 0) G.world.wing?.traps.update(G, dt);
 
   // Interactions and the grave.
   if (G.state === 'play' && p.state === 'free' && G.controlsOn) {
