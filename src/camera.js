@@ -25,6 +25,10 @@ export class CameraRig {
 
   recenter(yaw) { this.recenterT = .35; this.recenterYaw = yaw; }
 
+  // A great foe's entrance: the camera leaves the knight and turns slowly about the foe's face for dur seconds,
+  // drawing in, then eases back behind the knight (flagship.js).
+  cinema(e, dur) { this.cine = e ? { e, t: 0, dur, a0: null } : null; }
+
   shake(amount, at) {
     let a = amount;
     if (at) { const d = Math.hypot(at.x - this.pivot.x, at.z - this.pivot.z); a *= clamp(1.4 - d / 18, 0, 1); }
@@ -98,7 +102,28 @@ export class CameraRig {
     cam.position.add(this.kp);
     cam.lookAt(this.look.x + this.kp.x * .45, this.look.y + (lock ? 0 : .05) + this.kp.y * .45, this.look.z + this.kp.z * .45);
     if (s > 0) cam.rotateZ(Math.sin(this.t * 33) * .03 * s);
-    const fov = this.baseFov - this.fovPunch * 3.5;
+    if (this.cine) this.cinePose(dt, p, cam);
+    const fov = this.baseFov - this.fovPunch * 3.5 + (this.cine ? -6 * this.cine.k : 0);
     if (Math.abs(cam.fov - fov) > .01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+    if (this.cine && this.cine.t >= this.cine.dur) this.cine = null;
+  }
+
+  cinePose(dt, p, cam) {
+    const C = this.cine, e = C.e, h = e.height || 2;
+    C.t += dt;
+    if (C.a0 === null) C.a0 = yawTo(e.pos.x, e.pos.z, p.x, p.z);
+    const u = clamp(C.t / C.dur, 0, 1), ease = u * u * (3 - 2 * u);
+    // Weight of the shot: in over a third of a second, out over the last six tenths, back to the knight's view.
+    const k = C.k = Math.min(1, C.t / .3) * clamp((C.dur - C.t) / .6, 0, 1);
+    const a = C.a0 - .65 + ease * 1.3, r = (3.2 + h * 1.15) * (1.1 - ease * .25);
+    const tgt = new THREE.Vector3(e.pos.x, e.pos.y + h * .7, e.pos.z);
+    const dir = new THREE.Vector3(Math.sin(a), .28 - ease * .12, Math.cos(a)).normalize();
+    const hit = this.world.raycast(tgt, dir, r + .3, true);
+    const at = tgt.clone().addScaledVector(dir, Math.max(1.5, Math.min(r, hit - .4)));
+    at.y = Math.max(at.y, .6);
+    const w = k * k * (3 - 2 * k), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+    const look = cam.position.clone().addScaledVector(fwd, 6).lerp(tgt, w);
+    cam.position.lerp(at, w);
+    cam.lookAt(look);
   }
 }

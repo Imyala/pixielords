@@ -18,6 +18,8 @@ export default {
   exitToast: 'A Pixie Gate opens beyond the throne',
   motes: { base: 0xffb070, grove: 0xc8ff8a, throne: 0xff6a3a },
   titleShrine: 'grove',
+  // The shortcut (shortcuts.js): out of the Gnawing Halls' west wall, south past the Larder, into the grove.
+  shortcutWay: { side: 'w', X: -57, zA: 0, zB: 86.5, xA: -11, xB: -12 }, shortcutName: 'The Postern Way',
 
   areas: [
     { id: 'grove', name: 'The Fallen Grove', x0: -11, x1: 11, z0: -12, z1: 10 },
@@ -129,7 +131,7 @@ export default {
     }
 
     // Walls.
-    w.wallPath([[-3, 10], [-11, 10], [-11, -12], [11, -12], [11, 10], [3, 10]]);
+    w.wallPath([[-3, 10], [-11, 10], [-11, 2.5]]); w.wallPath([[-11, -2.5], [-11, -12], [11, -12], [11, 10], [3, 10]]);   // the hidden way comes in at the west
     w.wall(-3, 10, -3, 28); w.wall(3, 10, 3, 28);
     w.wallPath([[-3, 28], [-18, 28], [-18, 40]]); w.wallPath([[-18, 46], [-18, 64], [-3, 64]]);
     // The Goblin Larder, through a broken doorway in the yard's west wall.
@@ -138,7 +140,7 @@ export default {
     w.wallPath([[3, 28], [18, 28], [18, 37], [28, 37], [28, 45], [18, 45], [18, 64], [3, 64]]);
     w.wall(-3, 64, -3, 74, { h: 8 }); w.wall(3, 64, 3, 74, { h: 8 });
     w.batch('wall', boxGeo(7.2, 2, 2.4, 3).translate(0, 7, 66));
-    w.wallPath([[-3, 74], [-12, 74], [-12, 98], [-19, 98], [-19, 106], [-12, 106], [-12, 112], [-3, 112]]);
+    w.wallPath([[-3, 74], [-12, 74], [-12, 84]]); w.wallPath([[-12, 89], [-12, 98], [-19, 98], [-19, 106], [-12, 106], [-12, 112], [-3, 112]]);   // and leaves the halls here
     w.wallPath([[3, 74], [12, 74], [12, 112], [3, 112]]);
     w.wall(-3, 112, -3, 120.5, { h: 8 }); w.wall(3, 112, 3, 120.5, { h: 8 });
     w.batch('wall', boxGeo(7.2, 2.4, 2, 3).translate(0, 7.2, 113));

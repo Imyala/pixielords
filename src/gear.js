@@ -2,7 +2,9 @@
 // rarity (Common, Fine, Rare, Fabled, Moonlit and, from the Way of the Thorn on, Divine: the rarer, the more effects), an item level (higher in later
 // missions and every New Game+) and effects rolled from a pool. A weapon's level and rarity raise its damage;
 // armour's raise its defence. Armour belongs to a set, and two or four pieces of one set wake its bonuses.
-// Equip it in the Gear screen; dismantle what you won't wear for Glimmer. This file is data and arithmetic:
+// Equip it in the Gear screen; dismantle what you won't wear for Glimmer (and, from Rare up, Moonsteel). Loot depth:
+// every weapon scales with Strength and Spirit by its grades (S to E); Moonsteel tempers a piece to +5; Moonlit and
+// Divine pieces carry a Moonsworn effect no lesser piece can; pieces can be locked. This file is data and arithmetic:
 // the Player (player.js) applies what gearStats() sums, main.js drops and picks up, menu.js shows it.
 
 export const RARITY = [
@@ -52,6 +54,39 @@ export const FX = {
 };
 const POOL = { w: Object.keys(FX).filter(k => FX[k].on === 'w'), a: Object.keys(FX).filter(k => FX[k].on === 'a') };
 export const fxText = (id, v) => FX[id].t.replace('{v}', v);
+
+// Moonsworn: every Moonlit and Divine piece carries one effect no lesser piece can, which changes how a fight goes.
+// player.js asks sworn(id) at the moment each one matters; its value is fixed.
+export const SWORN = {
+  echo: { name: 'Echo', t: 'Every fifth blow that lands strikes twice', on: 'w' },
+  reaper: { name: 'Reaper', t: 'Each kill within 8 s of the last adds 6% damage, up to five times', on: 'w' },
+  tide: { name: 'Moontide', t: 'Deflects and Flashcuts refill 20 Faelight', on: 'w' },
+  sunder: { name: 'Sunder', t: 'Blows against a broken foe break its posture again 40% faster', on: 'w' },
+  thorns: { name: 'Thornmail', t: 'Foes whose blows you block take 40% of the blow back', on: 'a' },
+  undying: { name: 'Deathless', t: 'Once between Moonwell rests, a killing blow leaves you standing at 1 health', on: 'a' },
+  nightfeed: { name: 'Nightfeed', t: 'Kills mend 4% of your health', on: 'a' },
+  quicksilver: { name: 'Quicksilver', t: 'A perfect dodge gives back 15 stamina and 10% damage for 3 s', on: 'a' },
+};
+const SWORN_POOL = { w: Object.keys(SWORN).filter(k => SWORN[k].on === 'w'), a: Object.keys(SWORN).filter(k => SWORN[k].on === 'a') };
+export const pickSworn = (kind, rnd = Math.random) => { const P = SWORN_POOL[kind === 'weapon' ? 'w' : 'a']; return P[Math.floor(rnd() * P.length)]; };
+
+// Scaling, as in Nioh: how each weapon's damage grows with Strength and with Spirit, graded S (most) to E (least).
+// A point of either stat is 7.5% more damage at grade A.
+export const GRADE = { S: 1.15, A: 1, B: .85, C: .65, D: .45, E: .25 };
+export const SCALING = {
+  sword: ['A', 'D'], glaive: ['B', 'C'], fangs: ['D', 'A'], hammer: ['S', 'E'], fists: ['B', 'C'],
+  great: ['S', 'E'], aegis: ['A', 'D'], daggers: ['D', 'S'], hatchets: ['A', 'C'], chain: ['B', 'B'], scythe: ['C', 'A'], claws: ['C', 'A'],
+  saw: ['A', 'D'], hexblade: ['C', 'A'], staff: ['C', 'B'], fans: ['E', 'S'], tonfas: ['B', 'C'], rapier: ['C', 'A'], katana: ['B', 'B'], ring: ['D', 'S'],
+};
+export const scalingOf = w => SCALING[w] || ['A', 'D'];
+export const scaleMul = (w, stats) => { const [a, b] = scalingOf(w); return 1 + .075 * ((stats.str || 1) - 1) * GRADE[a] + .075 * ((stats.spi || 1) - 1) * GRADE[b]; };
+
+// Tempering: Moonsteel (from dismantling Rare and better) hardens a piece a step at a time, to +5: each step is 3%
+// more damage for a weapon, 6% more defence for armour, and its effects a tenth stronger.
+export const TEMPER = { max: 5, dmg: .03, def: .06, fx: .1 };
+export const temperCost = it => ({ steel: 1 + (it.tmp || 0), glimmer: Math.round((250 + it.lvl * 20) * (1 + (it.tmp || 0) * .6)) });
+export const moonsteelOf = it => [0, 0, 1, 2, 4, 8][it.rar] || 0;
+export const fxVal = (it, v) => Math.round(v * (1 + (it.tmp || 0) * TEMPER.fx));
 
 // Armour sets. two / four: the bonuses (read by player.js by set id, or, for the second act's sets, given as
 // gear effects in fx2 / fx4 and simply added in); look: how the knight's armour, cloak and trim are coloured
@@ -112,8 +147,8 @@ export const MISSION_GEAR = {
 const EPITHET = ['of the Waning Moon', 'of Thornfall', 'the Gnawbane', 'of the Silver Hour', 'of the Last Lantern', 'the Rimecaller', 'of Nine Wings', 'the Briarheart'];
 
 // Multipliers: a weapon's damage, a piece's defence.
-export const weaponMul = it => (it ? (1 + (it.lvl - 1) * .012) * RARITY[it.rar].mul : 1);
-export const armorDef = it => (it ? Math.round(BASE_DEF[it.slot] * (1 + (it.lvl - 1) * .07) * RARITY[it.rar].mul) : 0);
+export const weaponMul = it => (it ? (1 + (it.lvl - 1) * .012) * RARITY[it.rar].mul * (1 + (it.tmp || 0) * TEMPER.dmg) : 1);
+export const armorDef = it => (it ? Math.round(BASE_DEF[it.slot] * (1 + (it.lvl - 1) * .07) * RARITY[it.rar].mul * (1 + (it.tmp || 0) * TEMPER.def)) : 0);
 // Defence to damage: a quarter off at about 130 defence, never more than half.
 export const defReduce = def => Math.min(.5, def / (def + 400));
 export const dismantleValue = it => Math.round((20 + it.lvl * 6) * (1 + it.rar * .8));
@@ -135,6 +170,7 @@ export function makeItem({ kind, type, slot, set, lvl, rar }, uid, rnd = Math.ra
   const it = { uid, kind, lvl, rar, fx };
   if (kind === 'weapon') it.type = type; else { it.slot = slot; it.set = set; }
   if (rar >= 3) it.epithet = EPITHET[Math.floor(rnd() * EPITHET.length)];
+  if (rar >= 4) it.sworn = pickSworn(kind, rnd);
   return it;
 }
 // The starting harness: four Common pieces of the Knight-Errant's set.
@@ -142,15 +178,15 @@ export const startingArmor = (uid0 = 1) => SLOTS.map((slot, i) => ({ uid: uid0 +
 
 export function itemName(it, weaponName = id => id) {
   const base = it.kind === 'weapon' ? weaponName(it.type) : `${SETS[it.set].name} ${SLOT_NAME[it.slot]}`;
-  return `${it.rar ? RARITY[it.rar].name + ' ' : ''}${base}${it.epithet ? ' ' + it.epithet : ''}`;
+  return `${it.rar ? RARITY[it.rar].name + ' ' : ''}${base}${it.epithet ? ' ' + it.epithet : ''}${it.tmp ? ' +' + it.tmp : ''}`;
 }
 
 // Everything worn and the weapon in hand, summed: effects by id, total defence, pieces per set, and which
 // set bonuses are awake ('warden2', 'warden4', ...).
 export function gearStats(items, equip, weaponType) {
   const by = new Map(items.map(it => [it.uid, it]));
-  const out = { fx: {}, def: 0, sets: {}, bonus: new Set(), weapon: null };
-  const add = it => { for (const [id, v] of it.fx) out.fx[id] = (out.fx[id] || 0) + v; };
+  const out = { fx: {}, def: 0, sets: {}, bonus: new Set(), weapon: null, sworn: new Set() };
+  const add = it => { for (const [id, v] of it.fx) out.fx[id] = (out.fx[id] || 0) + fxVal(it, v); if (it.sworn) out.sworn.add(it.sworn); };
   for (const slot of SLOTS) {
     const it = by.get(equip.armor?.[slot]);
     if (!it) continue;

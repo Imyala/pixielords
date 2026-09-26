@@ -29,13 +29,15 @@ import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
 import { ARTS } from './arts.js';
 import { Loot, PACK } from './loot.js';
-import { RARITY, SETS as GEAR_SETS, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost } from './gear.js';
+import { RARITY, SETS as GEAR_SETS, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost, moonsteelOf, temperCost, TEMPER, SWORN } from './gear.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
 import { wayName, wayDesc, WAY_TIER, wayGlimmer } from './ways.js';
 import { makeFloor, isCheckpoint, checkpointOf, isBossDepth } from './underbriar.js';
 import { DEEDS, TIER, DEED_GLIMMER, deedTier } from './deeds.js';
 import { Trials, makeYard } from './trials.js';
+import { setShortcut } from './shortcuts.js';
+import { Flagships, flagshipOf, PHASE3_AT } from './flagship.js';
 import { clamp, damp, rand } from './util.js';
 
 const G = { time: 0, hitstop: 0, slowmo: 0, enemies: [], bosses: [], controlsOn: false, attackTokens: 0, state: 'boot', ready: false, ngMul: 1, LEVELS, ORDER };
@@ -175,6 +177,7 @@ G.projectiles = new Projectiles(G);
 G.loot = new Loot(G);
 G.player = new Player(G);
 G.trials = new Trials(G);
+G.flag = new Flagships(G);
 G.did = (ev, data) => G.trials.on(ev, data);   // what the knight does, for the Thornyard's trials
 const envTex = makeEnv();
 for (const m of Object.values(G.player.k.mats)) if (m.isMeshStandardMaterial) { m.envMap = envTex; m.envMapIntensity = .9; }
@@ -234,13 +237,35 @@ function applyLevelLook() {
     hemi.color.setHex(tint(lt.sky ?? 0x7d8fc4, 0xc4586a, .5)); moon.color.setHex(0xff7a5a); moon.intensity *= .9;
   }
   G.fogBase = scene.fog.color.clone(); G.realmK = 0; G.realmTinted = false;
+  G.lightBase = { hemi: hemi.intensity, moon: moon.intensity };
   post.setGrade(gradeKey(), true);
 }
 // Which grade (post.js) the place takes: the map's, a Twilight's blood moon, or the mission's (a depth: its look's).
-const gradeKey = () => G.overworld?.active ? 'map' : sideDef()?.kind === 'twilight' ? 'twilight' : G.level.theme || G.level.id;
+const gradeKey = () => G.overworld?.active ? 'map' : G.darkT ? 'totality' : sideDef()?.kind === 'twilight' ? 'twilight' : G.level.theme || G.level.id;
+
+// Ambushes (enemies.js updateLurk): in every mission, a foe or two of the rank and file wait up out of sight and
+// drop on the knight as it passes: never near a Moonwell, the gate or the first room, never one who patrols or
+// shoots, and spread well apart. Chosen once for each mission, the same every time.
+function markAmbushes(L) {
+  if (L._amb || L.depth || L.yard) return;
+  L._amb = true;
+  const shrines = Object.values(L.shrines || {}), first = L.areas?.[0], R = (() => { let x = (L.seed || 1) * 9301 + 49297; return () => (x = (x * 16807) % 2147483647) / 2147483647; })();
+  const bosses = [].concat(L.boss), ok = s => {
+    const T = TYPES[s.type];
+    if (!T || T.boss || T.elite || T.style === 'ranged' || s.elite || s.add || s.patrol || bosses.includes(s.id) || s.id === L.gate?.guardian) return false;
+    if (shrines.some(h => Math.hypot(h.x - s.x, h.z - s.z) < 16) || (L.gate && Math.hypot(L.gate.x - s.x, L.gate.z - s.z) < 9)) return false;
+    return !(first && s.x >= first.x0 && s.x <= first.x1 && s.z >= first.z0 && s.z <= first.z1);
+  };
+  const pool = L.spawns.filter(ok).map(s => [R(), s]).sort((a, b) => a[0] - b[0]).map(([, s]) => s), chosen = [];
+  for (const s of pool) {
+    if (chosen.length >= (L.id === 'keep' ? 1 : 2)) break;
+    if (chosen.every(c => Math.hypot(c.x - s.x, c.z - s.z) > 25)) { s.ambush = true; s.idle = undefined; chosen.push(s); }
+  }
+}
 
 async function loadEnemies() {
   const L = G.level, all = [...L.spawns, ...(L.adds || [])];
+  markAmbushes(L);
   const types = [...new Set(all.map(s => Enemy.modelFor(s.type)).filter(Boolean))];
   let done = 0;
   G.loadProgress = 0;
@@ -261,7 +286,7 @@ async function loadEnemies() {
 }
 // Is this spot inside a live Umbral Realm?
 G.realmAt = pos => !!G.realms?.some(r => r.inside(pos));
-const _realmFog = new THREE.Color(REALM.fog);
+const _realmFog = new THREE.Color(REALM.fog), _black = new THREE.Color(0x020104);
 // The host felled: the realm breaks up, and leaves its spoils.
 function realmDispelled(e) {
   const d = G.save.data, act = Math.floor(ORDER.indexOf(G.level.theme || G.level.id) / 5);
@@ -308,6 +333,7 @@ async function load() {
 // ---------------------------------------------------------------- flow
 function applyWorldState() {
   const d = G.save.data, m = G.save.m, L = G.level, S = sideDef();
+  G.flag.clear();
   syncSide();
   G.player.lock = null;
   G.ngMul = (S?.hard || 1) * (L.depthMul || 1); G.wayTier = (d.ng || 0) * WAY_TIER;
@@ -328,6 +354,8 @@ function applyWorldState() {
   G.world.setFogGate(!bossDead);
   G.world.setExit(abyss() ? !!m.cleared : yard() ? false : bossDead && !S);
   G.world.resetBreakables();
+  // A shortcut opened on this run stays open (shortcuts.js).
+  if (G.world.shortcut) setShortcut(G.world.shortcut, !!m.shortcuts?.includes(G.world.shortcut.sc.id), true);
   // A side run finds the mission's items already taken (they were, the first time through).
   for (const it of G.world.interactables) if (it.kind === 'item') G.world.setItemTaken(it.id, !!S || m.items.includes(it.id));
   for (const l of G.world.letters) G.world.setLetterRead(l.id, d.letters.includes(L.id + ':' + l.id));
@@ -609,7 +637,7 @@ function placeAtShrine(id) {
   p.arts = [...d.arts]; p.art = d.artSel;
   p.rangedOwned = [...d.ranged]; p.rangedSel = d.rangedSel; p.k.setRanged(null, RANGED[d.rangedSel]?.kind === 'pod' ? null : d.rangedSel);
   p.spawnAt(s.spawn[0], s.spawn[1], s.yaw);
-  p.elixirs = G.save.elixirMax;
+  p.elixirs = G.save.elixirMax; p.undyingUsed = false;
   G.cam.snap(p);
 }
 
@@ -637,7 +665,7 @@ function announceTonight() {
 }
 async function startRun() {
   G.audio.init();
-  G.trials.clear();
+  G.trials.clear(); G.flag.clear();
   syncUnlocks();
   G.refreshTonight();
   G.traveling = false;
@@ -700,7 +728,8 @@ G.newGamePlus = async () => {
   const d = G.save.data;
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
     mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds, patrons: d.patrons, patron: d.patron,
-    petals: d.petals, market: d.market, vials: d.vials, dyes: d.dyes, look: d.look, looks: d.looks, graveTip: d.graveTip, petalTip: d.petalTip, deedPetals: d.deedPetals, cups: d.cups, cupTip: d.cupTip, realmTip: d.realmTip, beast: d.beast };
+    petals: d.petals, market: d.market, vials: d.vials, dyes: d.dyes, look: d.look, looks: d.looks, graveTip: d.graveTip, petalTip: d.petalTip, deedPetals: d.deedPetals, cups: d.cups, cupTip: d.cupTip, realmTip: d.realmTip, beast: d.beast,
+    moonsteel: d.moonsteel, gearSort: d.gearSort, kits: d.kits, swornTip: d.swornTip, totalityTip: d.totalityTip };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.tally('ways', d.ng + 1, true);
@@ -712,7 +741,7 @@ G.newGamePlus = async () => {
 
 G.quitToTitle = () => {
   timers.length = 0;
-  G.trials.clear();
+  G.trials.clear(); G.flag.clear();
   sendKindred(null, true);
   if (G.state === 'play' || G.state === 'dead') G.save.write();
   G.state = 'title'; G.controlsOn = false;
@@ -743,6 +772,7 @@ G.onEnemyKilled = (e, hit = {}) => {
   // A Flashcut kill yields half again as much Glimmer.
   const amt = Math.round(e.T.glimmer * G.ngMul * (e.tier || 1) * (e.champion ? 2.2 : 1) * (e.umbral ? 3 : 1) * (hit.flash ? 1.5 : 1) * (G.player.has('glimmerseed') ? 1.2 : 1) * (1 + G.player.gf('glimmer') / 100) * (G.tonight?.glimmer || 1));
   if (e.spawn.grave == null) G.loot.dropFrom(e, e === G.sideTarget);   // a grave's Revenant leaves its own spoils
+  if (hit.dmg) G.player.onKill(e);   // felled by a blow (not swept away with its master): Moonsworn Nightfeed and Reaper
   G.save.glimmer += amt;
   const ty = e.spawn.type || '', bk = e.spawn.grave != null ? 'fallen' : ty, B = G.save.data.beast ||= {};
   B[bk] = (B[bk] || 0) + 1;   // the Bestiary (bestiary.js)
@@ -1027,6 +1057,8 @@ G.onBossPhase2 = (boss) => {
   }
 };
 
+G.onBossPhase3 = (boss) => G.flag.phase3(boss);
+
 G.onFogCrossed = () => {
   if (G.bosses.some(b => b.alive) && !G.bossFight) startBossFight();
 };
@@ -1036,10 +1068,13 @@ function startBossFight() {
   G.bossFight = true;
   if (G.kindred?.alive) G.kindred.blinkTo(G.player);   // a Kindred comes through the briars with you
   for (const e of G.bosses) { e.reset(); e.state = 'intro'; e.st = 0; e.partner = G.bosses.find(o => o !== e) || null; }
+  // A flagship makes its entrance (flagship.js), and has a third phase marked on its bar.
+  const flag = G.bosses.length === 1 && flagshipOf(b, G);
+  if (flag) { b.phase3At = PHASE3_AT; G.flag.begin(b); }
   G.hud.setBoss(G.bosses.length > 1 ? G.bosses : b);
   G.player.lock = b;
   G.audio.sfx('roar', { x: b.pos.x, z: b.pos.z });
-  G.audio.music('boss');
+  if (!flag) G.audio.music('boss');
   G.cam.shake(.5);
 }
 
@@ -1101,7 +1136,7 @@ function rest(shrine) {
     for (const i of m.graves || []) gen[i] = (gen[i] || 0) + 1;
     m.graves = [];
     applyWorldState();
-    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw(); p.refillAmmo();
+    p.hp = p.maxHp; p.ki = p.maxKi; p.elixirs = d.elixirMax; p.poisoned = 0; p.poison = 0; p.thaw(); p.refillAmmo(); p.undyingUsed = false;
     G.save.write();
     G.input.wantLock = false; G.input.releaseLock();
     G.menu.show('shrine', shrine);
@@ -1140,6 +1175,10 @@ G.takeGear = it => {
   G.hud.toast(`${itemName(it, w => p.weaponName(w))} · Lv ${it.lvl}`, 'loot r' + it.rar);
   G.audio.sfx('pickup', { vol: .6 + it.rar * .1 });
   if (it.rar >= 3) G.fx.ring(p.pos, R.color, 2, .35);
+  if (it.sworn) {
+    G.after(.6, () => G.hud.toast(`Moonsworn · ${SWORN[it.sworn].name}: ${SWORN[it.sworn].t}`, 'loot r4'));
+    if (!d.swornTip) { d.swornTip = true; G.tipAfter(2, 'Moonsworn: every Moonlit and Divine piece carries one effect no lesser piece can. Weapons\' work while in hand; armour\'s while worn. Dismantle Rare and better for Moonsteel, and temper a favourite piece at a Moonwell\'s forge, up to +5.'); }
+  }
   if (!d.gearTip) { d.gearTip = true; G.tipAfter(1, 'Gear: foes drop weapons and armour, better from elites and warlords. Each has a rarity, a level and effects, and armour of one set wakes bonuses when two or four pieces are worn. Equip it under Gear (pause menu or any Moonwell); dismantle what you won\'t wear for Glimmer.'); }
   G.save.write();
   return true;
@@ -1175,14 +1214,54 @@ G.equipGear = uid => {
   return true;
 };
 const equippedUids = g => new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
+// Dismantling: Glimmer, and Moonsteel from Rare and better. Worn and locked pieces are never taken apart.
 G.dismantleGear = uids => {
   const d = G.save.data, g = d.gear, worn = equippedUids(g);
-  let got = 0, n = 0;
-  g.items = g.items.filter(it => { if (!uids.includes(it.uid) || worn.has(it.uid)) return true; got += dismantleValue(it); n++; return false; });
+  let got = 0, n = 0, steel = 0;
+  g.items = g.items.filter(it => { if (!uids.includes(it.uid) || worn.has(it.uid) || it.lock) return true; got += dismantleValue(it); steel += moonsteelOf(it); n++; return false; });
+  G.lastSteel = steel;
   if (!n) return 0;
   G.save.glimmer += got; G.hud.addGlimmer(got); G.hud.glimmerShown = G.save.glimmer; G.tally('dismantled', n);
+  d.moonsteel = (d.moonsteel || 0) + steel;
   G.audio.sfx('shatter', { vol: .5 }); G.save.write();
   return got;
+};
+// A piece locked can't be dismantled, soul-matched away or sold off by a bulk dismantle.
+G.lockGear = uid => {
+  const it = G.save.data.gear.items.find(x => x.uid === uid);
+  if (!it) return false;
+  it.lock = !it.lock; G.audio.sfx(it.lock ? 'uiOk' : 'ui'); G.save.write();
+  return true;
+};
+// Tempering (gear.js TEMPER): Moonsteel and Glimmer harden a piece one step, to +5.
+G.temper = uid => {
+  const d = G.save.data, it = d.gear.items.find(x => x.uid === uid);
+  if (!it || (it.tmp || 0) >= TEMPER.max) return false;
+  const c = temperCost(it);
+  if ((d.moonsteel || 0) < c.steel || G.save.glimmer < c.glimmer) return false;
+  d.moonsteel -= c.steel; G.save.glimmer -= c.glimmer; G.hud.glimmerShown = G.save.glimmer;
+  it.tmp = (it.tmp || 0) + 1;
+  G.player.applyGear(); G.audio.sfx('levelUp'); G.audio.sfx('shatter', { vol: .3, pitch: 1.4 }); G.tally('smithed');
+  G.save.write();
+  return true;
+};
+// Loadouts: three saved sets of what is carried and worn (the two weapons, the gear on each, armour, charms).
+G.saveKit = i => {
+  const d = G.save.data, g = d.gear;
+  d.kits[i] = { arms: [...d.loadout], wield: d.wield, weapons: { ...g.equip.weapons }, armor: { ...g.equip.armor }, charms: [...d.equipped] };
+  G.audio.sfx('uiOk'); G.save.write();
+  return true;
+};
+G.wearKit = i => {
+  const d = G.save.data, g = d.gear, K = d.kits[i], p = G.player, has = uid => g.items.some(it => it.uid === uid);
+  if (!K) return false;
+  const arms = K.arms.filter(w => d.arms.includes(w));
+  if (arms.length) { d.loadout = arms.slice(0, 2); d.wield = arms.includes(K.wield) ? K.wield : arms[0]; p.loadout = [...d.loadout]; p.resetChain(); p.setWeapon(d.wield); }
+  for (const [w, uid] of Object.entries(K.weapons)) if (has(uid)) g.equip.weapons[w] = uid;
+  for (const [slot, uid] of Object.entries(K.armor)) if (has(uid)) g.equip.armor[slot] = uid;
+  d.equipped = K.charms.filter(c => d.charms.includes(c)).slice(0, CHARM_SLOTS); p.setCharms(d.equipped);
+  p.applyGear(); G.audio.sfx('stance', { pitch: .8 }); G.save.write();
+  return true;
 };
 // Everything not worn at or below a rarity.
 G.dismantleBelow = rar => { const g = G.save.data.gear, worn = equippedUids(g); return G.dismantleGear(g.items.filter(it => it.rar <= rar && !worn.has(it.uid)).map(it => it.uid)); };
@@ -1200,7 +1279,7 @@ G.reforge = (uid, i) => {
 };
 G.soulMatch = (uid, fromUid) => {
   const d = G.save.data, g = d.gear, it = g.items.find(x => x.uid === uid), fod = g.items.find(x => x.uid === fromUid), worn = equippedUids(g);
-  if (!it || !fod || fod === it || worn.has(fod.uid) || fod.lvl <= it.lvl || (it.kind === 'weapon' ? fod.type !== it.type : fod.slot !== it.slot)) return false;
+  if (!it || !fod || fod === it || worn.has(fod.uid) || fod.lock || fod.lvl <= it.lvl || (it.kind === 'weapon' ? fod.type !== it.type : fod.slot !== it.slot)) return false;
   const cost = soulMatchCost(it, fod);
   if (G.save.glimmer < cost) return false;
   G.save.glimmer -= cost; G.hud.glimmerShown = G.save.glimmer;
@@ -1272,6 +1351,7 @@ function findInteractable() {
     if (it.kind === 'item' && (it.taken || it.hidden)) continue;   // an item still shut in a crate can't be picked up through it
     if (it.kind === 'fog' && (w.fogGate.gone || G.bossFight || w.sealSide(p.pos.x, p.pos.z) > -1.1 || !G.bosses.some(b => b.alive))) continue;
     if (it.kind === 'exit' && !w.exitGate.on) continue;
+    if ((it.kind === 'shortcut' || it.kind === 'barred') && it.gate.open) continue;
     if (it.kind === 'grave' && (!it.grave.on || !it.grave.lit || G.graveFoe || G.bossFight)) continue;
     const d = Math.hypot(p.pos.x - it.x, p.pos.z - it.z);
     if (d < it.r && d < bd) { bd = d; best = it; }
@@ -1286,6 +1366,17 @@ function interact(it) {
       if (it.shrine.dim) { G.hud.toast('This Moonwell is dim: only those past a warlord burn', 'warn'); G.audio.sfx('ui'); break; }
       rest(it.shrine); break;
     case 'message': G.hud.message(it.text); G.audio.sfx('ui'); break;
+    case 'shortcut': {   // lift the bar: the way back to the first Moonwell is open for good
+      (m.shortcuts ||= []).push(it.gate.sc.id);
+      setShortcut(it.gate, true);
+      p.setState('pickup'); p.anim.play('pickup');
+      G.audio.sfx('gate'); G.cam.shake(.25);
+      G.after(.6, () => G.hud.toast('A shortcut opens: the way back to the first Moonwell', 'item'));
+      G.tally('shortcuts');
+      G.save.write();
+      break;
+    }
+    case 'barred': G.hud.toast('Barred from the other side', 'warn'); G.audio.sfx('block', { vol: .5 }); break;
     case 'trials':   // the Thornyard's Trial Stone (trials.js)
       G.controlsOn = false; G.input.wantLock = false; G.input.releaseLock();
       G.menu.show('trials', {}); G.audio.sfx('page');
@@ -1376,7 +1467,7 @@ function frame(fixed, draw = true) {
       }
     }
     wasLocked = inp.locked;
-    G.controlsOn = !G.menu.open && !G.hud.messageOpen && G.player.state !== 'rest' && G.player.alive;
+    G.controlsOn = !G.menu.open && !G.hud.messageOpen && G.player.state !== 'rest' && G.player.alive && !G.flag.cine;
   } else wasLocked = inp.locked;
 
   // Hitstop and slow motion stretch game time; the camera keeps real time.
@@ -1403,7 +1494,7 @@ function draw3d(rdt) {
   const O = G.overworld, p = G.player, play = G.state === 'play' || G.state === 'dead';
   const gk = gradeKey(); if (gk !== G.gradeShown) { G.gradeShown = gk; post.setGrade(gk); }
   post.render(O.active ? O.scene : scene, O.active ? O.camera : camera, rdt, O.active || !play ? {} : {
-    hurt: p.alive ? clamp((.34 - p.hp / p.maxHp) / .26, 0, 1) : 0, shift: p.shifted ? 1 : 0, realm: G.realmK || 0, grey: G.state === 'dead' ? 1 : 0 });
+    hurt: p.alive ? clamp((.34 - p.hp / p.maxHp) / .26, 0, 1) : 0, shift: p.shifted ? 1 : 0, realm: G.realmK || 0, grey: G.state === 'dead' ? 1 : 0, dark: G.darkK || 0 });
 }
 G.tick = (n = 1, dt = 1 / 60, draw = false) => { for (let i = 0; i < n; i++) frame(dt, draw && i === n - 1); };
 
@@ -1429,6 +1520,9 @@ function step(dt, rdt) {
   // Boss phases and the gatekeeper's bar.
   // A pair's second phase comes when one of them falls, not from wounds.
   for (const b of G.bosses) if (b.alive && G.bossFight && !b.phase2 && !b.T.duo && b.hp < b.maxHp * (b.T.phase2At ?? .5)) b.phase2 = true;
+  // A flagship's third phase (flagship.js): at three tenths of its health, once its second has begun.
+  for (const b of G.bosses) if (b.alive && G.bossFight && b.phase2 && !b.phase3 && b.phase3At && b.hp < b.maxHp * b.phase3At) b.phase3 = true;
+  G.flag.update(dt, rdt);
   const gf = G.graveFoe;
   if (gf?.alive && !gf.phase2 && gf.hp < gf.maxHp * (gf.T.phase2At ?? .5)) gf.phase2 = true;
   const w = G.gatekeeper;
@@ -1472,8 +1566,15 @@ function step(dt, rdt) {
   if (inRealm && !G.inRealm) { G.hud.toast('You enter an Umbral Realm', 'realm'); G.audio.sfx('shift', { pitch: .6, vol: .5 }); }
   G.inRealm = inRealm;
   G.realmK = damp(G.realmK || 0, inRealm ? 1 : 0, 2.2, rdt);
-  scene.fog.density = damp(scene.fog.density, (L.fog.byArea?.[area?.id] ?? L.fog.base) * (1 + G.realmK * 1.4), 1.5, rdt);
-  if (G.fogBase && (G.realmK > .002 || G.realmTinted)) { scene.fog.color.copy(G.fogBase).lerp(_realmFog, G.realmK * .75); scene.background.copy(scene.fog.color); G.realmTinted = G.realmK > .002; }
+  // Totality (the Eclipse's third phase, flagship.js): the fog closes in and goes black.
+  G.darkK = damp(G.darkK || 0, G.darkT ? 1 : 0, 1.2, rdt);
+  scene.fog.density = damp(scene.fog.density, (L.fog.byArea?.[area?.id] ?? L.fog.base) * (1 + G.realmK * 1.4 + G.darkK * 1.6), 1.5, rdt);
+  const tint = G.realmK > .002 || G.darkK > .002;
+  if (G.fogBase && (tint || G.realmTinted)) {
+    scene.fog.color.copy(G.fogBase).lerp(_realmFog, G.realmK * .75).lerp(_black, G.darkK * .85); scene.background.copy(scene.fog.color);
+    if (G.lightBase) { hemi.intensity = G.lightBase.hemi * (1 - .8 * G.darkK); moon.intensity = G.lightBase.moon * (1 - .85 * G.darkK); }
+    G.realmTinted = tint;
+  }
 
   // Ambient particles: embers, fireflies, falling leaves.
   if (Math.random() < rdt * 10) G.fx.motes({ x: p.pos.x + rand(-12, 12), y: rand(.2, 3), z: p.pos.z + rand(-12, 12) }, L.motes?.[area?.id] ?? L.motes?.base ?? 0xffb070, 1, .1, .25, .07, 4);

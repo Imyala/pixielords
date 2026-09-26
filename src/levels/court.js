@@ -49,6 +49,7 @@ export default {
   motes: { base: 0xeef2ff, gardens: 0xd8e0ff, throne: 0xffffff },
   titleShrine: 'stair',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     stair: { id: 'stair', name: 'Moonwell of the Last Stair', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

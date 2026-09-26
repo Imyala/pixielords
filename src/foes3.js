@@ -167,6 +167,7 @@ export function actThree(TYPES, { S, A, revenant }) {
         A('Tomb Cuts', 2.5, [S('swing', .45, .12, .08, 60, { reach: 2.5, lunge: .9, kact: 'ae_cut' }), S('overhead', .3, .14, .7, 70, { reach: 2.5, arc: 90, lunge: 1, kact: 'ae_hchop' })]),
         A('Shield Wall', 2.2, [S('thrust', .5, .14, .8, 54, { reach: 2.2, arc: 90, lunge: 2, poise: 50, kact: 'ae_upbash' })], { w: .8 }),
         A('Tomb Slam', 9, [S('leap', .6, .55, 1, 90, { reach: 0, aoe: 2.4, shake: .5, kact: 'ae_slam', wave: graveWave(5, { ring: true, len: 7 }) })], { minRange: 4, cd: 8, w: .6 }),
+        A('Tomb Grasp', 2.4, [S('thrust', .7, .2, 1, 90, { reach: 2.3, arc: 70, lunge: 2, burst: true, grab: { hold: 1.2 }, kact: 'ae_upbash' })], { cd: 10, w: .6 }),
       ],
     },
     'ratman-gravewight': kin('ratman-packleader', ASH, 0xd8c8ff, { name: 'Gravewight', glimmer: 2000, hp: 460 }),

@@ -47,6 +47,7 @@ export default {
   motes: { base: 0xff8a40, coolings: 0xffc080, throne: 0xff6a2a },
   titleShrine: 'gate',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     gate: { id: 'gate', name: 'Moonwell of the Ashen Gate', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

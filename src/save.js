@@ -2,6 +2,7 @@
 // Each mission keeps its own Moonwells, fallen bosses and taken items; stats and Glimmer are shared.
 import { wayName } from './ways.js';
 import { FREE_DYES, freshLook } from './wardrobe.js';
+import { pickSworn } from './gear.js';
 
 const KEY = 'pixielords-save-v1';
 const SKEY = 'pixielords-settings-v1';
@@ -26,6 +27,7 @@ export function freshSave(ng = 0) {
     mastery: {},   // per weapon: { xp, learned: [skill ids] } (skills.js)
     ranged: ['wisp'], rangedSel: 'wisp',   // ranged weapons found, and the one carried (ranged.js)
     gear: freshGear(),   // gear found and worn (gear.js)
+    moonsteel: 0, gearSort: 'best', kits: [null, null, null],   // Moonsteel for tempering; the pack's order; three saved loadouts
     cores: {}, coreSlots: [null, null],   // Soul Cores held (how many of each, fused) and the two set (cores.js)
     sides: {}, side: null,   // side missions done (how often), and the one under way (sides.js)
     abyss: freshAbyss(),   // the Underbriar: the depth you are on, the deepest cleared, lit Moonwells reached (underbriar.js)
@@ -68,6 +70,10 @@ function migrate(d) {
   d.gear ||= freshGear(); d.cores ||= {}; d.coreSlots ||= [null, null]; d.sides ||= {}; d.side ||= null;
   d.abyss ||= freshAbyss();
   d.petals ??= 0; d.vials ??= 0; d.cups ??= 2; d.dyes ||= [...FREE_DYES]; d.look ||= freshLook(); d.looks ||= ['errant'];
+  // Loot depth came later: Moonsteel, the pack's order, saved loadouts, and a Moonsworn effect on every Moonlit and
+  // Divine piece already found (chosen by the piece, so it is the same each time).
+  d.moonsteel ??= 0; d.gearSort ||= 'best'; d.kits ||= [null, null, null];
+  for (const it of d.gear.items) if (it.rar >= 4 && !it.sworn) { let x = it.uid * 7919; it.sworn = pickSworn(it.kind, () => ((x = (x * 9301 + 49297) % 233280) / 233280)); }
   return d;
 }
 

@@ -42,6 +42,8 @@ export default {
   exitToast: 'The crystals dim. A Pixie Gate rises from the dark',
   motes: { base: 0x9fe8ff, warren: 0x9cff5a, hollow: 0xc9b4ff },
   titleShrine: 'mouth',
+  // The shortcut (shortcuts.js): out of the Brood Warren's west wall, round the Glimmer Grotto, into the Mine Mouth.
+  shortcutWay: { side: 'w', X: -58, zA: 0, zB: 130, xA: -10.5, xB: -17.5 }, shortcutName: "The Old Adit",
 
   areas: [
     { id: 'mouth', name: 'The Mine Mouth', x0: -12, x1: 12, z0: -12, z1: 10.5 },

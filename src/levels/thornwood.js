@@ -50,6 +50,7 @@ export default {
   motes: { base: 0xff8ab8, roses: 0xffc8e0, throne: 0xff5a9a },
   titleShrine: 'wicket',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     wicket: { id: 'wicket', name: 'Moonwell of the Briar Wicket', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

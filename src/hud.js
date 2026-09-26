@@ -55,6 +55,7 @@ export class HUD {
       <div class="prompt" hidden></div>
       <div class="toasts"></div>
       <div class="banner"><span></span></div>
+      <div class="lbox"><i></i><i></i></div>
       <div class="big"><span></span><em></em></div>
       <div class="flash"></div>
       <div class="edge"></div>
@@ -121,6 +122,9 @@ export class HUD {
     clearTimeout(this.bigTimer);
     this.bigTimer = setTimeout(() => b.classList.remove('on'), dur * 1000);
   }
+
+  // A great foe's entrance: bars across the screen, and the knight's own marks put away till it is over.
+  cine(on) { this.el.classList.toggle('cine', !!on); }
 
   clearOverlays() {
     this.q.big.classList.remove('on'); this.q.banner.classList.remove('on');
@@ -209,7 +213,10 @@ export class HUD {
     this.bossList = list; this.bossE = list[0] || null;
     q.boss.hidden = !list.length;
     q.boss.classList.toggle('duo', list.length > 1);
-    q.boss.innerHTML = list.map(b => `<div class="brow"><div class="bname">${esc(b.name)}</div><div class="bbar"><i class="trail"></i><i class="fill"></i></div><div class="bki"><i class="fill"></i></div></div>`).join('');
+    // Notches on the bar where a warlord's next phase begins (its second, and a flagship's third).
+    const notches = b => [...(b.T.phase2 && !b.T.duo ? [b.T.phase2At ?? .5] : []), ...(b.phase3At ? [b.phase3At] : [])]
+      .map(f => `<b class="notch" style="left:calc(4px + (100% - 8px) * ${f})"></b>`).join('');
+    q.boss.innerHTML = list.map(b => `<div class="brow${b.phase3At ? ' flagship' : ''}"><div class="bname">${esc(b.name)}</div><div class="bbar"><i class="trail"></i><i class="fill"></i>${notches(b)}</div><div class="bki"><i class="fill"></i></div></div>`).join('');
     this.bossRows = [...q.boss.children].map((row, i) => ({ row, e: list[i], fill: $('.bbar .fill', row), trail: $('.bbar .trail', row), ki: $('.bki .fill', row), tr: list[i].hp / list[i].maxHp }));
   }
 
@@ -393,6 +400,7 @@ export class HUD {
       r.row.classList.toggle('broken', B.state === 'broken');
       r.row.classList.toggle('armored', !!B.armored);
       r.row.classList.toggle('fallen', B.hp <= 0);
+      r.row.classList.toggle('p3', !!B.phase3);
     }
   }
 }

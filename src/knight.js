@@ -186,6 +186,12 @@ export const ACTIONS = {
     K(.5, { ...FLOORED }),
     K(30, { ...FLOORED }),
   ] },
+  // Seized by a grab: lifted, head back, legs kicking, blade hanging (a loop while held).
+  held: { dur: .7, loop: true, keys: [
+    K(0, { chestRx: -.35, headRx: -.45, bodyRx: -.1, lift: .05, hiltA: -1.3, hiltR: .4, hiltH: .2, bladePitch: 1.2, lhX: .3, lhY: .4, lhZ: .25, thLx: .35, knL: .5, thRx: -.25, knR: .7, wings: .6 }),
+    K(.35, { chestRx: -.3, headRx: -.35, bodyRx: -.08, lift: .05, hiltA: -1.2, hiltR: .4, hiltH: .2, bladePitch: 1.1, lhX: .32, lhY: .42, lhZ: .22, thLx: -.3, knL: .8, thRx: .35, knR: .4, wings: .8 }),
+    K(.7, { chestRx: -.35, headRx: -.45, bodyRx: -.1, lift: .05, hiltA: -1.3, hiltR: .4, hiltH: .2, bladePitch: 1.2, lhX: .3, lhY: .4, lhZ: .25, thLx: .35, knL: .5, thRx: -.25, knR: .7, wings: .6 }),
+  ] },
   getup: { dur: .6, keys: [
     K(0, { ...FLOORED }),
     K(.28, { chestRx: .55, headRx: .2, bodyRx: -.3, lift: -.45, thLx: -1.5, knL: 1.9, thRx: -.2, knR: 1.1, hiltA: -.9, hiltR: .35, hiltH: -.3, bladePitch: -1, lhX: .3, lhY: -.25, lhZ: .25 }),

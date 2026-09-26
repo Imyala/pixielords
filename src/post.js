@@ -37,7 +37,7 @@ void main() {
           + texture2D(tIn, vUv + vec2(-o.x, o.y)).rgb + texture2D(tIn, vUv + vec2(o.x, o.y)).rgb) * 2.0;
   gl_FragColor = vec4(c / 12.0 + texture2D(tAdd, vUv).rgb * uMix, 1.0);
 }`;
-const COMPOSE = `uniform sampler2D tScene, tBloom; uniform float uBloom, uVig, uGrain, uTime, uSat, uContrast, uHurt, uShift, uRealm, uSplit, uGrey, uBeat;
+const COMPOSE = `uniform sampler2D tScene, tBloom; uniform float uBloom, uVig, uGrain, uTime, uSat, uContrast, uHurt, uShift, uRealm, uSplit, uGrey, uBeat, uDark;
 uniform vec3 uLift, uGain, uEdge; uniform vec2 uAspect; varying vec2 vUv;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main() {
@@ -60,6 +60,8 @@ void main() {
   float r = length(d * uAspect);
   float v = smoothstep(.35, 1.05, r);
   c *= 1.0 - v * uVig;
+  // Totality (the Eclipse): everything dimmer, and the dark closing in from the edges.
+  c *= 1.0 - uDark * (.4 + .55 * smoothstep(.12, .75, r));
   c = mix(c, uEdge, clamp(v * (uHurt * (.55 + .45 * uBeat)) * 1.4, 0.0, .75));
   // Grain, evenly in shadow and light (it also breaks up banding in the fog).
   c += (hash(vUv * 1024.0 + fract(uTime) * 91.7) - .5) * uGrain;
@@ -87,6 +89,7 @@ export const GRADES = {
   thornyard: { lift: [.02, .018, .03], gain: [1.04, 1.02, .98], sat: 1.04, contrast: 1.06 },
   map: { lift: [.01, .014, .03], gain: [1, 1.01, 1.03], sat: 1.08, contrast: 1.04 },
   twilight: { lift: [.045, .008, .015], gain: [1.08, .9, .9], sat: 1.05, contrast: 1.1 },
+  totality: { lift: [.0, .0, .012], gain: [1.1, .96, .82], sat: .62, contrast: 1.2 },   // the Eclipse's third phase
 };
 
 // Light keeps most of its own colour: a grade leans the highlights only a little, the shadows more.
@@ -118,12 +121,12 @@ export class Post {
     this.comp = mat(COMPOSE, {
       tScene: { value: null }, tBloom: { value: null }, uBloom: { value: .55 }, uVig: { value: .34 }, uGrain: { value: .028 }, uTime: { value: 0 },
       uSat: { value: 1 }, uContrast: { value: 1 }, uLift: v3(G0.lift), uGain: v3(G0.gain), uEdge: v3([.45, .02, .05]), uAspect: { value: new THREE.Vector2(1, 1) },
-      uHurt: { value: 0 }, uShift: { value: 0 }, uRealm: { value: 0 }, uSplit: { value: 0 }, uGrey: { value: 0 }, uBeat: { value: 0 },
+      uHurt: { value: 0 }, uShift: { value: 0 }, uRealm: { value: 0 }, uSplit: { value: 0 }, uGrey: { value: 0 }, uBeat: { value: 0 }, uDark: { value: 0 },
     });
     this.fogWas = new THREE.Color(); this.bgWas = new THREE.Color(); this.rgb = { r: 0, g: 0, b: 0 };
     this.grade = { ...G0, lift: [...G0.lift], gain: [...G0.gain] };
     this.want = this.grade;
-    this.fx = { hurt: 0, shift: 0, realm: 0, split: 0, grey: 0, bloom: 0 };
+    this.fx = { hurt: 0, shift: 0, realm: 0, split: 0, grey: 0, bloom: 0, dark: 0 };
     this.w = this.h = 0;
   }
 
@@ -171,7 +174,7 @@ export class Post {
     for (let i = 0; i < 3; i++) { g.lift[i] += (w.lift[i] - g.lift[i]) * k; g.gain[i] += (w.gain[i] - g.gain[i]) * k; }
     g.sat += (w.sat - g.sat) * k; g.contrast += (w.contrast - g.contrast) * k;
     const f = this.fx, ease = (a, b, s) => a + (b - a) * (1 - Math.exp(-dt * s));
-    f.hurt = ease(f.hurt, state.hurt || 0, 3); f.shift = ease(f.shift, state.shift || 0, 2.5); f.realm = ease(f.realm, state.realm || 0, 1.5); f.grey = ease(f.grey, state.grey || 0, 1.2);
+    f.hurt = ease(f.hurt, state.hurt || 0, 3); f.shift = ease(f.shift, state.shift || 0, 2.5); f.realm = ease(f.realm, state.realm || 0, 1.5); f.grey = ease(f.grey, state.grey || 0, 1.2); f.dark = ease(f.dark, state.dark || 0, 1.2);
     f.split = Math.max(0, f.split - dt * 2.2); f.bloom = Math.max(0, f.bloom - dt * 1.4);
     this.t = (this.t || 0) + dt;
 
@@ -202,7 +205,7 @@ export class Post {
     c.tScene.value = this.rt.texture; c.tBloom.value = src.texture;
     c.uBloom.value = (.5 + f.shift * .25 + f.bloom * .6) / Math.max(1, n - 1) * 1.6;
     c.uTime.value = this.t; c.uSat.value = g.sat; c.uContrast.value = g.contrast; c.uLift.value.set(...g.lift); c.uGain.value.set(...g.gain);
-    c.uHurt.value = f.hurt; c.uShift.value = f.shift * .5; c.uRealm.value = f.realm; c.uSplit.value = f.split; c.uGrey.value = f.grey * .85;
+    c.uHurt.value = f.hurt; c.uShift.value = f.shift * .5; c.uRealm.value = f.realm; c.uSplit.value = f.split; c.uGrey.value = f.grey * .85; c.uDark.value = f.dark;
     c.uBeat.value = Math.pow(Math.max(0, Math.sin(this.t * 5.2)), 6);
     this.pass(this.comp, null);
   }

@@ -49,6 +49,7 @@ export default {
   motes: { base: 0xeef2ff, shallows: 0xc8e0ff, sea: 0xfff4d8 },
   titleShrine: 'landing',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     landing: { id: 'landing', name: 'Moonwell of the Pixie Landing', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

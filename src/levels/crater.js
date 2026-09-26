@@ -45,6 +45,7 @@ export default {
   motes: { base: 0xc8b0ff, geode: 0x9fe8ff, moonshard: 0xe0d0ff },
   titleShrine: 'rim',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     rim: { id: 'rim', name: 'Moonwell of the Crater Rim', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

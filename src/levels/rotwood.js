@@ -39,6 +39,8 @@ export default {
   exitToast: 'The pyre gutters. A Pixie Gate glows in the ashes',
   motes: { base: 0xc8ff8a, village: 0xffb070, glade: 0x9cff5a, pyre: 0xff6a3a },
   titleShrine: 'edge',
+  // The shortcut (shortcuts.js): out of the Rotting Glade's west side, round the Tanner's Camp, into the Hollow's Edge.
+  shortcutWay: { side: 'w', X: -61, zA: 0, zB: 115, xA: -11.5, xB: -20 }, shortcutName: "The Poacher's Path",
 
   areas: [
     { id: 'edge', name: "The Hollow's Edge", x0: -14, x1: 14, z0: -14, z1: 11 },

@@ -168,6 +168,7 @@ export function actTwo(TYPES, { S, A, revenant }) {
         A('Reaping Pair', 3.4, [S('swing', .5, .16, .08, 58, { reach: 3.4, arc: 200, lunge: .9, kact: 'sc_reap' }), S('swing', .34, .16, .7, 58, { reach: 3.4, arc: 200, lunge: .9, kact: 'sc_return' })]),
         A('Hooking Scythe', 3.6, [S('swing', .55, .16, .8, 64, { reach: 3.6, arc: 120, lunge: 1.6, kact: 'sc_hook' })], { w: .8 }),
         A('Harvest Spin', 3.4, [S('spin', .6, .5, .9, 70, { reach: 3.5, arc: 360, kact: 'sc_spin' })], { w: .7 }),
+        A('Briar Hook', 3.4, [S('swing', .7, .2, 1, 80, { reach: 3.4, arc: 90, lunge: 1.4, burst: true, grab: { hold: 1.1 }, kact: 'sc_hook' })], { cd: 10, w: .5 }),
       ],
     },
     // The gatekeeper: Sir Caddoc, the Briar Warden, whose chain-blade keeps the court's gate.
@@ -222,6 +223,7 @@ export function actTwo(TYPES, { S, A, revenant }) {
       attacks: [
         A('Crystal Maul', 2.6, [S('swing', .6, .16, .1, 58, { reach: 2.6, arc: 140, lunge: 1 }), S('overhead', .55, .16, .9, 72, { reach: 2.5, arc: 70, lunge: 1, aoe: 1.4, shake: .4 })]),
         A('Shard Line', 12, [S('overhead', .85, .18, 1, 66, { reach: 2.4, arc: 70, aoe: 1.4, wave: starWave(3, { spread: .4, len: 11 }) })], { minRange: 3, cd: 6, w: .8 }),
+        A('Crushing Grip', 2.6, [S('thrust', .8, .22, 1, 96, { reach: 2.3, arc: 70, lunge: 2.2, burst: true, grab: { hold: 1.2 } })], { cd: 9, w: .6 }),
       ],
     },
     'goblin-starcaller': {

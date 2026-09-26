@@ -70,6 +70,7 @@ export const TYPES = {
       A('Two-Step', 3.3, [S('swing', .65, .16, .2, 62, { reach: 3.5, arc: 150, lunge: .8 }), S('overhead', .45, .16, 1, 82, { reach: 3.3, arc: 60, lunge: 1, aoe: 1.4, shake: .5 })], { w: .7 }),
       A('Bull Charge', 9, [S('thrust', .95, .45, 1.1, 105, { reach: 2.6, arc: 90, lunge: 8, burst: true, hyper: true })], { minRange: 4, cd: 7, w: .8 }),
       A('Ground Pound', 3.5, [S('overhead', 1.05, .18, 1.2, 115, { reach: 0, aoe: 3.4, aoeAt: 1.2, burst: true, hyper: true, shake: .9 })], { cd: 8, w: .6 }),
+      A('Seize and Slam', 3.2, [S('thrust', .8, .22, 1.1, 120, { reach: 2.6, arc: 70, lunge: 2.4, burst: true, grab: { hold: 1.4 } })], { cd: 9, w: .7 }),
     ],
   },
   'ratman-scout': {
@@ -99,6 +100,7 @@ export const TYPES = {
       A('Crush', 2.8, [S('overhead', .85, .16, .9, 84, { reach: 2.8, arc: 60, lunge: .8, aoe: 1.1, shake: .4 })]),
       A('Backhand', 2.9, [S('swing', .7, .16, .8, 68, { reach: 3, arc: 160, lunge: .5 })]),
       A('Trample', 7.5, [S('thrust', .9, .4, 1, 100, { reach: 2.2, arc: 90, lunge: 6.5, burst: true, hyper: true })], { minRange: 3.5, cd: 7, w: .8 }),
+      A('Crushing Grip', 2.6, [S('thrust', .8, .22, 1, 96, { reach: 2.3, arc: 70, lunge: 2.2, burst: true, grab: { hold: 1.2 } })], { cd: 9, w: .6 }),
     ],
   },
   'ratman-slinger': {
@@ -975,7 +977,7 @@ export class Enemy {
   }
 
   get alive() { return this.state !== 'dead' && this.active; }
-  get aware() { return !['idle', 'sleep', 'patrol', 'return'].includes(this.state); }
+  get aware() { return !['idle', 'sleep', 'patrol', 'return', 'lurk'].includes(this.state); }
 
   reset() {
     const s = this.spawn, T = this.T, ng = this.G.ngMul || 1;
@@ -993,13 +995,14 @@ export class Enemy {
     this.maxKi = Math.round(T.ki * (1 + (tier - 1) * .5) * (role ? 1 + ((role.hp || 1) - 1) * .5 : 1) * (way ? 1 + (way.hp - 1) * .3 : 1)); this.ki = this.maxKi;
     this.dmgMul = (1 + (ng - 1) * .6) * tierDmg(tier) * (role?.dmg || 1) * (way?.dmg || 1) * (this.G.tonight?.foeDmg || 1) * (T.dmgScale || 1);   // a new moon's dark; a grave's knight, as strong as the mission's Duel
     this.poiseDmg = 0; this.poiseT = 0; this.kiT = 0;
-    this.state = s.idle === 'sleep' ? 'sleep' : s.patrol ? 'patrol' : 'idle';
+    this.state = s.ambush ? 'lurk' : s.idle === 'sleep' ? 'sleep' : s.patrol ? 'patrol' : 'idle';
     this.st = 0; this.atk = null; this.step = null;
+    this.burrowed = this.state === 'lurk';   // unseen and untouchable until it springs
     this.patrolI = 0; this.think = rand(0, .3); this.vel.set(0, 0, 0); this.impulse.set(0, 0, 0); this.want.set(0, 0, 0);
     this.yawVel = 0; this.gait = 0; this.speedNow = 0; this.turnRate = 6; this.faceYaw = null; this.planT = 0; this.detour = 0;
     for (const k in this.animVel) this.animVel[k] = 0;
     Object.assign(this.cur, POSE0);
-    this.phase2 = false; this.usedOnce = {};
+    this.phase2 = false; this.phase3 = false; this.phase3Roared = false; this.introDur = 0; this.usedOnce = {};
     this.dmgShown = 0; this.dmgShowT = 0; this.barT = 0;
     this.flash = 0; this.burstGlow = 0; this.lastHitBy = 0; this.tgt = null; this.tgtT = 0;
     this.hitList = null; this.alertT = 0; this.stuck = 0;
@@ -1184,7 +1187,7 @@ export class Enemy {
   }
 
   alert(delay = 0) {
-    if (this.aware || !this.alive || this.boss) return;
+    if (this.aware || !this.alive || this.boss || this.state === 'lurk') return;
     this.state = 'alert'; this.st = -delay; this.alertT = 0; this.notice = 1; this.lookAt = null; this.idleGoal = null;
     this.G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch });
     this.G.hud?.mark(this, '!');
@@ -1303,10 +1306,30 @@ export class Enemy {
   }
 
   hurt(dur) {
+    if (this.holding) this.release(false);
     this.endAttack();
     this.state = 'hurt'; this.st = 0; this.hurtDur = dur;
     this.kplay('hurt', 1.2, .03);
     this.G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * 1.2, vol: .6 });
+  }
+
+  // A grab (a step with grab: {hold}): the knight is seized and held at arm's length, shaken, then thrown down
+  // for the rest of the blow's harm, unless it struggles free first (player.js) or the holder is struck down.
+  hold(p, s, rest) {
+    const G = this.G;
+    this.endAttack();
+    this.state = 'holding'; this.st = 0; this.holdDur = s.grab.hold || 1.3; this.holdRest = rest; this.holding = p;
+    this.kplay('grapple', 1.1, .03);
+    G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * .9, vol: .9 });
+    G.cam.shake(.35);
+  }
+  release(thrown) {
+    const G = this.G, p = this.holding;
+    this.holding = null;
+    if (this.state === 'holding') { this.state = 'engage'; this.st = 0; this.think = .5; this.planT = 0; }
+    if (!p || p.state !== 'grabbed') return;
+    if (thrown) p.thrown(this, this.holdRest);
+    else p.setState('free');
   }
 
   // Floored by a heavy blow: thrown back along it, down a moment (blows land harder on the floored), then up.
@@ -1327,6 +1350,7 @@ export class Enemy {
   }
 
   breakKi() {
+    if (this.holding) this.release(false);
     this.endAttack();
     this.state = 'broken'; this.st = 0; this.ki = 0;
     this.kplay('stagger', .45, .04);
@@ -1366,6 +1390,7 @@ export class Enemy {
 
   die(hit) {
     const G = this.G;
+    if (this.holding) this.release(false);
     this.endAttack();
     // It falls away from the killing blow (forward if struck from behind); a heavy blow throws it further.
     const dir = hit?.dir ?? this.yaw + Math.PI, k = hit?.k || (hit?.heavy ? 1.6 : 1);
@@ -1423,6 +1448,7 @@ export class Enemy {
     const behind = Math.abs(angleDiff(this.yaw, yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z))) > 1.9;
     let list = this.T.attacks;
     if (this.phase2 && this.T.phase2) list = list.concat(this.T.phase2);
+    if (this.phase3 && this.T.phase3) list = list.concat(this.T.phase3);
     const ok = list.filter(a => {
       if (a.once && this.usedOnce[a.name]) return false;
       if (a.once && this.phase2) return true;
@@ -1455,7 +1481,7 @@ export class Enemy {
 
   beginStep() {
     const s = this.atk.steps[this.stepI];
-    const spd = this.phase2 ? .85 : 1;
+    const spd = this.phase3 ? .78 : this.phase2 ? .85 : 1;
     this.step = s; this.phase = 'windup'; this.pt = 0; this.hitDone = false; this.lungeTotal = 0; this.lungeDone = 0;
     this.stepDur = { windup: s.windup * spd, active: s.active, recover: s.recover * (this.phase2 ? .8 : 1) };
     this.waveDone = false;
@@ -1607,11 +1633,13 @@ export class Enemy {
 
   deliver(s, from, p = this.foe()) {
     const dmg = s.dmg * this.dmgMul * (this.chantT > this.G.time ? 1.3 : 1) * (this.G.realmAt?.(this.pos) ? 1.15 : 1) * (this.G.diff?.dmg ?? 1);   // an Umbral Realm's foes hit harder; the difficulty
+    const seize = s.grab && p === this.G.player;   // a grab takes a third as it seizes, the rest when it throws
     const res = p.receiveHit({
-      dmg, from: this, burst: !!s.burst, poison: (s.poison || 0) + (this.has('blight') ? 30 : 0), chill: (s.chill || 0) + (this.has('rime') ? 22 : 0), heavy: s.dmg >= 60,
-      dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe, hyper: !!s.hyper, kd: !!s.kd,
+      dmg: seize ? dmg * .3 : dmg, from: this, burst: !!s.burst, poison: (s.poison || 0) + (this.has('blight') ? 30 : 0), chill: (s.chill || 0) + (this.has('rime') ? 22 : 0), heavy: s.dmg >= 60,
+      dirYaw: yawTo(p.pos.x, p.pos.z, from.x, from.z), aoe: !!s.aoe, hyper: !!s.hyper, kd: !!s.kd, grab: !!seize,
     });
     this.hitDone = true;
+    if (res === 'grabbed') this.hold(p, s, dmg * .7);
     if (res === 'hit' && this.champion) {
       if (this.has('vampiric') && this.alive) { this.hp = Math.min(this.maxHp, this.hp + Math.max(dmg * .8, this.maxHp * .05)); this.G.fx.motes({ x: this.pos.x, y: this.height * .6, z: this.pos.z }, 0xff3a5a, 10, .5, 1, .1, .7); }
       if (this.has('ember') && p === this.G.player) this.G.projectiles.hazard(p.pos.x, p.pos.z, 1.3, 2.5, 30, 'fire');
@@ -1654,12 +1682,32 @@ export class Enemy {
     } else if (this.T.roarHazard !== 'none') G.projectiles.hazard(this.pos.x, this.pos.z, 5, 6, 40);
     if (this.T.armor?.phase2) this.armorUp();
     if (this.kn) { this.kn.k.mats.blade.emissiveIntensity = 1.4; this.kn.k.mats.wing.color.setHex(0xdff4ff); }
-    G.onBossPhase2?.(this);
+    // A flagship's third roar opens its third phase (flagship.js); any other roar, the second.
+    if (this.T.phase3?.includes(this.atk) && !this.phase3Roared) { this.phase3Roared = true; G.onBossPhase3?.(this); }
+    else G.onBossPhase2?.(this);
+  }
+
+  // ------------------------------------------------ ambushes
+  // An ambusher (spawn.ambush: main.js chooses them) waits up out of sight, hidden and untouchable, until the
+  // knight passes close beneath; then it drops, and fights.
+  updateLurk() {
+    const G = this.G, p = G.player;
+    this.outer.visible = false;
+    if (G.state !== 'play' || !p.alive || p.state === 'rest' || G.menu?.open) return;
+    const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
+    if (d > (this.spawn.ambushR || 6.5) || Math.abs(p.pos.y) > 3) return;
+    this.state = 'drop'; this.st = 0; this.dropV = 0; this.pos.y = 6.5; this.burrowed = false;
+    this.outer.visible = true; this.yaw = yawTo(this.pos.x, this.pos.z, p.pos.x, p.pos.z); this.outer.rotation.y = this.yaw;
+    G.audio.sfx(this.T.voice, { x: this.pos.x, z: this.pos.z, pitch: this.T.pitch * 1.15, vol: 1 });
+    G.hud?.mark(this, '!');
+    G.fx.motes({ x: this.pos.x, y: 6, z: this.pos.z }, 0xb0a080, 16, .8, .5, .1, 1.2);
+    G.did?.('ambush');
   }
 
   // ------------------------------------------------ main update
   update(dt) {
     if (!this.active) return;
+    if (this.state === 'lurk') { this.updateLurk(); return; }
     const G = this.G, p = G.player;
     // Fae Art brands: Emberbrand's fire eats health; Rimebrand's frost slows everything the foe does.
     if (this.burnT > 0 && this.alive) this.tickBurn(dt);
@@ -1712,7 +1760,7 @@ export class Enemy {
         break;
       case 'intro':
         this.faceYaw = toP; this.turnRate = 2;
-        if (this.st > 2.2) { this.state = 'engage'; this.st = 0; this.think = .3; this.planT = 0; }
+        if (this.st > (this.introDur || 2.2)) { this.state = 'engage'; this.st = 0; this.think = .3; this.planT = 0; }
         break;
       case 'engage':
         this.updateEngage(dt, d, toP);
@@ -1723,6 +1771,26 @@ export class Enemy {
       case 'hurt':
         if (this.st > this.hurtDur) { this.state = 'engage'; this.st = 0; this.think = rand(.1, .4); this.planT = 0; }
         break;
+      case 'drop':   // falling on the knight from above; it lands ready
+        this.dropV -= 30 * dt; this.pos.y = Math.max(0, this.pos.y + this.dropV * dt);
+        this.faceYaw = toP; this.turnRate = 8;
+        if (this.pos.y <= 0) {
+          this.state = 'engage'; this.st = 0; this.think = .25; this.planT = 0;
+          G.fx.dust(this.pos, 14); G.audio.sfx('slam', { x: this.pos.x, z: this.pos.z, vol: .6 }); G.cam.shake(.25, this.pos);
+          for (const o of G.enemies) if (o !== this && o.alive && !o.aware && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 12) o.alert(rand(.1, .4));
+        }
+        break;
+      case 'holding': {
+        const q = this.holding;
+        if (!q || q.state !== 'grabbed' || !q.alive) { this.release(false); break; }
+        // The knight hangs at arm's length, shaken now and then.
+        const f = this.radius + .55, shake = Math.sin(this.st * 22) * .06;
+        q.pos.set(this.pos.x + Math.sin(this.yaw) * f + shake, .35 + Math.abs(Math.sin(this.st * 5)) * .15, this.pos.z + Math.cos(this.yaw) * f);
+        q.yaw = this.yaw + Math.PI; q.vel.set(0, 0, 0);
+        this.want.set(0, 0, 0);
+        if (this.st > this.holdDur) this.release(true);
+        break;
+      }
       case 'broken':
         if (this.st > (this.boss ? 3 : 2.6)) { this.state = 'engage'; this.st = 0; this.ki = this.maxKi * .6; this.think = .2; this.planT = 0; }
         break;
@@ -1774,11 +1842,19 @@ export class Enemy {
     const G = this.G, T = this.T;
     const ranged = T.style === 'ranged';
     this.faceYaw = toP; this.turnRate = T.track ? T.track * 1.4 : 6;
+    const tgt = this.foe(), melee = !ranged && !this.boss && !this.elite;
     if (this.think <= 0) {
       this.think = rand(.16, .3);
       const a = this.pickAttack(d);
       const tokens = G.attackTokens || 0;
-      const eager = Math.random() < (T.aggro || .7) * (G.diff?.aggro ?? 1);
+      // Covering fire: archers and slingers loose while the knight is busy with someone else.
+      const busy = tgt === G.player && (tgt.state === 'attack' || tgt.lock && tgt.lock !== this);
+      const eager = Math.random() < (T.aggro || .7) * (G.diff?.aggro ?? 1) * (ranged && busy ? 1.6 : 1);
+      // From behind: while the knight commits to a strike, a drink or an Art, one foe at its back takes the chance,
+      // whoever else is attacking (one at a time across the fight).
+      if (a && melee && tgt === G.player && ['attack', 'drink', 'art'].includes(tgt.state) && this.behindOf(tgt) && (G.backstabT || 0) < G.time && !a.steps[0].proj) {
+        G.backstabT = G.time + 1.6; this.startAttack(a); return;
+      }
       // A pair of warlords mostly take turns: one presses while the other circles.
       const waiting = this.partner?.alive && this.partner.state === 'attack' && !a?.once && Math.random() < .65;
       if (a && !waiting && (this.boss || this.elite || tokens < 2 || ranged) && (eager || this.boss)) { this.startAttack(a); return; }
@@ -1792,8 +1868,9 @@ export class Enemy {
       } else {
         const want = Math.min(...T.attacks.map(x => x.range)) * .85;
         const crowded = (G.attackTokens || 0) >= 2 && !this.boss && !this.elite;
-        if (d > want + 1) this.plan = 'close';
-        else if (crowded) this.plan = d < 3.4 ? 'back' : 'strafe';
+        if (d > want + 4 && !crowded) this.plan = 'close';
+        else if (crowded) { this.plan = 'flank'; this.slot = this.flankSlot(tgt); }   // wait a turn round the knight's flanks and back
+        else if (d > want + 1) this.plan = 'close';
         else this.plan = Math.random() < .2 ? 'back' : Math.random() < .7 ? 'strafe' : 'shuffle';
         if (this.plan === 'close') this.planT = rand(.35, .7);
       }
@@ -1813,6 +1890,12 @@ export class Enemy {
       const hold = ranged ? (T.prefer[0] + T.prefer[1]) / 2 : want;
       const radial = clamp((d - hold) * .35, -.5, .5);
       this.steer(toP + this.strafeDir * (Math.PI / 2 - radial), T.walk * 1.15);
+    } else if (this.plan === 'flank') {
+      // To a place round the knight (behind first, then the flanks), facing it, ready.
+      const r = want + .9, ya = (tgt.yaw || 0) + (this.slot ?? Math.PI);
+      const tx = tgt.pos.x + Math.sin(ya) * r, tz = tgt.pos.z + Math.cos(ya) * r, dd = Math.hypot(tx - this.pos.x, tz - this.pos.z);
+      if (dd > .5) this.steer(Math.atan2(tx - this.pos.x, tz - this.pos.z), dd > 3 ? T.run * .8 : T.walk * 1.25 * Math.min(1, dd / 1.5), false);
+      else this.want.set(0, 0, 0);
     } else if (this.plan === 'shuffle') {
       // Never stock-still: feint in and ease back out, weight on the balls of the feet.
       const ph = Math.sin(this.st * 3.2 + this.pos.x);
@@ -1828,6 +1911,18 @@ export class Enemy {
       this.kplay('hop', 1, .03);
     }
   }
+
+  // The places foes waiting their turn take round the knight: straight behind it, then its back flanks, then its
+  // front flanks (by the knight's own facing), shared out in a steady order.
+  flankSlot(tgt) {
+    const mates = this.G.enemies.filter(o => o.alive && o.state === 'engage' && (o === this || o.plan === 'flank') && o.foe() === tgt && !o.boss && !o.elite && o.T.style !== 'ranged').sort((a, b) => (a.id > b.id) - (a.id < b.id));
+    const SLOTS = [Math.PI, 2.1, -2.1, 1.2, -1.2];
+    const n = mates.filter(o => o.plan === 'flank' && o !== this).length;
+    if (n >= 1 && !this.G.save.data.surroundTip && tgt === this.G.player) { this.G.save.data.surroundTip = true; this.G.tipAfter?.(.6, 'Foes waiting their turn spread round you, and the one at your back strikes the moment you commit. Keep them in front of you: step back, lock on to the one behind, or dash out of the ring.'); }
+    return SLOTS[Math.max(0, mates.indexOf(this)) % SLOTS.length];
+  }
+  // Is this foe at the knight's back (more than about 110° from where it faces)?
+  behindOf(tgt) { return Math.abs(angleDiff(tgt.yaw || 0, yawTo(tgt.pos.x, tgt.pos.z, this.pos.x, this.pos.z))) > 1.9; }
 
   // Ask to move this frame; integrate() blends the velocity in smoothly.
   steer(yaw, speed, face = true) {
@@ -1913,6 +2008,8 @@ export class Enemy {
         tg.sL = -.35; tg.sR = .25; tg.kL = .38 + Math.sin(t * 3.2 + this.pos.x) * .06; tg.kR = .45; tg.roll = Math.sin(t * 1.6 + this.pos.z) * .05; break;
       case 'alert': tg.pitch = -.2; tg.aL = tg.aR = -.6; tg.sq = 1.05; omega = 12; tg.cPi = -.2; tg.hPi = -.25; tg.eL = tg.eR = -.8; tg.kL = tg.kR = .3; break;
       case 'intro': tg.pitch = -.4 + Math.sin(t * 20) * .04 * (this.st > .6 ? 1 : 0); tg.aL = tg.aR = -1.6; tg.aLz = .7; tg.aRz = -.7; tg.cPi = -.35; tg.hPi = -.45; tg.eL = tg.eR = -.9; tg.kL = tg.kR = .35; tg.sL = -.3; tg.sR = .3; break;
+      case 'drop': tg.pitch = .3; tg.sq = .9; tg.aL = tg.aR = -1.9; tg.aLz = .6; tg.aRz = -.6; tg.kL = tg.kR = 1; tg.sL = -.6; tg.sR = .4; tg.cPi = .3; walk = 0; omega = 14; break;
+      case 'holding': tg.pitch = .12 + Math.sin(t * 22) * .03; tg.aL = tg.aR = -1.55; tg.aLz = .25; tg.aRz = -.25; tg.eL = tg.eR = -.35; tg.cPi = .1; tg.hPi = .15; tg.kL = tg.kR = .35; walk = 0; omega = 12; break;
       case 'hurt': tg.pitch = -.25; tg.twist = .15; omega = 12; walk = 0; tg.cPi = -.35; tg.cTw = .25; tg.hPi = -.35; tg.aL = .3; tg.aR = -.5; tg.eL = -.2; tg.eR = -.9; tg.kL = tg.kR = .45; tg.sL = .15; tg.sR = -.2; break;
       case 'broken': tg.pitch = .45 + Math.sin(t * 3) * .05; tg.sq = .88; tg.aL = tg.aR = .3; tg.roll = Math.sin(t * 2.3) * .1; walk = 0; omega = 7;
         tg.cPi = .5; tg.hPi = .45 + Math.sin(t * 2.3) * .15; tg.hYaw = Math.sin(t * 1.7) * .4; tg.eL = tg.eR = -.1; tg.kL = tg.kR = .8;

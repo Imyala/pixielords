@@ -47,6 +47,7 @@ export default {
   motes: { base: 0xffe0a0, veins: 0xfff0c8, chains: 0xeef2ff, heart: 0xffc860 },
   titleShrine: 'fall',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     fall: { id: 'fall', name: 'Moonwell of the Long Fall', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

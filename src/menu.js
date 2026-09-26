@@ -10,7 +10,7 @@ import { levelCost, forgeCost, FORGE, SETTINGS_DEFAULT } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
 import { RANGED } from './ranged.js';
-import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue, reforgeCost, soulMatchCost } from './gear.js';
+import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue, reforgeCost, soulMatchCost, SWORN, scalingOf, temperCost, TEMPER, moonsteelOf, fxVal } from './gear.js';
 import { TIER, DEED_GLIMMER } from './deeds.js';
 import { PACK } from './loot.js';
 import { CORES, CORE_MAX } from './cores.js';
@@ -32,8 +32,8 @@ import { DYES, DYE_ORDER, LOOK_PARTS } from './wardrobe.js';
 const STATS = [
   { k: 'vit', name: 'Vitality', desc: 'Maximum health' },
   { k: 'end', name: 'Endurance', desc: 'Maximum stamina' },
-  { k: 'str', name: 'Strength', desc: 'Weapon damage' },
-  { k: 'spi', name: 'Spirit', desc: 'Faelight gain and Fae Shift length' },
+  { k: 'str', name: 'Strength', desc: 'Weapon damage, by its Strength grade' },
+  { k: 'spi', name: 'Spirit', desc: 'Faelight, Fae Shift length, and damage by its Spirit grade' },
 ];
 
 // Settings, page by page. A row is a list of choices (vals, names) or a range (min, max, step).
@@ -133,6 +133,8 @@ const TAB = {
   settings: { name: 'Settings', icon: 'settings' }, controls: { name: 'Controls', icon: 'controls' }, patrons: { name: 'Patronage', icon: 'patron' },
   kinship: { name: 'Kinship', icon: 'kinship' }, market: { name: 'Hidden Market', icon: 'market' }, charms: { name: 'Charms', icon: 'charms' },
 };
+// The pack's orders (Equipment, the V key or R3): best first, rarest first, newest first.
+const GEAR_SORT = [['best', 'best'], ['rarity', 'rarity'], ['newest', 'newest']];
 const PAUSE_TABS = ['pause', 'gear', 'arsenal', 'skills', 'moves', 'wardrobe', 'journal', 'bestiary', 'deeds', 'settings', 'controls'];
 const WELL_TABS = ['shrine', 'levelup', 'gear', 'arsenal', 'skills', 'patrons', 'kinship', 'market', 'wardrobe', 'charms', 'journal', 'deeds'];
 const TITLE_TABS = ['settings', 'controls'];
@@ -252,7 +254,7 @@ export class Menu {
     for (const [a, dir] of [['mPrev', -1], ['mNext', 1]]) if (inp.hit(a)) { if (this.turnTab(dir) || this.turnPage(dir)) G.audio.sfx('ui'); return; }
     for (const [a, dir] of [['mSubPrev', -1], ['mSubNext', 1]]) if (inp.hit(a)) { if (this.turnPage(dir)) G.audio.sfx('ui'); return; }
     // The chosen item's other actions (F / R, Y / X), from the key bar.
-    for (const a of ['mAlt', 'mAlt2']) {
+    for (const a of ['mAlt', 'mAlt2', 'mAlt3', 'mAlt4']) {
       if (!inp.hit(a)) continue;
       const k = this.el.querySelector(`.nkeys [data-key~=${a}][data-act]:not([disabled])`);
       if (k) { G.audio.sfx('uiOk'); this.run(k.dataset.act, k, 1); return; }
@@ -373,11 +375,16 @@ export class Menu {
       case 'learn': if (!G.learnSkill(b.dataset.w, b.dataset.id)) G.audio.sfx('ui'); this.render(); break;
       case 'gCat': { const cats = this.gearCats(), i = Math.max(0, cats.findIndex(c => c.id === this.top.data.cat)), to = b?.dataset.to != null ? +b.dataset.to : (i + dir + cats.length) % cats.length; this.top.data.cat = cats[to].id; this.top.focus = 0; this.top.scrolls = null; this.fresh = true; this.render(); break; }
       case 'equipGear': { const u = uidOf(); if (u) G.equipGear(u); this.render(); break; }
-      case 'dismantle': { const u = uidOf(), got = u ? G.dismantleGear([u]) : 0; if (got) G.hud.toast(`Dismantled for ${got} Glimmer`, 'item'); else G.audio.sfx('ui'); this.render(); break; }
+      case 'dismantle': { const u = uidOf(), got = u ? G.dismantleGear([u]) : 0; if (got) G.hud.toast(`Dismantled for ${got} Glimmer${G.lastSteel ? ` and ${G.lastSteel} Moonsteel` : ''}`, 'item'); else G.audio.sfx('ui'); this.render(); break; }
+      case 'lockGear': { const u = uidOf(); if (!u || !G.lockGear(u)) G.audio.sfx('ui'); this.render(); break; }
+      case 'gearSort': { const i = GEAR_SORT.findIndex(o => o[0] === d.gearSort); d.gearSort = GEAR_SORT[(i + 1) % GEAR_SORT.length][0]; G.save.write(); this.top.focus = 0; this.render(); break; }
+      case 'temper': if (!G.temper(this.top.data.uid)) G.audio.sfx('ui'); this.render(); break;
+      case 'saveKit': { const i = +(this.cur()?.dataset.kit ?? -1); if (i >= 0 && G.saveKit(i)) G.hud.toast(`Saved as Loadout ${i + 1}`, 'item'); else G.audio.sfx('ui'); this.render(); break; }
+      case 'wearKit': { const i = +(b?.dataset.kit ?? this.cur()?.dataset.kit ?? -1); if (i >= 0 && G.wearKit(i)) G.hud.toast(`Loadout ${i + 1} worn`, 'item'); else if (i >= 0 && G.saveKit(i)) G.hud.toast(`Saved as Loadout ${i + 1}`, 'item'); this.render(); break; }
       case 'smith': { const u = uidOf(); if (u && this.atWell()) this.push('smith', { uid: u }); else G.audio.sfx('ui'); break; }
       case 'setCore': { const c = b?.dataset.core ?? this.cur()?.dataset.core; if (c) G.setCore(+(b?.dataset.slot || 0), c); this.render(); break; }
       case 'coreOut': { const at = (d.coreSlots || []).indexOf(this.cur()?.dataset.core); if (at >= 0) G.setCore(at, null); else G.audio.sfx('ui'); this.render(); break; }
-      case 'dismantleBelow': { const got = G.dismantleBelow(+b.dataset.rar); G.hud.toast(got ? `Dismantled for ${got.toLocaleString()} Glimmer` : 'Nothing to dismantle', 'item'); this.render(); break; }
+      case 'dismantleBelow': { const got = G.dismantleBelow(+b.dataset.rar); G.hud.toast(got ? `Dismantled for ${got.toLocaleString()} Glimmer${G.lastSteel ? ` and ${G.lastSteel} Moonsteel` : ''}` : 'Nothing to dismantle', 'item'); this.render(); break; }
       case 'reforge': if (!G.reforge(this.top.data.uid, +b.dataset.i)) G.audio.sfx('ui'); this.render(); break;
       case 'soulmatch': if (!G.soulMatch(this.top.data.uid, +b.dataset.from)) G.audio.sfx('ui'); this.render(); break;
       case 'letter': this.push('letter', { m: b.dataset.m, id: b.dataset.id }); G.audio.sfx('page'); break;
@@ -428,13 +435,13 @@ export class Menu {
   // Gear's pages: each weapon carried or found, each armour slot, Soul Cores.
   gearCats() {
     const d = this.G.save.data, p = this.G.player;
-    return [...d.arms.map(w => ({ id: 'w:' + w, name: p.weaponName(w), w, icon: 'sword' })), ...SLOTS.map(s => ({ id: s, name: SLOT_NAME[s], slot: s, icon: SLOT_ICON[s] })), { id: 'cores', name: 'Soul Cores', icon: 'core' }];
+    return [...d.arms.map(w => ({ id: 'w:' + w, name: p.weaponName(w), w, icon: 'sword' })), ...SLOTS.map(s => ({ id: s, name: SLOT_NAME[s], slot: s, icon: SLOT_ICON[s] })), { id: 'cores', name: 'Soul Cores', icon: 'core' }, { id: 'kits', name: 'Loadouts', icon: 'equipment' }];
   }
 
   // ---- pieces the screens share
   chips(...ks) {
     const sv = this.G.save, d = sv.data;
-    const C = { lvl: ['moon', `Level ${sv.level}`, 'lvl'], glim: ['glimmer', sv.glimmer.toLocaleString(), 'glim'], petal: ['petal', (d.petals || 0).toLocaleString(), 'petal'], cup: ['cup', String(d.cups ?? 0), 'cup'] };
+    const C = { lvl: ['moon', `Level ${sv.level}`, 'lvl'], glim: ['glimmer', sv.glimmer.toLocaleString(), 'glim'], petal: ['petal', (d.petals || 0).toLocaleString(), 'petal'], cup: ['cup', String(d.cups ?? 0), 'cup'], steel: ['anvil', `${d.moonsteel || 0} Moonsteel`, 'steel'] };
     return ks.map(k => C[k]);
   }
   // A piece in full, pack or not (the Hidden Market's too), set against what is worn now.
@@ -447,14 +454,17 @@ export class Menu {
     const cmp = eq === it ? '<span class="same">worn</span>' : Math.abs(diff) < 1e-6 ? '<span class="same">=</span>'
       : `<span class="${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'} ${isW ? Math.abs(diff).toFixed(2) : Math.abs(diff)}</span>`;
     const S = it.set && SETS[it.set], n = S ? (st.sets?.[it.set] || 0) : 0;
-    return `<div class="mx-kick"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Level ${it.lvl}</span></div>
+    const sc = isW && scalingOf(it.type), W = SWORN[it.sworn];
+    return `<div class="mx-kick"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Level ${it.lvl}${it.tmp ? ` · tempered +${it.tmp}` : ''}${it.lock ? ' · locked' : ''}</span></div>
       <h3 style="color:${col(it.rar)}">${esc(itemName(it, wn))}</h3>
       <div class="sub">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · worn' : ''}</div>
       <div class="mx-cmp"><span>${isW ? 'Damage' : 'Defence'}</span><span>${eq && eq !== it ? `<span class="was">${fmt(was)}</span> → ` : ''}<span class="now">${fmt(val)}</span> ${cmp}</span></div>
+      ${sc ? `<div class="mx-fx plain scal"><span>Scaling</span><span class="v">Strength <b class="gr g${sc[0]}">${sc[0]}</b> · Spirit <b class="gr g${sc[1]}">${sc[1]}</b></span></div>` : ''}
+      ${W ? `${sec('Moonsworn')}<div class="mx-fx sworn"><span><b>${esc(W.name)}</b> · ${esc(W.t)}</span></div>` : ''}
       ${sec('Special effects')}
-      ${it.fx.length ? it.fx.map(([id, v]) => `<div class="mx-fx"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="mx-fx off"><span>None: a Common piece carries no effects.</span></div>'}
+      ${it.fx.length ? it.fx.map(([id, v]) => `<div class="mx-fx"><span>${esc(fxText(id, fxVal(it, v)))}</span></div>`).join('') : '<div class="mx-fx off"><span>None: a Common piece carries no effects.</span></div>'}
       ${S ? `${sec(`${S.name} set · ${n} of 4 worn`)}<div class="mx-fx set ${n >= 2 ? '' : 'off'}"><span>Two: ${esc(S.two)}</span></div><div class="mx-fx set ${n >= 4 ? '' : 'off'}"><span>Four: ${esc(S.four)}</span></div>` : ''}
-      ${eq && eq !== it ? `${sec(`Worn now: ${itemName(eq, wn)}`)}${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="mx-fx off"><span>${esc(fxText(id, v))}</span></div>`).join('') : '<div class="mx-fx off"><span>No effects</span></div>'}` : ''}`;
+      ${eq && eq !== it ? `${sec(`Worn now: ${itemName(eq, wn)}`)}${SWORN[eq.sworn] ? `<div class="mx-fx off"><span>Moonsworn ${esc(SWORN[eq.sworn].name)}</span></div>` : ''}${eq.fx.length ? eq.fx.map(([id, v]) => `<div class="mx-fx off"><span>${esc(fxText(id, fxVal(eq, v)))}</span></div>`).join('') : '<div class="mx-fx off"><span>No effects</span></div>'}` : ''}`;
   }
   // The chosen gear row in full.
   gearDetail(el, C) {
@@ -472,11 +482,21 @@ export class Menu {
         ${sec('Set')}${set}
         <div class="mx-note">Found again, a core fuses into the one you hold and grows stronger (up to +${CORE_MAX - 1}).</div>`;
     }
+    if (C.id === 'kits') {
+      const i = +(el?.dataset.kit ?? -1), K = d.kits?.[i], by = uid => g.items.find(it => it.uid === uid), wn = id => p.weaponName(id);
+      if (!K) return `<div class="mx-kick"><span>Loadout</span></div><h3>${i >= 0 ? `Loadout ${i + 1}` : 'Loadouts'}</h3><div class="mx-note">A loadout keeps the two weapons you carry, the gear on each, your armour and your charms. Save what you wear now into one with ${G.hud.key('mAlt')}, and put it all back on at once later.</div>`;
+      const line = (label, it) => `<div class="mx-fx plain"><span>${label}</span><span class="v" style="color:${it ? col(it.rar) : 'var(--mx-faint)'}">${it ? esc(itemName(it, wn)) : 'gone'}</span></div>`;
+      return `<div class="mx-kick"><span>Loadout ${i + 1}</span><span>${K.arms.map(wn).join(' · ')}</span></div><h3>${esc(K.arms.map(wn).join(' and '))}</h3>
+        ${sec('Weapons')}${K.arms.map(w => line(esc(wn(w)), by(K.weapons[w]))).join('')}
+        ${sec('Armour')}${SLOTS.map(sl => line(SLOT_NAME[sl], by(K.armor[sl]))).join('')}
+        ${sec('Charms')}${K.charms.length ? K.charms.map(c => `<div class="mx-fx plain"><span>${esc(CHARMS[c]?.name || c)}</span></div>`).join('') : '<div class="mx-fx off"><span>None</span></div>'}`;
+    }
     const st = p.gear || { def: 0, sets: {} };
     const harness = C.slot ? `${sec('Harness')}${stats([['Defence', st.def], ['Blows land lighter by', `${Math.round(defReduce(st.def) * 100)}%`]])}` : '';
     const it = g.items.find(x => x.uid === +(el?.dataset.uid || 0));
     if (!it) return harness || '<div class="mx-note">Foes drop weapons of every kind you carry; better ones from elites and warlords.</div>';
-    return `${this.itemDetail(it)}${harness}<div class="mx-note">Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer.${this.atWell() ? '' : ' Reforge or soul-match it at a Moonwell.'}</div>`;
+    const steel = moonsteelOf(it);
+    return `${this.itemDetail(it)}${harness}<div class="mx-note">${it.lock ? 'Locked: it won\'t be dismantled or consumed.' : `Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer${steel ? ` and ${steel} Moonsteel` : ''}.`}${this.atWell() ? '' : ' Reforge, temper or soul-match it at a Moonwell.'}</div>`;
   }
   // Fill the detail pane, fading the new in.
   fill(html) {
@@ -596,10 +616,10 @@ Menu.prototype.screens = {
     return { ctx: 'world', html: this.frame({ title: 'Moonwell', crumb: data.name, sigil: 'moon', layout: 'hub', chips: this.chips('glim', 'petal', 'cup'), body: `<div class="mx-left">${list(rows, 'hubl dense')}</div>${card}`, hints: [['confirm', 'Select'], ['back', 'Rise', 'leave']] }) };
   },
   levelup() {
-    const G = this.G, sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl), afford = sv.glimmer >= cost, cur = derive(sv.stats);
+    const G = this.G, sv = G.save, p = G.player, lvl = sv.level, cost = levelCost(lvl), afford = sv.glimmer >= cost, cur = derive(sv.stats, p.weapon), sc = scalingOf(p.weapon);
     const rows = STATS.map(st => {
-      const dd = derive({ ...sv.stats, [st.k]: sv.stats[st.k] + 1 });
-      const gain = st.k === 'vit' ? `+${dd.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${dd.maxKi - cur.maxKi} stamina` : st.k === 'str' ? `+${Math.round((dd.dmgMul - cur.dmgMul) * 100)}% damage` : `+${Math.round((dd.animaGain - cur.animaGain) * 100)}% Faelight, +1 s Shift`;
+      const dd = derive({ ...sv.stats, [st.k]: sv.stats[st.k] + 1 }, p.weapon), dmg = `+${((dd.dmgMul - cur.dmgMul) * 100).toFixed(1)}% damage (${sc[st.k === 'str' ? 0 : 1]})`;
+      const gain = st.k === 'vit' ? `+${dd.maxHp - cur.maxHp} health` : st.k === 'end' ? `+${dd.maxKi - cur.maxKi} stamina` : st.k === 'str' ? dmg : `+${Math.round((dd.animaGain - cur.animaGain) * 100)}% Faelight, ${dmg}`;
       return row({ act: 'level', cls: 'lrow', icon: { vit: 'status', end: 'rise', str: 'sword', spi: 'patron' }[st.k], title: st.name, note: st.desc, right: `<span class="val">${sv.stats[st.k]} → ${sv.stats[st.k] + 1}</span><span class="gain">${gain}</span>`, extra: `data-stat="${st.k}"`, off: !afford, desc: `${st.name}: ${st.desc.toLowerCase()}. ${gain}.` });
     }).join('');
     const body = panel(`<div class="lvl-top"><div><small>Level</small><b>${lvl} <i>›</i> ${lvl + 1}</b></div><div><small>Glimmer</small><b style="color:var(--mx-gold)">${sv.glimmer.toLocaleString()}</b></div><div><small>Required</small><b class="${afford ? '' : 'short'}">${cost.toLocaleString()}</b></div></div>
@@ -643,23 +663,29 @@ Menu.prototype.screens = {
     if (data.tab) { data.cat = data.tab === 'cores' ? 'cores' : data.tab === 'weapons' ? 'w:' + (data.w || p.weapon) : (data.slot || 'body'); delete data.tab; }
     const cats = this.gearCats(), C = cats.find(c => c.id === data.cat) || cats[0], ci = cats.indexOf(C);
     data.cat = C.id;
-    const sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid)) || (b.lvl * 10 + b.rar) - (a.lvl * 10 + a.rar);
+    const order = d.gearSort || 'best', sort = (a, b) => (worn.has(b.uid) - worn.has(a.uid))
+      || (order === 'newest' ? b.uid - a.uid : order === 'rarity' ? (b.rar - a.rar) || (b.lvl - a.lvl) : (weaponMul(b) * 100 + armorDef(b) + b.rar) - (weaponMul(a) * 100 + armorDef(a) + a.rar));
     let rows;
-    if (C.id === 'cores') {
+    if (C.id === 'kits') {
+      rows = [0, 1, 2].map(i => { const K = d.kits?.[i]; return row({ act: 'wearKit', icon: 'equipment', title: `Loadout ${i + 1}`, note: K ? K.arms.map(w => wn(w)).join(' · ') : 'empty', extra: `data-kit="${i}"`, off: false, desc: K ? 'Wear this loadout.' : 'Empty: save what you wear now into it.' }); }).join('');
+    } else if (C.id === 'cores') {
       const slots = d.coreSlots || [null, null], owned = Object.keys(d.cores || {}).filter(id => CORES[id]).sort((a, b) => (slots.includes(b) - slots.includes(a)) || CORES[a].name.localeCompare(CORES[b].name));
       rows = owned.map(id => { const at = slots.indexOf(id), gr = Math.min(CORE_MAX, d.cores[id]); return row({ act: 'setCore', icon: 'core', color: '#c89aff', title: `${CORES[id].name}${gr > 1 ? ` +${gr - 1}` : ''}`, tag: at >= 0 ? `Slot ${at + 1}` : '', right: `${CORES[id].cost} FL`, extra: `data-slot="0" data-core="${id}"`, desc: `${CORES[id].skillName}: ${CORES[id].desc}.` }); }).join('')
         || '<div class="mx-empty">No Soul Cores yet. Foes leave them sometimes, elites often, and every gatekeeper and warlord always.</div>';
     } else {
-      rows = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it => row({ act: 'equipGear', icon: C.w ? 'sword' : SLOT_ICON[C.slot], color: col(it.rar), title: itemName(it, wn), tag: worn.has(it.uid) ? 'Worn' : '', right: `Lv ${it.lvl}`, extra: `data-uid="${it.uid}"` })).join('')
+      rows = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it => row({ act: 'equipGear', icon: C.w ? 'sword' : SLOT_ICON[C.slot], color: col(it.rar), title: itemName(it, wn), tag: [worn.has(it.uid) && 'Worn', it.lock && 'Locked'].filter(Boolean).join(' · '), right: `Lv ${it.lvl}`, extra: `data-uid="${it.uid}"` })).join('')
         || `<div class="mx-empty">${C.w ? `No ${esc(wn(C.w))} of any rarity yet: the one you carry hits at ×1.00. Foes drop better ones.` : 'Nothing for this slot yet.'}</div>`;
-      rows += divider('Clear the pack') + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common', extra: 'data-rar="0"', desc: 'Every Common piece not worn, for Glimmer.' }) + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common and Fine', extra: 'data-rar="1"', desc: 'Every Common and Fine piece not worn, for Glimmer.' });
+      rows += divider('Clear the pack') + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common', extra: 'data-rar="0"', desc: 'Every Common piece not worn or locked, for Glimmer.' }) + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common and Fine', extra: 'data-rar="1"', desc: 'Every Common and Fine piece not worn or locked, for Glimmer.' })
+        + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Rare and below', extra: 'data-rar="2"', desc: 'Every Rare, Fine and Common piece not worn or locked, for Glimmer, and Moonsteel from the Rare.' });
     }
     const body = panel(`${subtabs(G, cats.map(c => ({ name: c.name, icon: c.icon })), ci, 'gCat')}${list(rows)}`, 'lst', null) + panel('<div class="mx-detail gdetail live"></div>', 'det');
-    return { ctx: 'veil', onFocus: el => this.fill(this.gearDetail(el?.dataset.uid || el?.dataset.core ? el : null, C)),
-      html: this.frame({ title: 'Equipment', crumb: `Pack ${g.items.length} of ${PACK}${data.forge ? ' · at the Moonwell' : ''}`, layout: 'browse', chips: this.chips('lvl', 'glim'), body,
+    return { ctx: 'veil', onFocus: el => this.fill(this.gearDetail(el?.dataset.uid || el?.dataset.core || el?.dataset.kit ? el : null, C)),
+      html: this.frame({ title: 'Equipment', crumb: `Pack ${g.items.length} of ${PACK} · ${GEAR_SORT.find(o => o[0] === order)?.[1] || 'best'} first${data.forge ? ' · at the Moonwell' : ''}`, layout: 'browse', chips: this.chips('lvl', 'glim', 'steel'), body,
         hints: C.id === 'cores'
           ? [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Set in slot 1'], ['mAlt', 'Set in slot 2', 'setCore', 'data-slot="1"'], ['mAlt2', 'Take out', 'coreOut'], ['back', 'Back', 'back']]
-          : [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Equip'], ['mAlt', 'Dismantle', 'dismantle'], data.forge && ['mAlt2', 'Forge', 'smith'], ['back', 'Back', 'back']] }) };
+          : C.id === 'kits'
+          ? [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Wear'], ['mAlt', 'Save here', 'saveKit'], ['back', 'Back', 'back']]
+          : [[['mSubPrev', 'mSubNext'], 'Category', 'gCat'], ['confirm', 'Equip'], ['mAlt', 'Dismantle', 'dismantle'], ['mAlt3', 'Lock', 'lockGear'], ['mAlt4', 'Sort', 'gearSort'], data.forge && ['mAlt2', 'Forge', 'smith'], ['back', 'Back', 'back']] }) };
   },
   patrons() {
     const G = this.G, d = G.save.data, have = d.patrons || ['lantern'], cur = d.patron || 'lantern';
@@ -866,6 +892,7 @@ Menu.prototype.screens = {
         const rank = d.forge[w] || 0, cost = forgeCost(rank), gw = d.gear?.items.find(it => it.uid === d.gear.equip.weapons[w]);
         this.fill(`<div class="mx-kick"><span>${d.wield === w ? 'In hand' : d.loadout.includes(w) ? 'On your back' : 'Stowed'}</span><span>${rank ? `forged +${rank}` : ''}</span></div><h3>${esc(W.name)}</h3><div class="sub">${esc(W.desc)}</div>
           ${W.mech ? `${sec(W.mech)}<div class="mx-note" style="margin-top:0">${esc(W.mechDesc)}</div>` : ''}
+          ${sec('Scaling')}<div class="mx-fx plain scal"><span>Damage grows with</span><span class="v">Strength <b class="gr g${scalingOf(w)[0]}">${scalingOf(w)[0]}</b> · Spirit <b class="gr g${scalingOf(w)[1]}">${scalingOf(w)[1]}</b></span></div>
           ${sec('Forms')}${['high', 'mid', 'low'].map(s => `<div class="mx-fx plain"><span>${{ high: 'High', mid: 'Mid', low: 'Low' }[s]}</span><span class="v">${esc(FORMS[w][s].name)}</span></div>`).join('')}
           ${gw ? `${sec('Gear in hand')}<div class="mx-fx plain"><span style="color:${col(gw.rar)}">${esc(itemName(gw, id => G.player.weaponName(id)))}</span><span class="v">Lv ${gw.lvl} · ×${weaponMul(gw).toFixed(2)}</span></div>` : ''}
           ${sec('Forging')}${rank >= FORGE.max ? '<div class="mx-fx set"><span>Forged to +10</span></div>' : `<div class="mx-fx ${data.forge ? 'plain' : 'off'}"><span>To +${rank + 1}: 5% more damage with it</span><span class="v">${cost.toLocaleString()} Glimmer</span></div>`}
@@ -911,11 +938,14 @@ Menu.prototype.screens = {
     const G = this.G, d = G.save.data, g = d.gear, p = G.player, it = g.items.find(x => x.uid === data.uid), wn = id => p.weaponName(id);
     if (!it) return { ctx: 'veil', html: this.frame({ title: 'The Forge', layout: 'dialog', body: panel('<div class="mx-empty">That piece is gone.</div>'), hints: [['back', 'Back', 'back']] }) };
     const rc = reforgeCost(it), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
-    const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
+    const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && !x.lock && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
     let rows = divider(`Reforge · ${rc.toLocaleString()} Glimmer each`) + (it.fx.length ? it.fx.map(([id, v], i) => row({ act: 'reforge', icon: 'anvil', title: fxText(id, v), note: 'Roll it anew', right: `${rc.toLocaleString()}`, extra: `data-i="${i}"`, off: G.save.glimmer < rc, desc: 'One effect rolled anew, into another the piece doesn\'t carry.' })).join('') : '<div class="mx-empty">A Common piece has no effects to reforge.</div>');
+    const tc = temperCost(it), tmp = it.tmp || 0;
+    rows += divider(`Temper · ${d.moonsteel || 0} Moonsteel held`) + (tmp >= TEMPER.max ? '<div class="mx-empty">Tempered to +5: it can be hardened no further.</div>'
+      : row({ act: 'temper', icon: 'anvil', title: `Temper to +${tmp + 1}`, note: `${tc.steel} Moonsteel · ${it.kind === 'weapon' ? `${TEMPER.dmg * 100}% more damage` : `${TEMPER.def * 100}% more defence`}, effects a tenth stronger`, right: tc.glimmer.toLocaleString(), off: G.save.glimmer < tc.glimmer || (d.moonsteel || 0) < tc.steel, desc: 'Moonsteel comes from dismantling Rare, Fabled, Moonlit and Divine pieces.' }));
     rows += divider('Soul Match · the other piece is consumed') + (fod.length ? fod.map(x => { const c = soulMatchCost(it, x); return row({ act: 'soulmatch', icon: 'core', title: `To level ${x.lvl}`, note: `consuming ${itemName(x, wn)}`, right: c.toLocaleString(), extra: `data-from="${x.uid}"`, off: G.save.glimmer < c, desc: 'Raise it to the other piece\'s level.' }); }).join('') : '<div class="mx-empty">No higher-level piece of this kind to match it with (worn pieces are never consumed).</div>');
     const body = panel(list(rows), 'lst', ['The Moonwell\'s forge', '']) + panel(`<div class="mx-detail">${this.itemDetail(it)}</div>`, 'det');
-    return { ctx: 'veil', html: this.frame({ title: 'The Forge', crumb: itemName(it, wn), sigil: 'anvil', layout: 'browse', chips: this.chips('glim'), body, hints: [['confirm', 'Select'], ['back', 'Back', 'back']] }) };
+    return { ctx: 'veil', html: this.frame({ title: 'The Forge', crumb: itemName(it, wn), sigil: 'anvil', layout: 'browse', chips: this.chips('glim', 'steel'), body, hints: [['confirm', 'Select'], ['back', 'Back', 'back']] }) };
   },
   deeds() {
     const G = this.G, all = G.deedsView(), earned = all.reduce((a, r) => a + r.tier, 0);

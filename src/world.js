@@ -1,6 +1,7 @@
 // The world engine: collision, raycasts and reusable builders. The level itself (layout, foes, Moonwells,
 // lanterns, gates) is data in src/levels/*.js; World builds whatever level it is given.
 // Collision is 2D in XZ: oriented boxes and cylinders, with heights for camera and line-of-sight rays.
+import { planShortcut, buildShortcutGate, guardBuilders } from './shortcuts.js';
 import * as THREE from 'three';
 import { flagstone, brick, grass, arenaStone, forestFloor, rockFace, thatch, caveFloor, snowField, lakeIce, runeCircle, glowTexture, skyTexture, worldFace, moonPhase } from './textures.js';
 import { rng, clamp, lerp } from './util.js';
@@ -297,7 +298,10 @@ export class World {
     this.starTex = tex('star', () => glowTexture('star'));
 
     this.buildSky();
+    const sc = planShortcut(this.level);   // a way back to the first Moonwell, laid into the level's rooms before they are raised
+    if (sc) { this.cuts = this.level.shortcutWay ? sc.cuts : null; this.keepOut = sc.keepOut; guardBuilders(this); }
     this.level.build(this, this.R);
+    this.shortcut = this.level._sc ? buildShortcutGate(this, this.level._sc) : null;
     this.flush();
     this.buildShrines();
     this.buildMessages();

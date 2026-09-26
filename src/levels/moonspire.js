@@ -35,6 +35,8 @@ export default {
   exitToast: 'The Moonless Blade is gone. A Pixie Gate opens at the crown',
   motes: { base: 0xdfe8ff, garden: 0xffd8ec, crown: 0xc9b4ff },
   titleShrine: 'landing',
+  // The shortcut (shortcuts.js): out of the Garden of Still Water, round the Starlit Library, onto the Landing.
+  shortcutWay: { side: 'w', X: -59, zA: 0, zB: 142, xA: -10, xB: -18 }, shortcutName: "The Cloud Walk",
 
   areas: [
     { id: 'landing', name: 'The Moonstair Landing', x0: -12, x1: 12, z0: -12, z1: 9.7 },

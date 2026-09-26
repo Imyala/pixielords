@@ -154,6 +154,22 @@ size; the mouse or right stick tilts it further up or down.
   **sets**, one per mission plus the Knight-Errant's you start in, and two or four pieces of one set wake its
   bonuses; the knight takes on the colours of the set its mail belongs to. Equip it under **Gear** (pause
   menu or any Moonwell) and dismantle what you won't wear for Glimmer.
+- **Loot depth.** Every weapon **scales** with Strength and Spirit by its own grades, S (most) to E (least), as
+  in Nioh: the Thornhammer and the Greatsword are Strength S, the Daggers, War Fans and Moon Ring Spirit S, the
+  Fae Sword Strength A and Spirit D, the Katana and Chain B and B. A point of a stat is 7.5% more damage at grade
+  A; the Arsenal, the Gear screen and Level up show each weapon's grades, and Level up shows what a point
+  gives the weapon in hand. Every **Moonlit** and **Divine** piece carries one **Moonsworn** effect no lesser
+  piece can, shown in moon-gold: on weapons **Echo** (every fifth blow strikes twice), **Reaper** (each kill
+  within eight seconds of the last adds 6% damage, up to five), **Moontide** (Deflects and Flashcuts refill 20
+  Faelight) or **Sunder** (a fifth more damage to a broken foe); on armour **Thornmail** (a blocked blow bites
+  back for 40%), **Deathless** (once between rests, a killing blow leaves you at 1 health), **Nightfeed**
+  (kills mend 4% health) or **Quicksilver** (a Moonstep gives back 15 stamina and 10% damage for three
+  seconds). Dismantling Rare and better gives **Moonsteel** (1, 2, 4 and 8 by rarity), which **tempers** a
+  piece at a Moonwell's forge, a step at a time to +5: each step is 3% more damage on a weapon or 6% more
+  defence on armour, and its effects a tenth stronger. **Lock** a piece (X / L3) and it is never dismantled,
+  singly or in bulk, nor consumed by a soul-match; **sort** the pack (V / R3) best, rarest or newest first; and
+  save up to three **Loadouts** (Gear → Loadouts): the two weapons carried, the gear on each, the armour and
+  the charms, all put back on at once.
 - **Soul Cores.** As in Nioh 2, a fallen foe sometimes leaves the core of what it was: a violet beam where it
   fell. Ordinary foes leave one now and then, elites often, and every gatekeeper, warlord and Revenant always.
   There are 35, one for each kind of foe (a Scout's, a Brute's, a Shaman's, a Fallen Knight's...) and one for each gatekeeper and
@@ -166,14 +182,16 @@ size; the mouse or right stick tilts it further up or down.
   A tap of Fae Shift still shifts. A core found again **fuses** into the one you hold, up to +4: each step
   makes its skill hit harder and its passive stronger.
 - **The Moonwell's forge.** Open Gear at a Moonwell to **reforge** a piece (roll one of its effects anew, for
-  Glimmer by its level and rarity) or **soul-match** it (raise its level to that of another piece of its kind,
-  a weapon of the same type or armour for the same slot, which is consumed), so a favourite piece can keep up.
+  Glimmer by its level and rarity), **temper** it with Moonsteel (above), or **soul-match** it (raise its level
+  to that of another piece of its kind, a weapon of the same type or armour for the same slot, which is
+  consumed unless locked), so a favourite piece can keep up.
 - **Deeds.** Long goals, as Nioh's titles are, kept across every mission, Way and depth (pause menu or any
   Moonwell): goblins, ratmen, fae knights, Champions, gatekeepers, warlords and Revenants felled; Deflects,
   Flashcuts, Executions, ranged hits and Fae Arts; missions and side missions cleared; the deepest Underbriar
-  depth; Lost Pixies and letters found; gear dismantled and smithed; Soul Cores fused; Ways walked; Moondew
+  depth; Lost Pixies and letters found; gear dismantled and smithed (reforged, tempered or soul-matched); Soul Cores fused; Ways walked; Moondew
   drunk; Glimmer taken; Revenants laid to rest at their graves; wares bought at the Hidden Market; Umbral
-  Realms dispelled; Kindred Spirits called; and falls. Each of the 28 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000), Moonpetals (5, 10, 15) and a
+  Realms dispelled; Kindred Spirits called; Patron Spirits freed; the Thornyard's trials passed; and falls.
+  Each of the 30 has three tiers; a tier pays Glimmer (2,500, 12,000, 50,000), Moonpetals (5, 10, 15) and a
   small bonus for good (Goblinbane: +3% posture damage a tier; Warlord's Bane: +20 health a tier...).
 - **Arsenal and forging.** You carry two weapons at a time, one in hand and one on your back, as in Nioh.
   Choose them in the **Arsenal** (pause menu or any Moonwell). At a Moonwell, forge a weapon with Glimmer, up
@@ -212,6 +230,15 @@ size; the mouse or right stick tilts it further up or down.
 - **Floored.** A crushing blow (a warlord's slam, a charge, anything that would take a fifth of your health)
   knocks the knight flat. Nothing touches you on the ground: dash to roll out at once, or get up (any move or
   strike after a moment, or on your own a second later).
+- **Seized.** Some foes grab: the Goblin Clubber's Seize and Slam, the Ratman Brute's and the Crystal Brute's
+  Crushing Grip, the Thorn-Reaver's Briar Hook, the Hollow Guard's Tomb Grasp, and the flagship warlords' own.
+  A grab is a Dread blow (it glows red): it can't be guarded or Deflected, only dashed through or Thorn
+  Countered. Caught, the knight is lifted and shaken, and takes a third of the blow; mash dash (or strike) to
+  break free, or be thrown down for the rest of it and floored.
+- **Packs.** Foes fight as a pack. Only two ordinary foes press an attack at once; the others circle and wait
+  their turn at your flanks and back, and the one behind you strikes the moment you commit to a strike, a
+  draught of Moondew or an Art. Archers and slingers loose while you are busy with someone else. Keep the pack
+  in front of you: step back, lock on to the one behind, or dash out of the ring.
 - **Deflect and Flashcut.** Tap guard just as a blow lands to Deflect it. Strike straight after for a
   **Flashcut**: one draw-cut that fells ordinary foes outright, bites deep into elites and warlords, and
   chains from foe to foe.
@@ -367,6 +394,17 @@ awakened, charms found, and the letters and Lost Pixies found there. Open the ma
 Crossroads"), from any Moonwell ("Journey elsewhere…"), or by going onward from a cleared mission. Each mission keeps its own Moonwells, fallen
 warlords and items. Level, Glimmer and Moondew carry over.
 
+**Shortcuts.** Every mission has a hidden way that loops back to its first Moonwell: a passage off to one side
+with a barred gate at its end. From the Moonwell's side the gate is barred; come round from the far side and lift
+the bar, and the way back stays open for good. The first five missions name theirs
+(the Grubhold's Postern Way, the Rotwood's Poacher's Path, the Deep's Old Adit, the Moonspire's Cloud Walk, the
+Frostmere's Smugglers' Way); the rest are found by the room kit, which plans a way between the rooms of the
+first two Moonwells.
+
+**Ambushes.** In every mission one or two ordinary foes wait out of sight above the path, away from the
+Moonwells and the first area; they can't be seen or struck until the knight passes close beneath, then they
+drop, and fight.
+
 1. **The Grubhold** (level 1+): the Fallen Grove, the Grubhold Gatehouse (its Gatewarden holds the
    portcullis), the Gnawing Halls, then the Briar Seal and Gnawfang, Warblade of the Warren. Off the yard,
    through a gap in the west wall: the Goblin Larder, with its meat hooks and a stack of powder kegs.
@@ -505,6 +543,23 @@ of ice. The Frostmere brings two new kinds of fight:
   water. A grieving King grows **rime armour**: blows glance off until his stamina is Shattered, which breaks
   the armour for good, and his slams send ice waves out in a fan. A grieving Hexer calls down the winter:
   starbursts of ice in every direction and rings of shards.
+
+**Flagship warlords.** Three warlords fight as the game's set pieces: **Gnawfang** (the Grubhold), **the
+Waning Queen** (the Waning Court) and **the Eclipse** (the Heart of the Moon). Crossing the Briar Seal, the
+camera leaves the knight and turns slowly about the warlord's face while the screen letterboxes and its name
+and title are written across it; each has music of its own (another key and pace; a choir for the Queen and the
+Eclipse, heavier drums for the Eclipse). Their bars carry notches where each phase begins: the second at half
+health, and a **third** at three tenths, where new blows join (each a grab among them) and the arena turns:
+
+- **Gnawfang: The Warren Answers.** Ratmen pour out of the arena's walls, three at a time and again as they
+  fall, and plague pools well up where you stand (and near it), marked a moment before. It learns Gnaw and
+  Shake (a grab) and Bone Rain (seven thrown knives).
+- **The Waning Queen: Moonfall.** Every few seconds pillars of moonlight fall where you stand and to either
+  side, marked a moment before. She learns Queen's Embrace (she blinks behind you and seizes) and the New Moon
+  Waltz (four quick crescent cuts and a whirl).
+- **The Eclipse: Totality.** The arena goes dark, the fog black and the light closing in from the edges, but for
+  three pools of warm light that drift to new places every ten seconds. Outside them the dark gnaws (2% of your
+  health a second). It learns Devour (a grab) and Black Harvest (a ring of sixteen orbs).
 
 Enemies are the sculpted TowerLords models. Their five-bone region rig (root, arms, legs) is grown into
 eleven bones when a model loads: a chest and head over the waist, an elbow in each arm and a knee in each
@@ -761,7 +816,7 @@ src/strikeshapes.js  shapes of strike the movesets are built from: cuts, chops, 
 src/skills.js     weapon skills: the skill tree, mastery and points, and every weapon's Backstep Strike, Guard Counter, Air Finisher and Weapon Skill
 src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thunder Cannon; aiming, firing, ammunition, shots in flight, headshots
 src/rangedmodels.js  their models (the bow's string follows the draw hand)
-src/gear.js       gear: rarities, the effect pool, armour sets and their bonuses, item generation, names, damage and defence
+src/gear.js       gear: rarities, the effect pool, Moonsworn effects, weapon scaling grades, tempering and Moonsteel, armour sets and their bonuses, item generation, names, damage and defence
 src/loot.js       loot on the ground: what fallen foes drop (gear and Soul Cores), the beams, walking over it to take it
 src/cores.js      Soul Cores: the 35 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
 src/sides.js      side missions: Twilight, Hunts and Duels for each mission, their foes, difficulty, loot and spoils
@@ -774,18 +829,20 @@ src/armoryanims.js   their holds, one-handed variants of the sword's strikes, th
 src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Wingleap and glide poses
 src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl) and two-bone IK for both arms and blades
-src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves), AI (sight, hearing, idle wandering, alerts), procedural animation on the rigs, knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
+src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves, grabs), AI (sight, hearing, idle wandering, alerts, packs: taking turns, flanking, striking from behind, covering fire, ambushes), procedural animation on the rigs, knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep, rotwood, deep, moonspire, frostmere; abbey, forge, thornwood, crater, court; shore, hollows, necropolis, umbra, heart); rooms.js is the room kit (rooms and passages, walls with door gaps, briar hedges); shape.js has ring and path helpers; index.js sets the unlock order
 src/foes2.js      the second act's foes, gatekeepers, warlords and Revenants
 src/foes3.js      the third act's, on the moon
 src/overworld.js  the Fae Crossroads: the overworld map's terrain, landmarks, road, reveals, the walking knight and its camera
-src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision, shake, and a blow's jolt and lens punch
+src/camera.js     third-person camera with lock-on, the over-the-shoulder aim, wall collision, shake, a blow's jolt and lens punch, and a flagship's entrance
 src/impact.js     how a blow lands: each weapon's weight and material, a strike's heft, and from them hit-stop, the camera's jolt, the sound, knockdowns and a killing blow's weight
+src/flagship.js   the flagship warlords (Gnawfang, the Waning Queen, the Eclipse): their entrance, third phase and its blows, the Warren's ratmen, Moonfall's pillars, Totality's pools of light, and their music
+src/shortcuts.js  shortcuts: planning each mission's hidden way (by hand or from the room kit), cutting walls for it, and its barred gate
 src/fx.js         particles, debris, sword trails, slash arcs, telegraphs
-src/audio.js      every sound and both music tracks, synthesised with WebAudio
-src/hud.js        the HUD: stance crest, bars, the quick-slot cross, lock-on mark, boss bar, prompts, banners, letters and the ? / ! markers over foes
-src/post.js       the look: a half-float target drawn as the screen would be, bloom (a chain of blurs), each place's grade, vignette, grain, and the moment's colour
+src/audio.js      every sound and the music (the flagships' themes among it), synthesised with WebAudio
+src/hud.js        the HUD: stance crest, bars, the quick-slot cross, lock-on mark, boss bar (with its phase notches), prompts, banners, letters, the ? / ! markers over foes, and the letterbox of an entrance
+src/post.js       the look: a half-float target drawn as the screen would be, bloom (a chain of blurs), each place's grade, vignette, grain, and the moment's colour (Totality's dark among it)
 src/trials.js     the Thornyard: its trials, the yard itself, and the runner (sparring knights, counting what the knight does, passing, failing, rewards)
 src/menu.js       the menus' flow (tabs, pages, held scrolling, the cursor) and every screen: title, pause, Moonwell, charms, the Arsenal (loadout, ranged weapon and forging), Gear (armour, weapons, Soul Cores), Skills, movesets, the Journal, the map's overlay (labels, mission panel, side missions), controls, settings and ending screens
 src/patrons.js    Patron Spirits: their passives and what each does to the Fae Shift

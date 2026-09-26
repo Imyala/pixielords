@@ -43,7 +43,7 @@
 .mx-chip{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:16px;background:rgba(8,10,18,.72);box-shadow:inset 0 0 0 1px var(--mx-line);font:500 14px var(--f-ui);font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
 .mx-chip .ico{width:16px;height:16px}
 .mx-chip b{font-weight:500;color:var(--mx-text)}
-.mx-chip.glim{color:var(--mx-gold)} .mx-chip.petal{color:#ffb8e0} .mx-chip.cup{color:var(--mx-cyan)} .mx-chip.lvl{color:var(--mx-rose)}
+.mx-chip.glim{color:var(--mx-gold)} .mx-chip.petal{color:#ffb8e0} .mx-chip.cup{color:var(--mx-cyan)} .mx-chip.lvl{color:var(--mx-rose)} .mx-chip.steel{color:#c8d8f0}
 .mx-body{position:relative;min-height:0;display:flex;gap:16px;padding:1.4vh 0 1.2vh}
 .mx-foot{position:relative;display:flex;align-items:center;gap:24px;min-height:56px;padding:4px 0 2vh;z-index:2}
 .mx-foot::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--mx-line2) 15%,var(--mx-line2) 85%,transparent)}
@@ -124,6 +124,10 @@ kbd.k.ps.confirm{color:#7faaf6} kbd.k.ps.back{color:#ec6a70} kbd.k.ps.mAlt{color
 .mx-sec::after{background:linear-gradient(270deg,transparent,var(--mx-line2))}
 .mx-fx{display:flex;justify-content:space-between;gap:12px;padding:5px 2px;font:400 16px/1.35 var(--f-ui);color:var(--mx-green);border-bottom:1px solid rgba(206,214,238,.06)}
 .mx-fx.set{color:var(--mx-cyan)} .mx-fx.off{color:var(--mx-faint)} .mx-fx.warn{color:var(--mx-red)} .mx-fx.plain{color:var(--mx-text)}
+/* Moonsworn (gear.js SWORN): a Moonlit or Divine piece's own effect, in moon-gold. Scaling grades as small seals. */
+.mx-fx.sworn{color:var(--mx-gold);background:linear-gradient(90deg,rgba(236,202,120,.12),transparent);box-shadow:inset 2px 0 var(--mx-gold)} .mx-fx.sworn b{font-weight:600;letter-spacing:.04em}
+.mx-fx .gr{display:inline-block;min-width:1.4em;text-align:center;margin-left:4px;border-radius:3px;font:700 12px/1.5 var(--f-ui);background:rgba(206,214,238,.12);color:var(--mx-text)}
+.mx-fx .gr.gS{background:rgba(236,202,120,.3);color:var(--mx-gold)} .mx-fx .gr.gA{background:rgba(143,232,255,.22);color:var(--mx-cyan)} .mx-fx .gr.gB{background:rgba(160,220,140,.2);color:#b8e8a0} .mx-fx .gr.gE,.mx-fx .gr.gD{color:var(--mx-faint)}
 .mx-fx .ico,.mx-stats .ico{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-right:3px}
 .mx-fx .v{color:var(--mx-text);font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
 .mx-note{margin-top:12px;font:italic 400 16px/1.45 var(--f-lore);color:var(--mx-sub)}

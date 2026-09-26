@@ -347,14 +347,19 @@ export class Audio {
   }
 
   // ---------- music
-  music(mode) {
-    if (mode === this.mode) return;
-    this.mode = mode;
-    if (!this.ctx) return;
+  // mode: 'explore', 'boss' or 'none'. A flagship's fight brings a theme (flagship.js): k, the key (a multiple of
+  // the riff's pitch); bpm; choir, a sung chord every other bar; heavy, deeper drums; intense (its third phase),
+  // hats on every step, the riff doubled an octave up and a drum on the off-beats.
+  music(mode, theme = null) {
+    const key = mode + (theme ? JSON.stringify(theme) : '');
+    if (key === this.musicKey) return;
+    const same = mode === this.mode;
+    this.musicKey = key; this.mode = mode; this.theme = theme;
+    if (!this.ctx || same) return;   // the same music, a new theme: the groove carries on
     this.step = 0;
     this.nextBeat = this.ctx.currentTime + .1;
     if (this.drone) { const d = this.drone; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, .8); setTimeout(() => d.o.forEach(o => o.stop()), 4000); this.drone = null; }
-    if (mode === 'explore' || mode === 'boss') this.startDrone(mode === 'boss' ? 36.7 : 55);
+    if (mode === 'explore' || mode === 'boss') this.startDrone(mode === 'boss' ? 36.7 * (theme?.k || 1) : 55);
   }
 
   startDrone(f) {
@@ -390,31 +395,42 @@ export class Audio {
         }
         this.nextBeat += .75;
       } else {
-        // Boss: taiko pattern with a low ostinato, 16th steps at 150 bpm.
+        // Boss: taiko pattern with a low ostinato, 16th steps at 150 bpm (a flagship's theme changes key and pace).
+        const T = this.theme || {}, K = T.k || 1, hv = T.heavy ? 1.3 : 1;
         const bar = s % 16;
         const g = c.createGain(); g.gain.value = .5; g.connect(bus);
-        if ([0, 3, 6, 8, 10, 11, 14].includes(bar)) {
+        if ([0, 3, 6, 8, 10, 11, 14].includes(bar) || (T.intense && bar % 4 === 2)) {
           const big = bar === 0 || bar === 8;
-          this.tone(g, t, big ? .5 : .28, { type: 'sine', f0: big ? 110 : 150, f1: 40, peak: big ? 1.1 : .6, a: .002 });
+          this.tone(g, t, big ? .5 * hv : .28, { type: 'sine', f0: (big ? 110 : 150) / hv, f1: 40 / hv, peak: big ? 1.1 : .6, a: .002 });
           this.noiseBurst(g, t, .12, { type: 'lowpass', f0: 1200, f1: 200, peak: big ? .5 : .25 });
         }
-        if (bar % 4 === 2) this.noiseBurst(g, t, .05, { type: 'highpass', f0: 6000, peak: .08 });
+        if (bar % 4 === 2 || (T.intense && bar % 2 === 1)) this.noiseBurst(g, t, .05, { type: 'highpass', f0: 6000, peak: T.intense ? .06 : .08 });
         const riff = [73.4, 0, 73.4, 87.3, 0, 82.4, 73.4, 0, 65.4, 0, 65.4, 77.8, 0, 73.4, 69.3, 0];
         const phrase = Math.floor(s / 16) % 4;
-        const f = riff[bar] * (phrase === 3 ? 1.189 : 1);
+        const f = riff[bar] * (phrase === 3 ? 1.189 : 1) * K;
         if (f) {
           const bg = c.createGain(); bg.gain.value = .22;
-          const filt = c.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 600;
+          const filt = c.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = T.intense ? 900 : 600;
           bg.connect(filt).connect(bus);
           this.tone(bg, t, .22, { type: 'sawtooth', f0: f, peak: 1, a: .005 });
           this.tone(bg, t, .22, { type: 'sawtooth', f0: f * 2, peak: .4, a: .005, detune: 8 });
+          if (T.intense) this.tone(bg, t, .18, { type: 'square', f0: f * 4, peak: .18, a: .005 });
         }
         if (bar === 0 && phrase % 2 === 1) {
           const sg = c.createGain(); sg.gain.value = .07; sg.connect(bus);
           const w = c.createGain(); w.gain.value = 1; sg.connect(w).connect(this.verbIn);
-          for (const fr of [293.7, 349.2, 440]) this.tone(sg, t, 1.6, { type: 'sawtooth', f0: fr * (phrase === 3 ? 1.189 : 1), peak: 1, a: .05 });
+          for (const fr of [293.7, 349.2, 440]) this.tone(sg, t, 1.6, { type: 'sawtooth', f0: fr * (phrase === 3 ? 1.189 : 1) * K, peak: 1, a: .05 });
         }
-        this.nextBeat += 60 / 150 / 4;
+        if (T.choir && bar === 0 && phrase % 2 === 0) {
+          // A choir, of a kind: soft voices through a vowel's filter, swelling over two bars.
+          const cg = c.createGain(); cg.gain.value = .05;
+          const vf = c.createBiquadFilter(); vf.type = 'bandpass'; vf.frequency.value = 820; vf.Q.value = 1.4;
+          cg.connect(vf).connect(bus);
+          const w = c.createGain(); w.gain.value = 1.2; vf.connect(w).connect(this.verbIn);
+          const dur = 16 * 2 * 60 / (T.bpm || 150) / 4;
+          for (const [i, fr] of [146.8, 220, 293.7, 349.2].entries()) this.tone(cg, t, dur, { type: 'sawtooth', f0: fr * K, peak: 1, a: dur * .4, detune: (i - 1.5) * 7 });
+        }
+        this.nextBeat += 60 / (T.bpm || 150) / 4;
       }
     }
   }

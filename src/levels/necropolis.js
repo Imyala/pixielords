@@ -50,6 +50,7 @@ export default {
   motes: { base: 0xd8c8ff, lilies: 0xeef2ff, crypt: 0xffe0a0 },
   titleShrine: 'mgate',
   areas: roomAreas(ROOMS),
+  rooms: ROOMS, corrs: CORRS,   // for the shortcut (shortcuts.js), laid in before the level is built
 
   shrines: {
     mgate: { id: 'mgate', name: 'Moonwell of the Mourning Gate', x: -4, z: -4, spawn: [-1.8, -2.2], yaw: 0 },

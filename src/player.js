@@ -14,7 +14,7 @@ import { ARMORY, ARMORY_MOVES } from './armory.js';
 import { SIG_MOVES, SIG_KITS } from './signatures.js';
 import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
-import { gearStats, weaponMul, defReduce } from './gear.js';
+import { gearStats, weaponMul, defReduce, scaleMul } from './gear.js';
 import { lookColors } from './wardrobe.js';
 import { REALM } from './umbral.js';
 import { CORE_MOVES, coreMethods } from './cores.js';
@@ -125,11 +125,12 @@ const DEFLECT = .2;          // seconds after pressing guard in which a blow is 
 const RIPOSTE_WINDOW = .9;   // seconds after a Moonstep in which a strike becomes a Moonstep Riposte
 const FLASH_WINDOW = .5;     // seconds after a deflect in which a strike becomes a Flashcut
 
-export function derive(stats) {
+// What the four attributes give. Damage grows with Strength and Spirit by the weapon's scaling grades (gear.js).
+export function derive(stats, weapon = 'sword') {
   return {
     maxHp: 300 + 32 * (stats.vit - 1),
     maxKi: 100 + 9 * (stats.end - 1),
-    dmgMul: 1 + .075 * (stats.str - 1),
+    dmgMul: scaleMul(weapon, stats),
     animaGain: 1 + .12 * (stats.spi - 1),
     shiftDur: 12 + (stats.spi - 1) * 1,
   };
@@ -174,7 +175,7 @@ class Ghosts {
 
 export class Player {
   constructor(G) {
-    this.G = G;
+    this.G = G; this.echoN = 0;
     this.k = buildKnight();
     this.anim = new KnightAnimator(this.k);
     G.scene.add(this.k.root);
@@ -206,7 +207,7 @@ export class Player {
   }
 
   applyStats() {
-    Object.assign(this, derive(this.stats));
+    Object.assign(this, derive(this.stats, this.weapon));
     if (this.has('gateseal')) this.maxHp = Math.round(this.maxHp * 1.1);
     if (this.has('seereye')) this.animaGain *= 1.25;
     if (this.has('wintercrown')) this.shiftDur *= 1.33;
@@ -238,6 +239,26 @@ export class Player {
   // Deeds earned (deeds.js): their bonuses, for good.
   applyDeeds() { this.deedFx = deedFx(this.G.save?.data.deeds); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
   setBonus(id) { return !!this.gear?.bonus.has(id); }
+  // A Moonsworn effect (gear.js SWORN) on a piece worn or the weapon in hand.
+  sworn(id) { return !!this.gear?.sworn?.has(id); }
+  // A blow that would kill. Deathless (Moonsworn armour) holds the knight at 1 health, once between Moonwell rests.
+  fall() {
+    const G = this.G;
+    if (this.sworn('undying') && !this.undyingUsed) {
+      this.undyingUsed = true; this.hp = 1; this.iframesT = Math.max(this.iframesT || 0, .8);
+      G.fx.ring(this.pos, 0xffd36a, 3.2, .5); G.fx.flash(_a.set(this.pos.x, 1.2, this.pos.z), 0xffd36a, 2.6, .4, true);
+      G.audio.sfx('moonstep'); G.hud.toast('Deathless', 'gold'); G.hitstop = Math.max(G.hitstop, .12);
+      return false;
+    }
+    this.die();
+    return true;
+  }
+  // A foe felled by the knight: Nightfeed mends, Reaper stacks.
+  onKill() {
+    const G = this.G;
+    if (this.sworn('nightfeed')) this.heal(this.maxHp * .04);
+    if (this.sworn('reaper')) { this.reap = G.time - (this.reapT || -99) < 8 ? Math.min(5, (this.reap || 0) + 1) : 1; this.reapT = G.time; }
+  }
   weaponName(id) { return WEAPONS[id]?.name || id; }
   applyGear() {
     const g = this.G.save?.data?.gear;
@@ -364,7 +385,7 @@ export class Player {
     dmg *= (1 - this.gf('fireRes') / 100) * (this.setBonus('delver2') ? .6 : 1);
     this.hp -= dmg; this.burnedT = G.time;
     G.hud.screenFlash('hurt'); G.audio.sfx('playerHurt', { vol: .35 });
-    if (this.hp <= 0) this.die();
+    if (this.hp <= 0) this.fall();
   }
 
   addPoison(n) {
@@ -827,6 +848,7 @@ export class Player {
     const G = this.G;
     this.flash = null; this.riposte = null; this.resetChain();
     this.fc = { e, hit: false, kind };
+    if (this.sworn('tide')) this.gainAnima(20);
     const toE = yawTo(this.pos.x, this.pos.z, e.pos.x, e.pos.z);
     const stand = e.radius + 1.1;
     if (kind === 'riposte') {
@@ -909,6 +931,8 @@ export class Player {
         return 'blocked';
       }
       G.audio.sfx('block');
+      // Thornmail (Moonsworn): the blocked blow bites back.
+      if (this.sworn('thorns') && h.from?.alive && !h.projectile) h.from.takeHit({ dmg: h.dmg * .4, ki: h.dmg * .2, poise: 0, dir: yawTo(this.pos.x, this.pos.z, h.from.pos.x, h.from.pos.z) });
       this.ctrT = G.time + .7;   // a Guard Counter, if learned
       this.knock = { yaw: h.dirYaw + Math.PI, v: h.heavy ? 5 : 2.5 };
       G.hitstop = .04;
@@ -925,6 +949,14 @@ export class Player {
       if (this.anima <= 0) this.endShift();
     }
     this.hp -= dmg; G.did?.('hurt');
+    // Seized (a grab): held, struggling, until thrown or free (enemies.js hold()).
+    if (h.grab && h.from?.alive && this.hp > 0) {
+      this.setState('grabbed'); this.anim.play('held', 1, .04); this.struggle = 0; this.lock = h.from; this.pulse = null;
+      this.resetChain(); this.knock = null;
+      G.audio.sfx('playerHurt'); G.hud.screenFlash('hurt'); G.cam.shake(.3);
+      if (!this.grabTip) { this.grabTip = true; G.hud.toast(`Seized! Mash ${G.hud.key('dodge')} to break free`, 'warn'); }
+      return 'grabbed';
+    }
     this.chain = 0;
     this.resetChain(); this.combo.n = Math.floor(this.combo.n / 2);   // a blow breaks the chain and halves the combo
     if (h.poison) this.addPoison(h.poison);
@@ -935,7 +967,7 @@ export class Player {
     G.audio.sfx('playerHurt');
     G.fx.blood(_a.set(this.pos.x, 1.2, this.pos.z), { x: -Math.sin(h.dirYaw), z: -Math.cos(h.dirYaw) }, 14, 0x5a0808);
     G.hud.screenFlash('hurt');
-    if (this.hp <= 0) { this.die(); return 'hit'; }
+    if (this.hp <= 0 && this.fall()) return 'hit';
     const armored = (stalwart || this.frenzied() || (this.state === 'attack' && this.atk.heavy && this.st * this.aspeed > .2 && this.st * this.aspeed < this.atk.hit[1])) && !h.heavy;
     // A crushing blow (a warlord's slam, a charge, a great heavy) floors the knight.
     if (!armored && !this.shifted && h.heavy && !h.projectile && (h.hyper || h.kd || dmg >= this.maxHp * .2) && this.pos.y < .3) {
@@ -958,7 +990,7 @@ export class Player {
     const G = this.G;
     this.setState('deflect'); this.anim.play('deflect', 1.3, .02);
     this.ki = Math.min(this.maxKi, this.ki + (this.has('thornheart') ? 20 : 8) + (this.weapon === 'tonfas' ? (this.sk('mech') ? 22 : 10) : 0) + this.gf('deflect') + (this.setBonus('warden4') ? 20 : 0));
-    this.gainAnima(this.has('thornheart') ? 10 : 6);
+    this.gainAnima((this.has('thornheart') ? 10 : 6) + (this.sworn('tide') ? 20 : 0));
     const sp = _a.set(this.pos.x + Math.sin(this.yaw) * .6, 1.3, this.pos.z + Math.cos(this.yaw) * .6);
     G.fx.spark(sp, { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }, 34, 0xdff8ff, 9);
     G.fx.flash(sp, 0xffffff, 2.2, .22, true);
@@ -977,13 +1009,27 @@ export class Player {
     this.moonstepped = true;
     G.warp = this.has('shadowsilk') ? 1.7 : 1.1;
     if (this.has('moonveil')) this.veilT = G.time + 3;
-    this.ki = Math.min(this.maxKi, this.ki + 15);
+    this.ki = Math.min(this.maxKi, this.ki + 15 + (this.sworn('quicksilver') ? 15 : 0));
+    if (this.sworn('quicksilver')) this.quickT = G.time + 3;
     this.gainAnima(10);
     G.fx.ring(this.pos, 0x9fb8ff, 3.5, .5);
     this.ghosts.spawn(0xb8c8ff, .6, .7);
     G.audio.sfx('moonstep');
     G.hud.screenFlash('moon');
     G.hud.toast('Moonstep', 'pulse'); G.did?.('moonstep');
+  }
+
+  // Thrown down at the end of a grab: the rest of its harm, and floored.
+  thrown(e, dmg) {
+    const G = this.G;
+    this.pos.y = 0;
+    dmg *= (1 - defReduce(this.gear?.def || 0)) * (1 - this.gf('ward') / 100);
+    this.hp -= dmg; G.did?.('hurt');
+    G.audio.sfx('slam', { vol: .9 }); G.audio.sfx('playerHurt'); G.cam.shake(.6); G.hitstop = .08;
+    G.fx.dust(this.pos, 14); G.hud.screenFlash('hurt');
+    if (this.hp <= 0 && this.fall()) return;
+    this.setState('floored'); this.anim.play('knockdown', 1.3, .03);
+    this.knock = { yaw: e.yaw, v: 6 };
   }
 
   die() {
@@ -1503,6 +1549,21 @@ export class Player {
         if (this.st >= this.hurtDur) this.setState('free');
         break;
       }
+      // Seized: nothing else can touch the knight; every dash, strike or guard pressed struggles against the hold.
+      case 'grabbed': {
+        this.iframes = true;
+        for (const a of ['dodge', 'light', 'heavy']) if (take(a)) { this.struggle += .2 + (this.has('thornheart') ? .05 : 0); G.fx.spark(_a.set(this.pos.x, 1.1, this.pos.z), { x: 0, z: 0 }, 5, 0xffe0a0, 3); G.audio.sfx('block', { vol: .35 }); }
+        if (G.input.hit('guard')) this.struggle += .12;
+        const E = this.lock;
+        if (this.struggle >= 1 && E?.state === 'holding') {
+          E.release(false); E.hurt(.8); E.ki -= E.maxKi * .25; E.barT = 6;
+          this.setState('free'); this.iframesT = .5;
+          const back = E.yaw; this.knock = { yaw: back, v: 5 };
+          G.hud.toast('Broke free', 'pulse'); G.audio.sfx('burstCounter', { vol: .6 }); G.fx.ring(this.pos, 0xffe0a0, 2.2, .3);
+          G.did?.('breakfree');
+        }
+        break;
+      }
       // Floored: untouchable on the ground (the foe has had its blow); dash to roll out, or get up.
       case 'floored':
         this.iframes = this.st > .12;
@@ -1864,7 +1925,12 @@ export class Player {
       * (a.heavy || a.fin ? 1 + this.gf('heavy') / 100 : 1) * (this.isPause ? 1 + this.gf('pause') / 100 : 1)
       * (behind ? 1 + this.gf('back') / 100 + (this.setBonus('stalker2') ? .15 : 0) : 1)
       * (this.setBonus('delver4') && hpK < .5 ? 1.12 : 1) * (this.setBonus('pilgrim4') && this.shifted ? 1.15 : 1);
-    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * (this.shifted ? this.pshift?.dmg ?? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
+    // Moonsworn (gear.js): Echo's fifth blow twice over, Reaper's stacks, Sunder on the broken, Quicksilver's rush.
+    const echo = this.sworn('echo') && ++this.echoN % 5 === 0;
+    const sworn = (echo ? 2 : 1) * (this.sworn('reaper') && G.time - (this.reapT || -99) < 8 ? 1 + .06 * (this.reap || 0) : 1)
+      * (this.sworn('sunder') && e.state === 'broken' ? 1.2 : 1) * (G.time < (this.quickT || 0) ? 1.1 : 1);
+    if (echo) { G.fx.ring(e.pos, 0xffd36a, 1.6, .25, 1.2); G.fx.flash(_a.set(e.pos.x, e.height * .6, e.pos.z), 0xffd36a, 1.6, .2, true); }
+    const mul = this.dmgMul * S.dmg * cm * charm * fz * cmb * forged * mech * sworn * (this.shifted ? this.pshift?.dmg ?? 1.6 : 1) * (e.state === 'broken' ? (this.has('iceheart') ? 1.5 : 1.25) : 1);
     // Knockback: Snare pulls, Reap's sweeps draw in, Sweep and Gale push.
     let kb = last > 1 ? Math.max(a.kb ?? 0, 4.5) : a.kb;
     if (wid === 'chain' && !a.air) kb = Math.min(a.kb < 0 ? a.kb : 0, a.heavy || a.fin ? -5 : -1.8) * (mm ? 1.5 : 1);
@@ -1957,7 +2023,7 @@ export class Player {
       this.poisoned -= dt;
       this.hp -= this.maxHp * .012 * dt * (this.has('rootbound') ? .6 : 1);
       if (Math.random() < dt * 6) G.fx.motes({ x: this.pos.x, y: 1, z: this.pos.z }, 0x8fe040, 1, .3, .8, .1, .8);
-      if (this.hp <= 0) this.die();
+      if (this.hp <= 0) this.fall();
     } else this.poison = Math.max(0, this.poison - 8 * dt);
     if (this.frozen > 0) {
       this.frozen -= dt;
