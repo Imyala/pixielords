@@ -8,9 +8,10 @@
 // the weapon's own mechanic. Ranged weapons (ranged.js) have a shorter tree of their own.
 import { ACTIONS, K, airVariant } from './knight.js';
 import { flurry } from './moveanims.js';
-import { SIG_MOVES } from './signatures.js';
-import { MOVES } from './movesets.js';
+import { SIG_MOVES, SIG_KITS } from './signatures.js';
+import { MOVES, FORMS, KIT } from './movesets.js';
 import { chop, whirl, twirl, retime, string, HOP } from './strikeshapes.js';
+import { RELICS } from './relicdata.js';
 
 // The tree. req: learned first (any one of them). Tiers are the rows the Skills screen draws.
 export const TREE = [
@@ -22,10 +23,11 @@ export const TREE = [
   { id: 'skill', name: 'Weapon Skill', cost: 3, tier: 2, req: ['counter'], move: 'skill', desc: 'Hold guard and strike hard:' },
   { id: 'mech', name: 'Mechanic Mastery', cost: 3, tier: 2, req: ['pause'], desc: '' },
   { id: 'fin', name: 'Finisher Mastery', cost: 3, tier: 2, req: ['air'], desc: 'Finishers draw a third more from the combo counter and cost a fifth less stamina.' },
+  { id: 'flourish', name: 'Finishing Flourish', cost: 2, tier: 2, req: ['fin', 'skill'], move: 'flourish', desc: 'Right after a finisher, strike hard again: a flourish of the weapon\'s own, and a crescent of moonlight.' },
   { id: 'prof2', name: 'Proficiency II', cost: 3, tier: 3, req: ['skill', 'mech', 'fin'], desc: '+8% more damage, and strikes cost 10% less stamina.' },
 ];
 // Mastery: blows landed (heavier ones count double) and foes felled earn it; the nth skill point comes at
-// 20n + 4n² mastery, so a weapon's whole tree (20 points) takes a few missions of steady use.
+// 20n + 4n² mastery, so a weapon's whole tree (22 points) takes a few missions of steady use.
 export const XP = { hit: 1, heavy: 2, kill: 6 };
 export const xpFor = n => 20 * n + 4 * n * n;
 export const pointsAt = xp => { let n = 0; while (xpFor(n + 1) <= xp) n++; return n; };
@@ -70,7 +72,7 @@ export const MECH_MASTERY = {
 // ---------------------------------------------------------------- the skill moves
 export const SKILL_MOVES = {};
 export const SKILL_KITS = {};
-const src = k => SIG_MOVES[k] || MOVES[k] || BASE[k];
+export const src = k => SIG_MOVES[k] || MOVES[k] || BASE[k];
 // The first five weapons' own strikes that live in player.js, as far as these moves need them.
 const BASE = {
   light1: { anim: 'light1', dur: .62, hit: [.19, .31], dmg: 40, ki: 24, poise: 10, cost: 13, reach: 2.4, arc: 160, move: .7, chain: .3 },
@@ -79,12 +81,14 @@ const BASE = {
   g1: { anim: 'g_thrust', dur: .55, hit: [.16, .28], dmg: 44, ki: 28, poise: 12, cost: 14, reach: 3.4, arc: 50, move: .6, chain: .3 },
   g2: { anim: 'g_sweep', dur: .64, hit: [.2, .34], dmg: 46, ki: 30, poise: 14, cost: 15, reach: 3.2, arc: 200, move: .5, chain: .36 },
   f1: { anim: 'f_slash1', dur: .44, hit: [.1, .2], dmg: 26, ki: 14, poise: 5, cost: 9, reach: 2.2, arc: 150, move: .6, chain: .2 },
+  f2: { anim: 'f_slash2', dur: .44, hit: [.1, .2], dmg: 26, ki: 14, poise: 5, cost: 9, reach: 2.2, arc: 150, move: .6, chain: .2 },
+  g3: { anim: 'g_spin', dur: .8, hit: [.2, .5], dmg: 52, ki: 32, poise: 18, cost: 17, reach: 3.1, arc: 360, move: .4, chain: .6 },
   f3: { anim: 'f_cross', dur: .56, hit: [.14, .28], dmg: 34, ki: 20, poise: 8, cost: 11, reach: 2.3, arc: 120, move: .8, chain: .3 },
 };
 const withHit = (key, hit) => ({ ...ACTIONS[key], hit });
 const D = (key, name, from, o = {}) => { const s = src(from); SKILL_MOVES[key] = { ...s, name, fin: false, next: undefined, ...o }; };
 // A move with its own animation: the animation's length and hit window, and these numbers.
-function S(key, name, anim, dmg, o = {}) {
+export function S(key, name, anim, dmg, o = {}) {
   ACTIONS[key] = anim;
   SKILL_MOVES[key] = { name, anim: key, dur: anim.dur, hit: anim.hit, dmg, ki: Math.round(dmg * .7), poise: Math.round(dmg * .35), cost: Math.round(dmg * .3),
     reach: 2.6, arc: 150, move: .8, chain: +(anim.hit[1] + .04).toFixed(3), heavy: true, skill: true, ...o };
@@ -98,7 +102,7 @@ function airFin(key, name, from, hit, o = {}) {
     reach: (s.reach || 2.6) * 1.05, arc: Math.max(120, s.arc || 120), move: .4, chain: +(h[1] + .04).toFixed(3), air: true, slam: true, heavy: true, multi: s.multi, ...o };
 }
 const kit = (w, k) => { SKILL_KITS[w] = k; };
-const wave = (color, o = {}) => ({ len: 11, speed: 22, w: 1.1, dmg: .8, color, ...o });
+export const wave = (color, o = {}) => ({ len: 11, speed: 22, w: 1.1, dmg: .8, color, ...o });
 
 // Fae Sword: Moon Dragon, a turning leap and a falling cut.
 D('sw_back', 'Retreating Thrust', 's_lunge', { dmg: 50, move: 1.4 });
@@ -191,3 +195,63 @@ S('kt_skill', 'Winter Moon Iai', { ...retime(A('kt_draw'), 1.1), keys: [K(0, { h
   { reach: 3.0, arc: 200, move: 1.6, cost: 30, iai: true, wave: wave(0xbfe6ff, { at: .64, len: 14, speed: 26, w: 1.6, dmg: .9 }) });
 S('rg_skill', 'Eclipse', whirl({ dur: 1.1, turns: 2, h: .1, p: .2, rise: .3, t: [.12, .84], r: .56, end: SWORD_END }), 30,
   { reach: 2.7, arc: 360, multi: .14, last: 2, move: .8, cost: 26, hurl: { kind: 'ring', n: 3, spread: .5, range: 13, speed: 22, at: .88 } });
+
+// ---------------------------------------------------------------- kits for moves built from a weapon's own strikes
+// A weapon's forms and finishers, and the animation behind any of its strikes.
+export const formsOf = w => SIG_KITS[w]?.forms || FORMS[w];
+export const finsOf = w => SIG_KITS[w]?.fin || KIT[w]?.fin;
+export const animOf = k => {
+  const A = ACTIONS[src(k)?.anim || k], hit = A?.hit || src(k)?.hit;
+  return A && hit ? { ...A, hit } : null;   // some animations keep their hit window on the strike instead
+};
+const TWO = new Set(['glaive', 'hammer', 'great', 'scythe', 'saw', 'staff']), PAIRS = new Set(['fangs', 'daggers', 'hatchets', 'fans']);
+const MOON = { sword: 0xcfe8ff, glaive: 0xc9b4ff, fangs: 0xa8ffcf, hammer: 0xffcf8a, fists: 0x9fe8ff };
+
+// ---------------------------------------------------------------- the Finishing Flourish
+// Every weapon: straight after a finisher, strike hard again (skill: Finishing Flourish) for a flourish of its own:
+// its low form's pause blow at speed, run into its first finisher, and a crescent of moonlight to close.
+const FLOURISH = { sword: 'Crescent Flourish', glaive: 'Tidal Flourish', fangs: 'Swallow Flourish', hammer: 'Anvil Flourish', fists: 'Starburst Flourish',
+  great: 'Iron Flourish', aegis: 'Bastion Flourish', daggers: 'Thorn Flourish', hatchets: 'Timber Flourish', chain: 'Briar Flourish', scythe: 'Reaping Flourish',
+  claws: 'Wolf Flourish', saw: 'Grinding Flourish', hexblade: 'Hex Flourish', staff: 'Pillar Flourish', fans: 'Moth Flourish', tonfas: 'Baton Flourish',
+  rapier: 'Needle Flourish', katana: 'Frost Flourish', ring: 'Halo Flourish' };
+for (const w of Object.keys(SKILL_KITS)) {
+  const F = formsOf(w), fins = finsOf(w);
+  if (!F || !fins) continue;
+  const a = src(F.low.pause), b = src(fins[0]), A1 = animOf(F.low.pause), A2 = animOf(fins[0]);
+  if (!a || !b || !A1 || !A2) continue;
+  const key = `${w}_flourish`, anim = string([retime(A1, A1.dur * .78), A2], {}, .3);
+  S(key, FLOURISH[w] || 'Finishing Flourish', anim, Math.round(Math.max(a.dmg || 40, b.dmg || 40) * 1.1), {
+    reach: Math.max(a.reach || 2.4, b.reach || 2.4), arc: Math.max(a.arc || 120, b.arc || 120), multi: Math.min(a.multi || .3, .3), last: 1.6, move: 1.2,
+    cost: Math.round(((a.cost || 14) + (b.cost || 14)) * .6), pop: b.pop, kb: b.kb, wave: wave(MOON[w] || 0xd8e0ff, { at: +(anim.dur * .8).toFixed(2), w: 1.2 }) });
+  SKILL_KITS[w].flourish = key;
+}
+
+// ---------------------------------------------------------------- relics' arts
+// Each relic (relicdata.js) has an art in one of four shapes, built from its own kind's strikes and coloured
+// with its light.
+export const RELIC_ARTS = {};
+for (const [id, R] of Object.entries(RELICS)) {
+  const w = R.w, F = formsOf(w), fins = finsOf(w);
+  if (!F || !fins) continue;
+  const two = TWO.has(w) ? 1 : 0, off = PAIRS.has(w), big = src(fins[2]) || {}, key = `relic_${id}`;
+  if (![F.high.pause, F.low.pause, F.mid.forward[0], ...F.mid.neutral.slice(0, 3), ...fins].every(k => animOf(k))) { console.warn('relic art: missing strike for', id); continue; }
+  let anim, o;
+  if (R.art === 'finale') {
+    anim = string([animOf(F.high.pause), animOf(fins[2])], {}, .35);
+    o = { reach: Math.max(2.6, big.reach || 2.6), arc: 200, multi: .45, last: 2, move: 1.4, wave: wave(R.color, { at: +(anim.dur * .82).toFixed(2), len: 16, w: 1.7, dmg: 1.1 }) };
+  } else if (R.art === 'tempest') {
+    anim = string([whirl({ dur: 1.1, turns: 2, two, off, h: .08, p: .25, rise: .3, t: [.1, .82] }), animOf(fins[1])], {}, .35);
+    o = { reach: 3, arc: 360, multi: .3, last: 2.4, move: 1, aoe: 3.4, aoeAt: +(anim.dur * .8).toFixed(2), wave: wave(R.color, { at: .9, w: 1.3 }) };
+  } else if (R.art === 'cascade') {
+    const parts = [...F.mid.neutral.slice(0, 3).map(k => animOf(k)), animOf(F.low.pause)].filter(Boolean).map(A => retime(A, A.dur * .72));
+    anim = string(parts, {}, .3);
+    o = { reach: 2.6, arc: 180, multi: .12, last: 3, move: 1.6, wave: wave(R.color, { at: +(anim.dur * .86).toFixed(2), len: 13, w: 1.2 }) };
+  } else {   // rush
+    const A1 = animOf(F.mid.forward[0]);
+    anim = string([retime(A1, A1.dur * .85), animOf(fins[0])], {}, .3);
+    o = { reach: 2.6, arc: 160, multi: .3, last: 2, move: 6.5, fixedMove: true, pass: true, wave: wave(R.color, { at: +(anim.dur * .8).toFixed(2), w: 1.1 }) };
+  }
+  const dmg = Math.round(Math.max(big.dmg || 80, 70) * (R.art === 'cascade' ? .45 : R.art === 'rush' ? .8 : 1.15));
+  S(key, R.artName, anim, dmg, { ...o, ...(R.o || {}), cost: 30, relic: id, color: R.color });
+  RELIC_ARTS[id] = key;
+}

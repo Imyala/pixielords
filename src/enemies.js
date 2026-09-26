@@ -10,6 +10,7 @@ import { REALM } from './umbral.js';
 import { actTwo } from './foes2.js';
 import { actThree } from './foes3.js';
 import { tierHp, tierDmg } from './ways.js';
+import { addPatterns } from './patterns.js';
 import { clamp, lerp, damp, angleDiff, turnTowards, yawTo, rand, smooth, TAU } from './util.js';
 
 // ---------------------------------------------------------------- definitions
@@ -646,6 +647,9 @@ Object.assign(TYPES, {
     A('Blink Flashcut', 12, [S('cast', .45, .08, .02, 0, { blink: true, behind: true, kact: 'dash' }), S('swing', .2, .12, .9, 80, { reach: 3, arc: 170, lunge: .6, kact: 'flashcut' })], { minRange: 3, cd: 8, w: .9 }),
   ], { yard: true, glimmer: 0, dmgScale: .8 }),
 });
+
+// Delayed strikes and relentless chains for every foe that fights up close (patterns.js).
+addPatterns(TYPES);
 
 export const KNIGHT_ACT = {
   swing: ['light1', .22], backswing: ['light2', .2], overhead: ['light3', .33], thrust: ['needle', .26], spin: ['light4', .3],
@@ -1499,7 +1503,7 @@ export class Enemy {
   beginStep() {
     const s = this.atk.steps[this.stepI];
     const spd = this.phase3 ? .78 : this.phase2 ? .85 : 1;
-    this.step = s; this.phase = 'windup'; this.pt = 0; this.hitDone = false; this.lungeTotal = 0; this.lungeDone = 0;
+    this.step = s; this.phase = 'windup'; this.pt = 0; this.hitDone = false; this.lungeTotal = 0; this.lungeDone = 0; this.delayGlint = false;
     this.stepDur = { windup: s.windup * spd, active: s.active, recover: s.recover * (this.phase2 ? .8 : 1) };
     this.waveDone = false;
     if (this.kn) {
@@ -1513,7 +1517,7 @@ export class Enemy {
       G.audio.sfx('burstWarn', { x: this.pos.x, z: this.pos.z });
       G.fx.flash(head, 0xff2020, 2.8 * Math.max(1, this.size * .7), .6, true);
       G.hud?.burstWarn();
-    } else if (this.stepI === 0 && !s.proj && !s.heal && !s.blink && s.anim !== 'roar') {
+    } else if (this.stepI === 0 && !s.proj && !s.heal && !s.blink && s.anim !== 'roar' && !s.delay) {
       G.fx.flash(head.add(new THREE.Vector3(Math.sin(this.yaw) * .4, 0, Math.cos(this.yaw) * .4)), 0xfff2c0, 1.2 * Math.max(1, this.size * .6), .35, true);
       G.audio.sfx('glint', { x: this.pos.x, z: this.pos.z, vol: .5 });
     }
@@ -1531,6 +1535,12 @@ export class Enemy {
     const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
     if (this.phase === 'windup') {
       this.faceYaw = toP; this.turnRate = s.anim === 'leap' ? 6 : (this.T.track || 6);
+      // A delayed blow glints only in its last moment (patterns.js), while it keeps turning to follow.
+      if (s.delay && !this.delayGlint && this.pt >= D.windup - .32) {
+        this.delayGlint = true;
+        G.fx.flash(new THREE.Vector3(this.pos.x + Math.sin(this.yaw) * .4, this.height * .75, this.pos.z + Math.cos(this.yaw) * .4), 0xfff2c0, 1.4 * Math.max(1, this.size * .6), .3, true);
+        G.audio.sfx('glint', { x: this.pos.x, z: this.pos.z, vol: .6 });
+      }
       if (s.burst) G.fx.burstAura(this.pos, 0xff2020, 2, this.height, this.radius);
       if (s.anim === 'leap' || s.burrow) { this.leap.x1 = p.pos.x; this.leap.z1 = p.pos.z; }
       if (s.blink) { this.mat.transparent = true; this.mat.opacity = 1 - clamp(this.pt / D.windup, 0, 1) * .95; }
@@ -2066,15 +2076,18 @@ export class Enemy {
         // overshoots (see the snap below); the body holds where the blow left it before it settles, longer for big
         // foes (the punish window reads in the pose), sagging forward as it recovers.
         const heavy = this.boss || this.size >= 1.3 ? 1 : 0, wu = this.phase === 'windup' ? this.pt / this.stepDur.windup : 1;
+        // A delayed blow (patterns.js) is fully drawn back by half its windup, then held, trembling, until it falls.
+        const held = s.delay && this.phase === 'windup' && wu > .45 ? 1 : 0;
         const late = this.phase === 'windup' ? smooth(clamp((wu - .55) / .45, 0, 1)) : 0, ant = 1 + .2 * late * (1 + heavy * .5);
         const hold = .28 + heavy * .14;
-        const w = this.phase === 'windup' ? E(wu) : 1;
+        const w = this.phase === 'windup' ? E(s.delay ? wu / .45 : wu) : 1;
         const a = this.phase === 'active' ? E(this.pt / (this.stepDur.active * .5)) : this.phase === 'recover' ? 1 : 0;   // the blow lands early in its window
         const r = this.phase === 'recover' ? E((this.pt / this.stepDur.recover - hold) / (1 - hold)) : 0;
         const mix = (wind, act) => lerp(lerp(0, wind * ant, w), act, a) * (1 - r);
         const mixS = (wind, act) => 1 + mix(wind - 1, act - 1);   // squash is neutral at 1
         omega = this.phase === 'active' ? 26 : this.phase === 'windup' ? 11 : r > 0 ? 6 : 14;
         this.attackPose(tg, s, mix, mixS, w, a, r, t, E, false);
+        if (held) { tg.twist += Math.sin(t * 31) * .025; tg.cPi -= .06; tg.pitch -= .04; tg.hPi -= .1; }
         if (s.anim !== 'burrow' && s.anim !== 'roar') {
           // The sink before the blow, and the stride into it (a lunge carries the whole body).
           tg.kL += .28 * late; tg.kR += .22 * late; tg.sq -= .035 * late; tg.hop -= .05 * late * this.height;

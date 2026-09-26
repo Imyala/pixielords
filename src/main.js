@@ -29,7 +29,8 @@ import { pointsAt, treeCost, canLearn, treeFor } from './skills.js';
 import { RANGED } from './ranged.js';
 import { ARTS } from './arts.js';
 import { Loot, PACK } from './loot.js';
-import { RARITY, SETS as GEAR_SETS, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost, moonsteelOf, temperCost, TEMPER, SWORN } from './gear.js';
+import { RARITY, SETS as GEAR_SETS, itemName, dismantleValue, fxText, reforgeCost, rerollFx, soulMatchCost, moonsteelOf, temperCost, TEMPER, SWORN, makeRelic } from './gear.js';
+import { RELICS, RELIC_IDS } from './relicdata.js';
 import { CORES, CORE_MAX } from './cores.js';
 import { SIDES } from './sides.js';
 import { wayName, wayDesc, WAY_TIER, wayGlimmer } from './ways.js';
@@ -738,7 +739,7 @@ G.newGamePlus = async () => {
   const keep = { stats: d.stats, glimmer: d.glimmer, elixirMax: d.elixirMax, deaths: d.deaths, time: d.time, ng: d.ng + 1, charms: d.charms, equipped: d.equipped, arms: d.arms, wield: d.wield, letters: d.letters, pixies: d.pixies, loadout: d.loadout, forge: d.forge, arts: d.arts, artSel: d.artSel,
     mastery: d.mastery, ranged: d.ranged, rangedSel: d.rangedSel, skillTip: d.skillTip, gear: d.gear, gearTip: d.gearTip, cores: d.cores, coreSlots: d.coreSlots, coreTip: d.coreTip, sides: d.sides, abyss: { ...d.abyss, depth: 1, from: 'keep' }, tally: d.tally, deeds: d.deeds, patrons: d.patrons, patron: d.patron,
     petals: d.petals, market: d.market, vials: d.vials, dyes: d.dyes, look: d.look, looks: d.looks, graveTip: d.graveTip, petalTip: d.petalTip, deedPetals: d.deedPetals, cups: d.cups, cupTip: d.cupTip, realmTip: d.realmTip, beast: d.beast,
-    moonsteel: d.moonsteel, gearSort: d.gearSort, kits: d.kits, swornTip: d.swornTip, totalityTip: d.totalityTip };
+    moonsteel: d.moonsteel, gearSort: d.gearSort, kits: d.kits, swornTip: d.swornTip, totalityTip: d.totalityTip, relics: d.relics, relicTip: d.relicTip };
   G.save.reset(d.ng + 1);
   Object.assign(G.save.data, keep);
   G.tally('ways', d.ng + 1, true);
@@ -1002,7 +1003,10 @@ function partnerFell(e, rest) {
 
 function bossDefeated() {
   for (const id of bossIds(G.level)) if (!G.save.m.dead.includes(id)) G.save.m.dead.push(id);
-  if (!G.save.m.cleared) { const pt = 5 + 2 * Math.floor(ORDER.indexOf(G.level.id) / 5); G.after(9, () => G.addPetals(pt)); }   // a warlord felled the first time
+  if (!G.save.m.cleared) {   // a warlord felled the first time: Moonpetals, and a relic
+    const pt = 5 + 2 * Math.floor(ORDER.indexOf(G.level.id) / 5); G.after(9, () => G.addPetals(pt));
+    G.after(4.8, () => { const r = G.nextRelic(); if (r && !G.takeGear(r)) { G.save.glimmer += dismantleValue(r); G.hud.addGlimmer(dismantleValue(r)); } G.save.write(); });
+  }
   if (G.level.bossCharm) G.after(3, () => { grantCharm(G.level.bossCharm); G.save.write(); });
   if (PATRON_OF[G.level.id]) G.after(7, () => { grantPatron(PATRON_OF[G.level.id]); G.save.write(); });
   for (const w of armoryFrom('boss', G.level.id)) G.after(3.8, () => { grantWeapon(w); G.save.write(); });
@@ -1198,7 +1202,11 @@ G.takeGear = it => {
   const worn = it.kind === 'weapon' ? g.equip.weapons : g.equip.armor, key = it.kind === 'weapon' ? it.type : it.slot;
   if (!worn[key]) { worn[key] = it.uid; p.applyGear(); }
   const R = RARITY[it.rar];
-  G.hud.toast(`${itemName(it, w => p.weaponName(w))} · Lv ${it.lvl}`, 'loot r' + it.rar);
+  G.hud.toast(it.relic ? `Relic: ${RELICS[it.relic].name} · ${p.weaponName(it.type)}` : `${itemName(it, w => p.weaponName(w))} · Lv ${it.lvl}`, 'loot r' + it.rar);
+  if (it.relic) {
+    G.after(.7, () => G.hud.toast(`Its art: ${RELICS[it.relic].artName} (guard + strike hard, with it in hand)`, 'item'));
+    if (!d.relicTip) { d.relicTip = true; G.tipAfter(2, 'Relics: named weapons of those who came before, each with fixed effects and an art of its own. With a relic in hand, hold guard and strike hard for its art, whether or not the weapon\'s own Weapon Skill is learned. Wanderers\' hoards and warlords felled the first time give them up.'); }
+  }
   G.audio.sfx('pickup', { vol: .6 + it.rar * .1 });
   if (it.rar >= 3) G.fx.ring(p.pos, R.color, 2, .35);
   if (it.sworn) {
@@ -1208,6 +1216,19 @@ G.takeGear = it => {
   if (!d.gearTip) { d.gearTip = true; G.tipAfter(1, 'Gear: foes drop weapons and armour, better from elites and warlords. Each has a rarity, a level and effects, and armour of one set wakes bonuses when two or four pieces are worn. Equip it under Gear (pause menu or any Moonwell); dismantle what you won\'t wear for Glimmer.'); }
   G.save.write();
   return true;
+};
+// Relics (relicdata.js): the next one not yet found, of a kind of weapon you have (those you carry first), at this
+// mission's gear level. Each is found once.
+G.nextRelic = () => {
+  const d = G.save.data, found = (d.relics ||= []);
+  const have = RELIC_IDS.filter(id => !found.includes(id) && d.arms.includes(RELICS[id].w));
+  if (!have.length) return null;
+  const carried = have.filter(id => d.loadout.includes(RELICS[id].w)), pool = carried.length ? carried : have;
+  const id = pool[Math.floor(Math.random() * pool.length)];
+  found.push(id);
+  const probe = G.loot.roll(0, 4);   // for the mission's item level
+  d.gear.uid = (d.gear.uid || 1) + 1;
+  return makeRelic(id, probe.lvl, d.gear.uid);
 };
 // A Soul Core: new ones are set straight into an empty slot; one already held fuses into it.
 G.takeCore = id => {
@@ -1296,7 +1317,7 @@ G.dismantleBelow = rar => { const g = G.save.data.gear, worn = equippedUids(g); 
 // same kind (a weapon of the same type, armour for the same slot), which is consumed.
 G.reforge = (uid, i) => {
   const d = G.save.data, it = d.gear.items.find(x => x.uid === uid), cost = it && reforgeCost(it);
-  if (!it || !it.fx[i] || G.save.glimmer < cost) return false;
+  if (!it || it.relic || !it.fx[i] || G.save.glimmer < cost) return false;   // a relic's effects are its own
   G.save.glimmer -= cost; G.hud.glimmerShown = G.save.glimmer;
   it.fx[i] = rerollFx(it, i);
   G.player.applyGear(); G.audio.sfx('levelUp'); G.audio.sfx('shatter', { vol: .3 }); G.tally('smithed');
@@ -1434,7 +1455,7 @@ function interact(it) {
       if (item.kind === 'hoard' || item.kind === 'cache') {
         const hoard = item.kind === 'hoard', steel = hoard ? 4 : 2;
         d.moonsteel = (d.moonsteel || 0) + steel;
-        const gear = G.loot.roll(hoard ? 2.5 : 1.5, hoard ? 4 : 3);
+        const gear = (hoard && G.nextRelic()) || G.loot.roll(hoard ? 2.5 : 1.5, hoard ? 4 : 3);   // a hoard holds a relic while any are left
         G.after(.9, () => { if (!G.takeGear(gear)) { G.save.glimmer += dismantleValue(gear); G.hud.addGlimmer(dismantleValue(gear)); } G.hud.toast(`+${steel} Moonsteel`, 'item'); });
         if (hoard) G.after(1.6, () => G.addPetals(5));
       }

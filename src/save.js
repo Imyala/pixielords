@@ -72,7 +72,7 @@ function migrate(d) {
   d.petals ??= 0; d.vials ??= 0; d.cups ??= 2; d.dyes ||= [...FREE_DYES]; d.look ||= freshLook(); d.looks ||= ['errant'];
   // Loot depth came later: Moonsteel, the pack's order, saved loadouts, and a Moonsworn effect on every Moonlit and
   // Divine piece already found (chosen by the piece, so it is the same each time).
-  d.moonsteel ??= 0; d.gearSort ||= 'best'; d.kits ||= [null, null, null];
+  d.moonsteel ??= 0; d.gearSort ||= 'best'; d.kits ||= [null, null, null]; d.relics ||= [];
   for (const it of d.gear.items) if (it.rar >= 4 && !it.sworn) { let x = it.uid * 7919; it.sworn = pickSworn(it.kind, () => ((x = (x * 9301 + 49297) % 233280) / 233280)); }
   return d;
 }

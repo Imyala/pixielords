@@ -7,6 +7,8 @@
 // Divine pieces carry a Moonsworn effect no lesser piece can; pieces can be locked. This file is data and arithmetic:
 // the Player (player.js) applies what gearStats() sums, main.js drops and picks up, menu.js shows it.
 
+import { RELICS } from './relicdata.js';
+
 export const RARITY = [
   { name: 'Common', color: 0xc8c8c8, fx: 0, mul: 1, w: 52 },
   { name: 'Fine', color: 0x9fe07a, fx: 1, mul: 1.03, w: 30 },
@@ -69,6 +71,9 @@ export const SWORN = {
 };
 const SWORN_POOL = { w: Object.keys(SWORN).filter(k => SWORN[k].on === 'w'), a: Object.keys(SWORN).filter(k => SWORN[k].on === 'a') };
 export const pickSworn = (kind, rnd = Math.random) => { const P = SWORN_POOL[kind === 'weapon' ? 'w' : 'a']; return P[Math.floor(rnd() * P.length)]; };
+
+// A relic (relicdata.js): a Moonlit weapon of its kind with its own fixed effects and art, and a Moonsworn effect.
+export const makeRelic = (id, lvl, uid) => { const R = RELICS[id]; return { uid, kind: 'weapon', type: R.w, lvl, rar: 4, fx: R.fx.map(f => [...f]), relic: id, sworn: pickSworn('weapon') }; };
 
 // Scaling, as in Nioh: how each weapon's damage grows with Strength and with Spirit, graded S (most) to E (least).
 // A point of either stat is 7.5% more damage at grade A.
@@ -177,6 +182,7 @@ export function makeItem({ kind, type, slot, set, lvl, rar }, uid, rnd = Math.ra
 export const startingArmor = (uid0 = 1) => SLOTS.map((slot, i) => ({ uid: uid0 + i, kind: 'armor', slot, set: 'errant', lvl: 1, rar: 0, fx: [] }));
 
 export function itemName(it, weaponName = id => id) {
+  if (it.relic && RELICS[it.relic]) return `${RELICS[it.relic].name}${it.tmp ? ' +' + it.tmp : ''}`;
   const base = it.kind === 'weapon' ? weaponName(it.type) : `${SETS[it.set].name} ${SLOT_NAME[it.slot]}`;
   return `${it.rar ? RARITY[it.rar].name + ' ' : ''}${base}${it.epithet ? ' ' + it.epithet : ''}${it.tmp ? ' +' + it.tmp : ''}`;
 }

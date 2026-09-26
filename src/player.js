@@ -12,7 +12,8 @@ import './moveanims.js';
 import './armoryanims.js';
 import { ARMORY, ARMORY_MOVES } from './armory.js';
 import { SIG_MOVES, SIG_KITS } from './signatures.js';
-import { XP, pointsAt, SKILL_MOVES, SKILL_KITS } from './skills.js';
+import { XP, pointsAt, SKILL_MOVES, SKILL_KITS, RELIC_ARTS } from './skills.js';
+import { RELICS } from './relicdata.js';
 import { RANGED, DRAW, rangedMethods } from './ranged.js';
 import { gearStats, weaponMul, defReduce, scaleMul } from './gear.js';
 import { lookColors } from './wardrobe.js';
@@ -239,6 +240,8 @@ export class Player {
   // Deeds earned (deeds.js): their bonuses, for good.
   applyDeeds() { this.deedFx = deedFx(this.G.save?.data.deeds); const hp = this.hp / (this.maxHp || 1); this.applyStats(); if (this.hp) this.hp = Math.min(this.maxHp, Math.round(this.maxHp * hp)); }
   setBonus(id) { return !!this.gear?.bonus.has(id); }
+  // The relic in hand, if the weapon in hand is one (relicdata.js).
+  relic() { const r = this.gear?.weapon?.relic; return r && RELICS[r]?.w === this.weapon ? r : null; }
   // A Moonsworn effect (gear.js SWORN) on a piece worn or the weapon in hand.
   sworn(id) { return !!this.gear?.sworn?.has(id); }
   // A blow that would kill. Deathless (Moonsworn armour) holds the knight at 1 health, once between Moonwell rests.
@@ -272,6 +275,7 @@ export class Player {
     this.lookWing = L.wing == null ? 0xffffff : new THREE.Color(L.wing).lerp(new THREE.Color(0xffffff), .3).getHex();
     this.lookVisor = L.visor ?? 0x7ff0ff;
     if (!this.shifted) { this.k.mats.wing.color.setHex(this.lookWing); this.k.mats.visor.emissive.setHex(this.lookVisor); }
+    if (this.trail) this.refreshLook();   // a relic in hand glows
   }
   // Worn charms (see charms.js).
   has(charm) { return !!this.charms?.has(charm); }
@@ -541,7 +545,9 @@ export class Player {
       const SK = SKILL_KITS[this.weapon];
       if (from === 'hop') { this.resetChain(); return this.startAttack(SK.back); }
       if (a === 'light' && G.time <= (this.ctrT ?? -9) && this.sk('counter')) { this.ctrT = -9; this.resetChain(); G.hud.toast(this.moveName(SK.counter), 'pulse'); return this.startAttack(SK.counter); }
-      if (a === 'heavy' && from !== 'dash' && from !== 'slide' && G.controlsOn && G.input.down('guard') && this.sk('skill')) { this.resetChain(); G.hud.toast(this.moveName(SK.skill), 'anima'); return this.startAttack(SK.skill); }
+      // A relic in hand (relicdata.js) brings its own art to guard + heavy, learned or not.
+      const RA = RELIC_ARTS[this.relic()];
+      if (a === 'heavy' && from !== 'dash' && from !== 'slide' && G.controlsOn && G.input.down('guard') && (RA || this.sk('skill'))) { this.resetChain(); G.hud.toast(this.moveName(RA || SK.skill), RA ? 'item' : 'anima'); return this.startAttack(RA || SK.skill); }
       // Guard held + strike: the launcher.
       if (a === 'light' && from !== 'dash' && from !== 'slide' && G.controlsOn && G.input.down('guard')) { this.resetChain(); return this.startAttack('launch'); }
       return this.startAttack(a === 'heavy' ? this.pickHeavy(from) : this.pickLight(from));
@@ -625,7 +631,9 @@ export class Player {
   pickHeavy(from) {
     const c = this.cmb, live = this.chainLive();
     let key = this.W.heavy[this.stance];
-    if (live && c.step >= 1 && from !== 'dash' && from !== 'slide') key = KIT[this.weapon].fin[Math.min(c.step, 3) - 1];
+    // Finishing Flourish (skills.js): hard again straight after a finisher.
+    if (from === 'chain' && this.atk?.fin && this.sk('flourish') && SKILL_KITS[this.weapon]?.flourish) key = SKILL_KITS[this.weapon].flourish;
+    else if (live && c.step >= 1 && from !== 'dash' && from !== 'slide') key = KIT[this.weapon].fin[Math.min(c.step, 3) - 1];
     else if (from === 'chain' && this.atk?.heavy && !this.atk.fin && ATK[this.atk.next]?.heavy) key = this.atk.next;
     this.resetChain();
     return key;
@@ -1081,8 +1089,10 @@ export class Player {
     const k = this.k, b = this.brand && ARTS[this.brand.kind];
     const col = this.shifted ? this.shiftCol() : b ? b.hex : this.W.color;
     this.trail.mat.uniforms.uColor.value.setHex(col); this.trail2.mat.uniforms.uColor.value.setHex(col);
-    k.mats.blade.emissive.setHex(this.shifted ? this.shiftCol() : b ? b.hex : 0x4fd8ff);
-    k.mats.blade.emissiveIntensity = this.shifted ? 1.2 : b ? .9 : .12;
+    // A relic's blade glows in its own light.
+    const R = RELICS[this.relic()];
+    k.mats.blade.emissive.setHex(this.shifted ? this.shiftCol() : b ? b.hex : R ? R.color : 0x4fd8ff);
+    k.mats.blade.emissiveIntensity = this.shifted ? 1.2 : b ? .9 : R ? .55 : .12;
   }
 
   // What the HUD shows beside the weapon: Frenzy, Hex charges, Iai ready, Momentum.

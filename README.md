@@ -35,7 +35,8 @@ The Controls screen (title or pause menu) shows every key, a diagram of the game
 | Switch between your two weapons (as a strike ends: Switch Strike) | V | D-pad left |
 | Fae Art: use · change | T (or Shift + R) · Y | D-pad down · D-pad right |
 | Aim the ranged weapon · fire (hold to draw the bow) | Ctrl or L · left click | Hold LT · RT (L2 · R2) |
-| Weapon Skill (once learned) | Hold Shift + right click | Hold LB + Y |
+| Weapon Skill (once learned) · a relic's art (with a relic in hand) | Hold Shift + right click | Hold LB + Y |
+| Finishing Flourish (once learned) | Right click just after a finisher | Y just after a finisher |
 | Backstep Strike · Guard Counter (once learned) | Space with no direction, then strike · strike just after a block | A with no direction, then X · X just after a block |
 | Charge a heavy (Moonglaive) | Hold right click | Hold Y |
 | Launcher | Hold Shift + left click | Hold LB + X |
@@ -134,8 +135,25 @@ size; the mouse or right stick tilts it further up or down.
   after a blocked blow, an **Air Finisher** that slams airborne foes down, and the weapon's own **Weapon
   Skill** on guard + heavy, such as the Warblade's Tempest Cleave or the Rimeblade's Winter Moon Iai) and
   passives: Proficiency, Pause Mastery, Finisher Mastery and mastery of the weapon's own mechanic (Momentum
-  to +54%, five hex charges, Bleed on the fourth wound, and so on). A weapon's whole tree takes twenty points,
-  a few missions of steady use. Ranged weapons have a shorter tree of their own.
+  to +54%, five hex charges, Bleed on the fourth wound, and so on). A weapon's whole tree takes twenty-two points,
+  a few missions of steady use. Ranged weapons have a shorter tree of their own. Once the Weapon Skill and
+  Finisher Mastery are learned, **Finishing Flourish** (two points) opens: straight after any finisher, strike
+  hard again for a flourish of the weapon's own (the Fae Sword's Crescent Flourish, the Warblade's Iron
+  Flourish, the Rapier's Needle Flourish...), its low form's pause blow run at speed into its first finisher,
+  ending in a crescent of moonlight. Every one of the twenty melee weapons has one.
+- **Relics.** Forty named weapons, two of every kind, each the weapon of someone who came before (as Nioh's
+  unique weapons are): Moonlight and Thornkiss for the sword, Tidecaller and Stormspire for the glaive, the
+  Ruyi of the Monkey King for the staff, the Eclipse Ring, and so on. A relic is a Moonlit piece of its kind,
+  in amber, with two fixed effects of its own, a line of lore, and a blade that glows its colour. Each has a
+  **relic art**: with it in hand, hold guard and strike hard (whether or not the kind's own Weapon Skill is
+  learned) for one of four shapes, built from the kind's own strikes and coloured with its light: a
+  **finale** (the high form's pause blow run into the greatest finisher, with a great crescent), a
+  **tempest** (a whirling rise into a finisher that bursts round the knight, some drawing foes in, some
+  throwing them off), a **cascade** (the first form's string at speed, a crescent on the end) or a **rush**
+  (a charge through the foe into a finisher). A Wanderer's hoard holds a relic while any are left, and so
+  does every warlord felled the first time; each relic is found once, of a kind you own (those you carry
+  first), at the mission's item level. Relics can be tempered and locked but not reforged, and New Game+
+  keeps them.
 - **Ranged weapons.** One carried beside the two melee weapons. Aim (Ctrl, L or D-pad right) brings the
   camera in over the shoulder and the knight to a steady walk; strike fires. The **Wisp Pod** (from the start,
   after NieR's pods) pours motes while strike is held and needs no ammunition, but overheats. The **Moonbow**
@@ -247,6 +265,14 @@ size; the mouse or right stick tilts it further up or down.
   their turn at your flanks and back, and the one behind you strikes the moment you commit to a strike, a
   draught of Moondew or an Art. Archers and slingers loose while you are busy with someone else. Keep the pack
   in front of you: step back, lock on to the one behind, or dash out of the ring.
+- **Patterns.** Every foe that fights up close has two more ways to catch you out, drawn from its own blows,
+  so the same foe asks for different answers. **Delayed**: its heaviest single blow, held at the top of the
+  windup a long beat, the body frozen and trembling, before it falls; its glint comes late, just before the
+  blow, so a dash on the usual count is spent too soon. **Relentless**: its longest chain with its first blow
+  run on again on the end, quicker (or, for a foe with no chain, its two heaviest blows run together), so the
+  opening you wait for after the chain isn't there. Both come a little less often than a foe's own attacks;
+  gatekeepers and warlords learn them from their first-phase blows. The Thornyard's sparring knights, the
+  shades, and foes that only cast or shoot don't.
 - **Deflect and Flashcut.** Tap guard just as a blow lands to Deflect it. Strike straight after for a
   **Flashcut**: one draw-cut that fells ordinary foes outright, bites deep into elites and warlords, and
   chains from foe to foe.
@@ -847,10 +873,11 @@ src/arts.js       the Fae Arts: darts, pixie bombs and the three brands
 src/armory.js     the fifteen armory weapons: which archetypes they cover, their numbers, mechanics and where they are won
 src/signatures.js the fifteen's own strikes: animations, numbers and forms, heavies, finishers, run, dash, slide, air and Switch strikes
 src/strikeshapes.js  shapes of strike the movesets are built from: cuts, chops, thrusts, whirls, rising blows, twirls, windmills, punches, rakes, strings
-src/skills.js     weapon skills: the skill tree, mastery and points, and every weapon's Backstep Strike, Guard Counter, Air Finisher and Weapon Skill
+src/skills.js     weapon skills: the skill tree, mastery and points, every weapon's Backstep Strike, Guard Counter, Air Finisher, Weapon Skill and Finishing Flourish, and the relics' arts
 src/ranged.js     ranged weapons: the Wisp Pod, Moonbow, Starlock Rifle and Thunder Cannon; aiming, firing, ammunition, shots in flight, headshots
 src/rangedmodels.js  their models (the bow's string follows the draw hand)
-src/gear.js       gear: rarities, the effect pool, Moonsworn effects, weapon scaling grades, tempering and Moonsteel, armour sets and their bonuses, item generation, names, damage and defence
+src/gear.js       gear: rarities, the effect pool, Moonsworn effects, weapon scaling grades, tempering and Moonsteel, armour sets and their bonuses, item generation, relics, names, damage and defence
+src/relicdata.js  the forty relics: whose each was, its kind, effects, colour, lore and the shape of its art
 src/loot.js       loot on the ground: what fallen foes drop (gear and Soul Cores), the beams, walking over it to take it
 src/cores.js      Soul Cores: the 35 cores, their passives and skills (thrown knives, spears, bombs, clouds, slams, blinks, orbs, waves...), fusing, and using them
 src/sides.js      side missions: Twilight, Hunts and Duels for each mission, their foes, difficulty, loot and spoils
@@ -864,6 +891,7 @@ src/moveanims.js  keyframes for the forms' strikes, finishers and the slide, Win
 src/charms.js     the charms: names, descriptions and slot count
 src/knight.js     the knight and its weapons, built from primitives, with pose blending (angle-aware, so weapons can twirl), two-bone IK for both arms and blades, planted strides, and a cape and wings on springs
 src/enemies.js    enemy stats and attack chains (blink, burrow, volleys, rings, ice waves, grabs), AI (sight, hearing, idle wandering, alerts, packs: taking turns, flanking, striking from behind, covering fire, ambushes), procedural animation on the rigs (anticipation, a blow's snap and hold, falling like a body), knight-shaped foes and the Revenants, parrying, rime armour, warlord regalia, burning and rime-slowed foes, projectiles and hazards
+src/patterns.js   foes' attack patterns: the Delayed blow and the Relentless chain each foe learns from its own attacks
 src/world.js      the world engine: collision, builders (walls, cliffs, trees, huts, palisades, fires, crystals, mine timbers and rails, balustrades, arches, moonwater, snowy firs, drifts, icefalls, breaking ice), breakables, letters, Lost Pixies, aurora, Moonwells, gates (portcullis, palisade, ice wall), Briar Seal, wall cutout shader
 src/levels/       one file per mission (keep, rotwood, deep, moonspire, frostmere; abbey, forge, thornwood, crater, court; shore, hollows, necropolis, umbra, heart); rooms.js is the room kit (rooms and passages, walls with door gaps, briar hedges); shape.js has ring and path helpers; index.js sets the unlock order
 src/foes2.js      the second act's foes, gatekeepers, warlords and Revenants

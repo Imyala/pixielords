@@ -10,6 +10,7 @@ import { levelCost, forgeCost, FORGE, SETTINGS_DEFAULT } from './save.js';
 import { CHARMS, CHARM_SLOTS } from './charms.js';
 import { roman } from './overworld.js';
 import { RANGED } from './ranged.js';
+import { RELICS, RELIC_COLOR } from './relicdata.js';
 import { RARITY, SLOTS, SLOT_NAME, SETS, fxText, itemName, weaponMul, armorDef, defReduce, dismantleValue, reforgeCost, soulMatchCost, SWORN, scalingOf, temperCost, TEMPER, moonsteelOf, fxVal } from './gear.js';
 import { TIER, DEED_GLIMMER } from './deeds.js';
 import { PACK } from './loot.js';
@@ -81,7 +82,8 @@ const TECH = [
   ['Switch Strike', 'V as a strike ends', P => `${P.swap} as a strike ends`],
   ['Launcher', 'hold Shift + LMB', P => `hold ${P.guard} + ${P.light}`],
   ['Starfall · air dash', 'in the air: RMB · Space', P => `in the air: ${P.heavy} · ${P.dodge}`],
-  ['Weapon Skill (once learned)', 'hold Shift + RMB', P => `hold ${P.guard} + ${P.heavy}`],
+  ['Weapon Skill (once learned) · relic art', 'hold Shift + RMB', P => `hold ${P.guard} + ${P.heavy}`],
+  ['Finishing Flourish (once learned)', 'RMB straight after a finisher', P => `${P.heavy} straight after a finisher`],
   ['Backstep Strike (once learned)', 'Space with no direction, then LMB', P => `${P.dodge} with no direction, then ${P.light}`],
   ['Guard Counter (once learned)', 'LMB straight after a block', P => `${P.light} straight after a block`],
   ['Charge a heavy (Moonglaive)', 'hold RMB', P => `hold ${P.heavy}`],
@@ -456,10 +458,12 @@ export class Menu {
     const S = it.set && SETS[it.set], n = S ? (st.sets?.[it.set] || 0) : 0;
     const sc = isW && scalingOf(it.type), W = SWORN[it.sworn];
     return `<div class="mx-kick"><span>${esc(isW ? wn(it.type) : SLOT_NAME[it.slot])}</span><span>Level ${it.lvl}${it.tmp ? ` · tempered +${it.tmp}` : ''}${it.lock ? ' · locked' : ''}</span></div>
-      <h3 style="color:${col(it.rar)}">${esc(itemName(it, wn))}</h3>
-      <div class="sub">${RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · worn' : ''}</div>
+      <h3 style="color:${it.relic ? RELIC_COLOR : col(it.rar)}">${esc(itemName(it, wn))}</h3>
+      <div class="sub">${it.relic ? `Relic · ${esc(wn(it.type))}` : RARITY[it.rar].name}${S ? ` · ${esc(S.name)} set` : ''}${it.uid && worn.has(it.uid) ? ' · worn' : ''}</div>
+      ${it.relic && RELICS[it.relic] ? `<div class="mx-lore">${esc(RELICS[it.relic].lore)}</div>` : ''}
       <div class="mx-cmp"><span>${isW ? 'Damage' : 'Defence'}</span><span>${eq && eq !== it ? `<span class="was">${fmt(was)}</span> → ` : ''}<span class="now">${fmt(val)}</span> ${cmp}</span></div>
       ${sc ? `<div class="mx-fx plain scal"><span>Scaling</span><span class="v">Strength <b class="gr g${sc[0]}">${sc[0]}</b> · Spirit <b class="gr g${sc[1]}">${sc[1]}</b></span></div>` : ''}
+      ${it.relic && RELICS[it.relic] ? `${sec('Relic art')}<div class="mx-fx relic"><span><b>${esc(RELICS[it.relic].artName)}</b> · hold guard and strike hard with it in hand</span></div>` : ''}
       ${W ? `${sec('Moonsworn')}<div class="mx-fx sworn"><span><b>${esc(W.name)}</b> · ${esc(W.t)}</span></div>` : ''}
       ${sec('Special effects')}
       ${it.fx.length ? it.fx.map(([id, v]) => `<div class="mx-fx"><span>${esc(fxText(id, fxVal(it, v)))}</span></div>`).join('') : '<div class="mx-fx off"><span>None: a Common piece carries no effects.</span></div>'}
@@ -496,7 +500,7 @@ export class Menu {
     const it = g.items.find(x => x.uid === +(el?.dataset.uid || 0));
     if (!it) return harness || '<div class="mx-note">Foes drop weapons of every kind you carry; better ones from elites and warlords.</div>';
     const steel = moonsteelOf(it);
-    return `${this.itemDetail(it)}${harness}<div class="mx-note">${it.lock ? 'Locked: it won\'t be dismantled or consumed.' : `Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer${steel ? ` and ${steel} Moonsteel` : ''}.`}${this.atWell() ? '' : ' Reforge, temper or soul-match it at a Moonwell.'}</div>`;
+    return `${this.itemDetail(it)}${harness}<div class="mx-note">${it.lock ? 'Locked: it won\'t be dismantled or consumed.' : `Dismantles for ${dismantleValue(it).toLocaleString()} Glimmer${steel ? ` and ${steel} Moonsteel` : ''}.`}${this.atWell() ? '' : it.relic ? ' Temper or soul-match it at a Moonwell.' : ' Reforge, temper or soul-match it at a Moonwell.'}</div>`;
   }
   // Fill the detail pane, fading the new in.
   fill(html) {
@@ -673,7 +677,7 @@ Menu.prototype.screens = {
       rows = owned.map(id => { const at = slots.indexOf(id), gr = Math.min(CORE_MAX, d.cores[id]); return row({ act: 'setCore', icon: 'core', color: '#c89aff', title: `${CORES[id].name}${gr > 1 ? ` +${gr - 1}` : ''}`, tag: at >= 0 ? `Slot ${at + 1}` : '', right: `${CORES[id].cost} FL`, extra: `data-slot="0" data-core="${id}"`, desc: `${CORES[id].skillName}: ${CORES[id].desc}.` }); }).join('')
         || '<div class="mx-empty">No Soul Cores yet. Foes leave them sometimes, elites often, and every gatekeeper and warlord always.</div>';
     } else {
-      rows = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it => row({ act: 'equipGear', icon: C.w ? 'sword' : SLOT_ICON[C.slot], color: col(it.rar), title: itemName(it, wn), tag: [worn.has(it.uid) && 'Worn', it.lock && 'Locked'].filter(Boolean).join(' · '), right: `Lv ${it.lvl}`, extra: `data-uid="${it.uid}"` })).join('')
+      rows = g.items.filter(it => (C.w ? it.type === C.w : it.slot === C.slot)).sort(sort).map(it => row({ act: 'equipGear', icon: C.w ? 'sword' : SLOT_ICON[C.slot], color: it.relic ? RELIC_COLOR : col(it.rar), title: itemName(it, wn), tag: [worn.has(it.uid) && 'Worn', it.lock && 'Locked'].filter(Boolean).join(' · '), right: `Lv ${it.lvl}`, extra: `data-uid="${it.uid}"` })).join('')
         || `<div class="mx-empty">${C.w ? `No ${esc(wn(C.w))} of any rarity yet: the one you carry hits at ×1.00. Foes drop better ones.` : 'Nothing for this slot yet.'}</div>`;
       rows += divider('Clear the pack') + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common', extra: 'data-rar="0"', desc: 'Every Common piece not worn or locked, for Glimmer.' }) + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Common and Fine', extra: 'data-rar="1"', desc: 'Every Common and Fine piece not worn or locked, for Glimmer.' })
         + row({ act: 'dismantleBelow', icon: 'hammer', title: 'Dismantle all Rare and below', extra: 'data-rar="2"', desc: 'Every Rare, Fine and Common piece not worn or locked, for Glimmer, and Moonsteel from the Rare.' });
@@ -910,7 +914,7 @@ Menu.prototype.screens = {
     }).join('');
     const kit = `<div class="kit">${Wp.mech ? `<p><em>${esc(Wp.mech)}</em>${esc(Wp.desc)} ${esc(Wp.mechDesc)}.</p>` : `<p><em>The weapon</em>${esc(Wp.desc)}</p>`}<p><em>Finishers</em>strike then heavy: <b>${nm(K.fin[0])}</b> · two strikes then heavy: <b>${nm(K.fin[1])}</b> · three or more: <b>${nm(K.fin[2])}</b>. A finisher spends the combo counter: the more hits counted, the harder it lands (up to 1.8×).</p>
       <p><em>On the move</em>at a sprint, strike: ${nm(Wp.run)} · out of a dash: ${nm(Wp.dash)} · from a slide: <b>${nm(K.slide)}</b></p>
-      <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill']].map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' (not yet learned)'}`; }).join(' · ')}</p>
+      <p><em>Skills</em>${[['back', 'Backstep Strike'], ['counter', 'Guard Counter'], ['airFin', 'Air Finisher'], ['skill', 'Weapon Skill'], ['flourish', 'Finishing Flourish']].filter(([k]) => SKILL_KITS[w]?.[k]).map(([k, n]) => { const t = TREE.find(x => x.move === k), has = G.save.data.mastery?.[w]?.learned.includes(t.id); return `${n}: <b>${nm(SKILL_KITS[w][k])}</b>${has ? '' : ' (not yet learned)'}`; }).join(' · ')}</p>
       <p><em>Combo</em>every 12 hits in a row add 6% damage, up to +24%. A blow taken halves the count; four seconds without a hit clears it.</p></div>`;
     const body = panel(`${subtabs(G, arms.map(id => ({ name: WEAPONS[id].name, icon: 'sword' })), arms.indexOf(w), 'movesW')}<div class="mx-scroll"><div class="forms3">${forms}</div>${kit}</div>`, 'sht');
     return { ctx: 'veil', html: this.frame({ title: 'Movesets', crumb: Wp.name, layout: 'sheet', body, hints: [[['mSubPrev', 'mSubNext'], 'Weapon', 'movesW'], ['back', 'Back', 'back']] }) };
@@ -939,7 +943,7 @@ Menu.prototype.screens = {
     if (!it) return { ctx: 'veil', html: this.frame({ title: 'The Forge', layout: 'dialog', body: panel('<div class="mx-empty">That piece is gone.</div>'), hints: [['back', 'Back', 'back']] }) };
     const rc = reforgeCost(it), worn = new Set([...Object.values(g.equip.weapons), ...Object.values(g.equip.armor)]);
     const fod = g.items.filter(x => x !== it && !worn.has(x.uid) && !x.lock && x.lvl > it.lvl && (it.kind === 'weapon' ? x.type === it.type : x.slot === it.slot)).sort((a, b) => b.lvl - a.lvl).slice(0, 8);
-    let rows = divider(`Reforge · ${rc.toLocaleString()} Glimmer each`) + (it.fx.length ? it.fx.map(([id, v], i) => row({ act: 'reforge', icon: 'anvil', title: fxText(id, v), note: 'Roll it anew', right: `${rc.toLocaleString()}`, extra: `data-i="${i}"`, off: G.save.glimmer < rc, desc: 'One effect rolled anew, into another the piece doesn\'t carry.' })).join('') : '<div class="mx-empty">A Common piece has no effects to reforge.</div>');
+    let rows = it.relic ? divider('Reforge') + '<div class="mx-empty">A relic\'s effects are its own: they can\'t be reforged.</div>' : divider(`Reforge · ${rc.toLocaleString()} Glimmer each`) + (it.fx.length ? it.fx.map(([id, v], i) => row({ act: 'reforge', icon: 'anvil', title: fxText(id, v), note: 'Roll it anew', right: `${rc.toLocaleString()}`, extra: `data-i="${i}"`, off: G.save.glimmer < rc, desc: 'One effect rolled anew, into another the piece doesn\'t carry.' })).join('') : '<div class="mx-empty">A Common piece has no effects to reforge.</div>');
     const tc = temperCost(it), tmp = it.tmp || 0;
     rows += divider(`Temper · ${d.moonsteel || 0} Moonsteel held`) + (tmp >= TEMPER.max ? '<div class="mx-empty">Tempered to +5: it can be hardened no further.</div>'
       : row({ act: 'temper', icon: 'anvil', title: `Temper to +${tmp + 1}`, note: `${tc.steel} Moonsteel · ${it.kind === 'weapon' ? `${TEMPER.dmg * 100}% more damage` : `${TEMPER.def * 100}% more defence`}, effects a tenth stronger`, right: tc.glimmer.toLocaleString(), off: G.save.glimmer < tc.glimmer || (d.moonsteel || 0) < tc.steel, desc: 'Moonsteel comes from dismantling Rare, Fabled, Moonlit and Divine pieces.' }));
